@@ -117,9 +117,7 @@
   <div class="chat-app">
     <div class="chat-header" id="chatHeader">Loading...</div>
 
-    <div class="chat-messages" id="chatMessages">
-      <div class="message bot">Hello, how can I help you today?</div>
-    </div>
+    <div class="chat-messages" id="chatMessages"></div>
 
     <div class="chat-input-area">
       <input
@@ -139,32 +137,21 @@
     const messageInput = document.getElementById("messageInput");
     const sendButton = document.getElementById("sendButton");
     const statusText = document.getElementById("statusText");
+    const chatHeader = document.getElementById("chatHeader");
 
     const pathParts = window.location.pathname.split("/").filter(Boolean);
     const tenant = pathParts[0] === "agent" && pathParts[1] ? pathParts[1] : "generic";
+
     const API_URL = `/chat?tenant=${encodeURIComponent(tenant)}`;
-
     const CONFIG_URL = `/config/${encodeURIComponent(tenant)}`;
-    const chatHeader = document.getElementById("chatHeader");
-    const pageTitle = document.getElementById("pageTitle");
 
-    async function loadTenantConfig() {
-      try {
-        const response = await fetch(CONFIG_URL);
-
-        if (!response.ok) {
-          throw new Error(`HTTP error: ${response.status}`);
-        }
-
-        const config = await response.json();
-        chatHeader.textContent = config.business?.name || "Assistant";
-      } catch (error) {
-        chatHeader.textContent = "Assistant";
-        console.error("Failed to load tenant config:", error);
-      }
+    function addMessage(text, sender) {
+      const messageEl = document.createElement("div");
+      messageEl.classList.add("message", sender);
+      messageEl.textContent = text;
+      chatMessages.appendChild(messageEl);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
     }
-
-    loadTenantConfig();
 
     async function loadTenantConfig() {
       try {
@@ -176,22 +163,20 @@
 
         const config = await response.json();
         const businessName = config.business?.name || "Assistant";
+        const greeting = config.conversation?.greeting || "Здраво! Како можам да ви помогнам денес?";
 
         chatHeader.textContent = businessName;
         document.title = businessName;
+
+        chatMessages.innerHTML = "";
+        addMessage(greeting, "bot");
       } catch (error) {
         chatHeader.textContent = "Assistant";
         document.title = "Assistant";
+        chatMessages.innerHTML = "";
+        addMessage("Здраво! Како можам да ви помогнам денес?", "bot");
         console.error("Failed to load tenant config:", error);
       }
-    }
-
-    function addMessage(text, sender) {
-      const messageEl = document.createElement("div");
-      messageEl.classList.add("message", sender);
-      messageEl.textContent = text;
-      chatMessages.appendChild(messageEl);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
     async function sendMessage() {
@@ -240,6 +225,8 @@
         sendMessage();
       }
     });
+
+    loadTenantConfig();
   </script>
 </body>
 </html>
