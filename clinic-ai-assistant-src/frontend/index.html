@@ -141,6 +141,8 @@
 
     const pathParts = window.location.pathname.split("/").filter(Boolean);
     const tenant = pathParts[0] === "agent" && pathParts[1] ? pathParts[1] : "generic";
+    const sessionStorageKey = `clinic-ai-session:${tenant}`;
+    let sessionId = window.localStorage.getItem(sessionStorageKey) || null;
 
     const API_URL = `/chat?tenant=${encodeURIComponent(tenant)}`;
     const CONFIG_URL = `/config/${encodeURIComponent(tenant)}`;
@@ -198,7 +200,8 @@
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            message: userMessage
+            message: userMessage,
+            session_id: sessionId
           })
         });
 
@@ -207,6 +210,10 @@
         }
 
         const data = await response.json();
+        if (data.session_id) {
+          sessionId = data.session_id;
+          window.localStorage.setItem(sessionStorageKey, sessionId);
+        }
         addMessage(data.reply || "No reply returned from server.", "bot");
         statusText.textContent = "Ready";
       } catch (error) {

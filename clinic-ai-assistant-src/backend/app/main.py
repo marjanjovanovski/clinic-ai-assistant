@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -7,9 +8,15 @@ from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
 from app.routes.chat import router as chat_router
-from app.services.config_loader import load_profile_config
+from app.services.config_loader import TenantConfigError, TenantNotFoundError, load_profile_config
+from app.services.lead_store import init_leads_db
 
 load_dotenv()
+
+if not os.getenv("OPENAI_API_KEY"):
+    raise RuntimeError("OPENAI_API_KEY is required at startup")
+
+init_leads_db()
 
 app = FastAPI()
 
@@ -37,8 +44,10 @@ def health():
 def get_config(tenant: str):
     try:
         return load_profile_config(tenant)
-    except FileNotFoundError:
+    except TenantNotFoundError:
         raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found")
+    except TenantConfigError:
+        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid")
 
 
 @app.get("/agent/{tenant}")
@@ -46,5 +55,7 @@ def serve_agent(tenant: str):
     try:
         load_profile_config(tenant)
         return FileResponse(str(INDEX_FILE))
-    except FileNotFoundError:
+    except TenantNotFoundError:
         raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found")
+    except TenantConfigError:
+        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid")
