@@ -1,0 +1,240 @@
+==================================================
+TRACE START
+timestamp=2026-03-13T17:11:20.681959+00:00
+tenant=milena_dental
+session_id=560b6c99-53b8-4dee-a135-68ab3bf6ae9d
+trace_file=trace_2026-03-13_17-11-20_milena_dental_560b6c99-53b8-4dee-a135-68ab3bf6ae9d.txt
+==================================================
+[2026-03-13T17:11:20.682485+00:00] REQUEST_RECEIVED
+incoming_session_id=560b6c99-53b8-4dee-a135-68ab3bf6ae9d
+message=asd
+
+[2026-03-13T17:11:20.683336+00:00] CHECKPOINT_LOAD
+action=attempt
+
+[2026-03-13T17:11:20.684306+00:00] CHECKPOINT_LOAD
+action=miss
+
+[2026-03-13T17:11:20.684984+00:00] SESSION_LOADED
+
+[2026-03-13T17:11:20.803180+00:00] AI_CALL_START
+
+[2026-03-13T17:11:22.593716+00:00] AI_CALL_END
+
+[2026-03-13T17:11:22.594918+00:00] AI_RAW_OUTPUT
+raw_output={
+  "intent": "fallback",
+  "service_id": "",
+  "message": "Здраво! Како можам да ви помогнам со вашите стоматолошки потреби денес?"
+}
+
+[2026-03-13T17:11:22.595890+00:00] INTENT_NORMALIZED
+raw_intent=fallback
+normalized_intent=fallback
+service_id=
+
+[2026-03-13T17:11:22.596645+00:00] RESPONSE_RETURNED
+reply=Здраво! Како можам да ви помогнам со вашите стоматолошки потреби денес?
+session_status=active
+
+[2026-03-13T17:11:22.597471+00:00] CHECKPOINT_LOAD
+action=attempt
+
+[2026-03-13T17:11:22.598736+00:00] CHECKPOINT_LOAD
+action=miss
+
+[2026-03-13T17:11:32.916348+00:00] REQUEST_RECEIVED
+incoming_session_id=560b6c99-53b8-4dee-a135-68ab3bf6ae9d
+message=Bolka vo zab
+
+[2026-03-13T17:11:32.916743+00:00] CHECKPOINT_LOAD
+action=attempt
+
+[2026-03-13T17:11:32.917214+00:00] CHECKPOINT_LOAD
+action=miss
+
+[2026-03-13T17:11:32.917421+00:00] SESSION_LOADED
+
+[2026-03-13T17:11:33.029901+00:00] AI_CALL_START
+
+[2026-03-13T17:11:35.219115+00:00] AI_CALL_END
+
+[2026-03-13T17:11:35.219419+00:00] AI_RAW_OUTPUT
+raw_output={
+  "intent": "suggest_service",
+  "service_id": "filling",
+  "message": "Се чини дека имате болка во заб која може да е од дупка. Препорачувам услуга Dental Filling за третман на дупки во заб. Дали сакате да закажете термин?"
+}
+
+[2026-03-13T17:11:35.219652+00:00] INTENT_NORMALIZED
+raw_intent=suggest_service
+normalized_intent=suggest_service
+service_id=filling
+
+[2026-03-13T17:11:35.219855+00:00] CHECKPOINT_SAVE
+action=attempt
+stage=awaiting_booking_confirmation
+data={}
+
+[2026-03-13T17:11:35.223184+00:00] DB_UPDATE
+stage=awaiting_booking_confirmation
+
+[2026-03-13T17:11:35.223427+00:00] CHECKPOINT_SAVE
+action=success
+stage=awaiting_booking_confirmation
+
+[2026-03-13T17:11:35.223623+00:00] STAGE_TRANSITION
+to_stage=awaiting_booking_confirmation
+reason=model_suggest_service
+
+[2026-03-13T17:11:35.223813+00:00] RESPONSE_RETURNED
+reply=Се чини дека имате болка во заб која може да е од дупка. Препорачувам услуга Dental Filling за третман на дупки во заб. Дали сакате да закажете термин?
+session_status=active
+stage_after=awaiting_booking_confirmation
+
+[2026-03-13T17:11:39.617990+00:00] REQUEST_RECEIVED
+incoming_session_id=560b6c99-53b8-4dee-a135-68ab3bf6ae9d
+message=Da
+
+[2026-03-13T17:11:39.618650+00:00] SESSION_LOADED
+stage_before=awaiting_booking_confirmation
+state={"stage": "awaiting_booking_confirmation", "service_id": "filling"}
+
+[2026-03-13T17:11:39.619230+00:00] CHECKPOINT_SAVE
+action=attempt
+stage=collecting_contact
+data={}
+
+[2026-03-13T17:11:39.624115+00:00] DB_UPDATE
+stage=collecting_contact
+
+[2026-03-13T17:11:39.624533+00:00] CHECKPOINT_SAVE
+action=success
+stage=collecting_contact
+
+[2026-03-13T17:11:39.624924+00:00] STAGE_TRANSITION
+from_stage=awaiting_booking_confirmation
+to_stage=collecting_contact
+reason=backend_confirmation_word
+
+[2026-03-13T17:11:39.625319+00:00] RESPONSE_RETURNED
+reply=Ве молам кажете ни го вашето име.
+session_status=collecting_contact
+stage_after=collecting_contact
+
+[2026-03-13T17:11:43.785124+00:00] REQUEST_RECEIVED
+incoming_session_id=560b6c99-53b8-4dee-a135-68ab3bf6ae9d
+message=Ilija
+
+[2026-03-13T17:11:43.785681+00:00] SESSION_LOADED
+stage_before=collecting_contact
+state={"stage": "collecting_contact", "service_id": "filling", "next_field": "name", "data": {}}
+
+[2026-03-13T17:11:43.786085+00:00] CHECKPOINT_SAVE
+action=attempt
+stage=collecting_contact
+data={"name": "Ilija"}
+
+[2026-03-13T17:11:43.791155+00:00] DB_UPDATE
+stage=collecting_contact
+contact_name=Ilija
+
+[2026-03-13T17:11:43.791773+00:00] CHECKPOINT_SAVE
+action=success
+stage=collecting_contact
+
+[2026-03-13T17:11:43.792612+00:00] STAGE_TRANSITION
+from_stage=collecting_contact
+to_stage=collecting_contact
+reason=collected_name
+
+[2026-03-13T17:11:43.793277+00:00] RESPONSE_RETURNED
+reply=Ве молам кажете ни го вашиот телефон.
+session_status=collecting_contact
+stage_after=collecting_contact
+
+[2026-03-13T17:11:47.374699+00:00] REQUEST_RECEIVED
+incoming_session_id=560b6c99-53b8-4dee-a135-68ab3bf6ae9d
+message=998877
+
+[2026-03-13T17:11:47.375087+00:00] SESSION_LOADED
+stage_before=collecting_contact
+state={"stage": "collecting_contact", "service_id": "filling", "next_field": "phone", "data": {"name": "Ilija"}}
+
+[2026-03-13T17:11:47.375301+00:00] CHECKPOINT_SAVE
+action=attempt
+stage=collecting_contact
+data={"name": "Ilija", "phone": "998877"}
+
+[2026-03-13T17:11:47.380163+00:00] DB_UPDATE
+stage=collecting_contact
+contact_name=Ilija
+contact_phone=998877
+
+[2026-03-13T17:11:47.380571+00:00] CHECKPOINT_SAVE
+action=success
+stage=collecting_contact
+
+[2026-03-13T17:11:47.380961+00:00] STAGE_TRANSITION
+from_stage=collecting_contact
+to_stage=collecting_contact
+reason=collected_phone
+
+[2026-03-13T17:11:47.381341+00:00] RESPONSE_RETURNED
+reply=Ве молам кажете ни ја вашата е-пошта.
+session_status=collecting_contact
+stage_after=collecting_contact
+
+[2026-03-13T17:11:50.358554+00:00] REQUEST_RECEIVED
+incoming_session_id=560b6c99-53b8-4dee-a135-68ab3bf6ae9d
+message=ilija@mail.com
+
+[2026-03-13T17:11:50.359032+00:00] SESSION_LOADED
+stage_before=collecting_contact
+state={"stage": "collecting_contact", "service_id": "filling", "next_field": "email", "data": {"name": "Ilija", "phone": "998877"}}
+
+[2026-03-13T17:11:50.359334+00:00] CHECKPOINT_SAVE
+action=attempt
+stage=completed
+data={"name": "Ilija", "phone": "998877", "email": "ilija@mail.com"}
+
+[2026-03-13T17:11:50.364007+00:00] DB_UPDATE
+stage=completed
+contact_name=Ilija
+contact_phone=998877
+contact_email=ilija@mail.com
+
+[2026-03-13T17:11:50.364288+00:00] LEAD_FINAL_SAVE
+action=success
+stage=completed
+
+[2026-03-13T17:11:50.364509+00:00] STAGE_TRANSITION
+from_stage=collecting_contact
+to_stage=completed
+reason=collected_email
+
+[2026-03-13T17:11:50.364736+00:00] RESPONSE_RETURNED
+reply=Ви благодарам. Вашето барање за термин е примено. Клиниката ќе ве контактира.
+session_status=completed
+stage_after=completed
+
+[2026-03-13T17:11:50.364948+00:00] CHECKPOINT_LOAD
+action=attempt
+
+[2026-03-13T17:11:50.366214+00:00] CHECKPOINT_LOAD
+action=hit
+stage=completed
+state={"stage": "completed", "service_id": "filling", "next_field": "email", "data": {"name": "Ilija", "phone": "998877", "email": "ilija@mail.com"}}
+
+[2026-03-13T17:12:19.873677+00:00] REQUEST_RECEIVED
+incoming_session_id=560b6c99-53b8-4dee-a135-68ab3bf6ae9d
+message=zdravo
+
+[2026-03-13T17:12:19.874195+00:00] SESSION_LOADED
+stage_before=completed
+state={"stage": "completed", "service_id": "filling", "next_field": "email", "data": {"name": "Ilija", "phone": "998877", "email": "ilija@mail.com"}}
+
+[2026-03-13T17:12:19.874562+00:00] SESSION_RESET_AFTER_COMPLETION
+old_session_id=560b6c99-53b8-4dee-a135-68ab3bf6ae9d
+new_session_id=2eb44707-a191-45db-91f6-9e21685b5d1c
+
