@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import uuid
 
@@ -8,8 +9,14 @@ from app.services.config_loader import load_profile_config
 from app.services.lead_store import load_lead_checkpoint, save_lead_checkpoint
 
 
+logger = logging.getLogger(__name__)
 SESSION_STATE = {}
 BOOKING_CONFIRM_WORDS = {"да", "da", "yes", "ok", "okej", "okay"}
+FIELD_LABELS = {
+    "name": "Ве молам кажете ни го вашето име.",
+    "phone": "Ве молам кажете ни го вашиот телефон.",
+    "email": "Ве молам кажете ни ја вашата е-пошта.",
+}
 INTENT_ALIASES = {
     "book_service": "suggest_service",
     "booking_inquiry": "suggest_service",
@@ -55,6 +62,35 @@ def _load_session_state(tenant: str, session_id: str) -> dict | None:
     return state
 
 
+def _stage_name(state: dict | None) -> str | None:
+    if not isinstance(state, dict):
+        return None
+
+    return state.get("stage")
+
+
+def _log_chat_state(
+    *,
+    message: str,
+    session_id: str,
+    intent: str | None,
+    stage_before: str | None,
+    stage_after: str | None,
+) -> None:
+    logger.info(
+        "chat_state message=%r session_id=%s intent=%s stage_before=%s stage_after=%s",
+        message,
+        session_id,
+        intent,
+        stage_before,
+        stage_after,
+    )
+
+
+def _field_prompt(field_name: str) -> str:
+    return FIELD_LABELS.get(field_name, field_name)
+
+
 def _start_collecting_contact(
     tenant: str,
     session_id: str,
@@ -69,7 +105,7 @@ def _start_collecting_contact(
         "data": {}
     }
     save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key])
-    return f"Ве молам кажете го вашето {collect_fields[0]}.", session_id
+    return _field_prompt(collect_fields[0]), session_id
 
 
 def _is_booking_confirmation(message: str) -> bool:
@@ -160,12 +196,14 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
 
     session_key = _session_key(tenant, session_id)
     state = _load_session_state(tenant, session_id)
+    stage_before = _stage_name(state)
 
     if state and state.get("stage") == "completed":
         SESSION_STATE.pop(session_key, None)
         session_id = _normalize_session_id(None)
         session_key = _session_key(tenant, session_id)
         state = None
+        stage_before = None
 
     if (
         state
@@ -173,13 +211,21 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         and allow_booking
         and _is_booking_confirmation(message)
     ):
-        return _start_collecting_contact(
+        reply, session_id = _start_collecting_contact(
             tenant,
             session_id,
             session_key,
             state.get("service_id"),
             collect_fields,
         )
+        _log_chat_state(
+            message=message,
+            session_id=session_id,
+            intent="backend_confirmation",
+            stage_before=stage_before,
+            stage_after="collecting_contact",
+        )
+        return reply, session_id
 
     if state and state.get("stage") == "collecting_contact":
         next_field = state.get("next_field")
@@ -190,16 +236,31 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         if remaining:
             state["next_field"] = remaining[0]
             save_lead_checkpoint(tenant, session_id, state)
-            return f"Ве молам кажете го вашето {remaining[0]}.", session_id
+            _log_chat_state(
+                message=message,
+                session_id=session_id,
+                intent="collect_contact",
+                stage_before=stage_before,
+                stage_after="collecting_contact",
+            )
+            return _field_prompt(remaining[0]), session_id
 
         SESSION_STATE.pop(session_key, None)
         state["stage"] = "completed"
         save_lead_checkpoint(tenant, session_id, state)
+        _log_chat_state(
+            message=message,
+            session_id=session_id,
+            intent="collect_contact",
+            stage_before=stage_before,
+            stage_after="completed",
+        )
         return "Ви благодарам. Вашето барање за термин е примено. Клиниката ќе ве контактира.", session_id
 
     try:
         client = OpenAI(api_key=api_key)
 
+        print("OPENAI CALL START")
         response = client.responses.create(
             model="gpt-4.1-mini",
             input=[
@@ -207,12 +268,21 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 {"role": "user", "content": message}
             ]
         )
+        print("OPENAI CALL END")
+        print(response)
 
         raw_output = (response.output_text or "").strip()
 
         try:
             parsed = json.loads(raw_output)
             if not isinstance(parsed, dict):
+                _log_chat_state(
+                    message=message,
+                    session_id=session_id,
+                    intent="invalid_json_object",
+                    stage_before=stage_before,
+                    stage_after=_stage_name(SESSION_STATE.get(session_key)),
+                )
                 return _fallback_reply(profile), session_id
 
             intent = _normalize_intent(parsed.get("intent"))
@@ -220,13 +290,21 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             message_text = parsed.get("message")
 
             if intent == "confirm_booking" and allow_booking:
-                return _start_collecting_contact(
+                reply, session_id = _start_collecting_contact(
                     tenant,
                     session_id,
                     session_key,
                     service_id,
                     collect_fields,
                 )
+                _log_chat_state(
+                    message=message,
+                    session_id=session_id,
+                    intent=intent,
+                    stage_before=stage_before,
+                    stage_after="collecting_contact",
+                )
+                return reply, session_id
 
             if intent == "suggest_service" and allow_booking and service_id and service_id != "unknown":
                 bookable_service_ids = {
@@ -242,14 +320,42 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                     save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key])
 
             if isinstance(message_text, str) and message_text.strip():
+                _log_chat_state(
+                    message=message,
+                    session_id=session_id,
+                    intent=intent,
+                    stage_before=stage_before,
+                    stage_after=_stage_name(SESSION_STATE.get(session_key)),
+                )
                 return message_text, session_id
 
+            _log_chat_state(
+                message=message,
+                session_id=session_id,
+                intent=intent,
+                stage_before=stage_before,
+                stage_after=_stage_name(SESSION_STATE.get(session_key)),
+            )
             return _fallback_reply(profile), session_id
 
         except json.JSONDecodeError:
             if raw_output:
+                _log_chat_state(
+                    message=message,
+                    session_id=session_id,
+                    intent="raw_text",
+                    stage_before=stage_before,
+                    stage_after=_stage_name(SESSION_STATE.get(session_key)),
+                )
                 return raw_output, session_id
 
+            _log_chat_state(
+                message=message,
+                session_id=session_id,
+                intent="json_decode_error",
+                stage_before=stage_before,
+                stage_after=_stage_name(SESSION_STATE.get(session_key)),
+            )
             return _fallback_reply(profile), session_id
 
     except RateLimitError:

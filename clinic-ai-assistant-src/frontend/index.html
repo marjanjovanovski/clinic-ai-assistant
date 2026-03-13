@@ -143,6 +143,7 @@
     const tenant = pathParts[0] === "agent" && pathParts[1] ? pathParts[1] : "generic";
     const sessionStorageKey = `clinic-ai-session:${tenant}`;
     let sessionId = window.localStorage.getItem(sessionStorageKey) || null;
+    let isSending = false;
 
     const API_URL = `/chat?tenant=${encodeURIComponent(tenant)}`;
     const CONFIG_URL = `/config/${encodeURIComponent(tenant)}`;
@@ -182,15 +183,21 @@
     }
 
     async function sendMessage() {
+      if (isSending) {
+        return;
+      }
+
       const userMessage = messageInput.value.trim();
 
       if (!userMessage) {
         return;
       }
 
+      isSending = true;
       addMessage(userMessage, "user");
       messageInput.value = "";
       sendButton.disabled = true;
+      messageInput.disabled = true;
       statusText.textContent = "Sending...";
 
       try {
@@ -220,7 +227,9 @@
         addMessage("Error connecting to backend.", "bot");
         statusText.textContent = `Error: ${error.message}`;
       } finally {
+        isSending = false;
         sendButton.disabled = false;
+        messageInput.disabled = false;
         messageInput.focus();
       }
     }
