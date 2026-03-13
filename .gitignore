@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .env
 .vscode/
+*.db
+clinic-ai-assistant-src/backend/clinic_ai_assistant.db
