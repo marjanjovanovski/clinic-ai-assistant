@@ -43,6 +43,18 @@ def _normalize_session_id(session_id: str | None) -> str:
     return str(uuid.uuid4())
 
 
+def _load_session_state(tenant: str, session_id: str) -> dict | None:
+    session_key = _session_key(tenant, session_id)
+    state = SESSION_STATE.get(session_key)
+
+    if state is None:
+        state = load_lead_checkpoint(tenant, session_id)
+        if state:
+            SESSION_STATE[session_key] = state
+
+    return state
+
+
 def _start_collecting_contact(
     tenant: str,
     session_id: str,
@@ -147,12 +159,13 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         )
 
     session_key = _session_key(tenant, session_id)
-    state = SESSION_STATE.get(session_key)
+    state = _load_session_state(tenant, session_id)
 
-    if state is None:
-        state = load_lead_checkpoint(tenant, session_id)
-        if state:
-            SESSION_STATE[session_key] = state
+    if state and state.get("stage") == "completed":
+        SESSION_STATE.pop(session_key, None)
+        session_id = _normalize_session_id(None)
+        session_key = _session_key(tenant, session_id)
+        state = None
 
     if (
         state
