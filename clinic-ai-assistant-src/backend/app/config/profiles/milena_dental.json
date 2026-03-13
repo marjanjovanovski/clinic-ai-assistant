@@ -67,6 +67,7 @@
 
   "output_contract": {
     "allowed_intents": [
+      "confirm_booking",
       "suggest_service",
       "clarify",
       "list_services",

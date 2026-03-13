@@ -9,6 +9,7 @@ from app.services.lead_store import load_lead_checkpoint, save_lead_checkpoint
 
 
 SESSION_STATE = {}
+BOOKING_CONFIRM_WORDS = {"da", "yes", "ok"}
 
 
 class AIInferenceError(Exception):
@@ -34,6 +35,27 @@ def _normalize_session_id(session_id: str | None) -> str:
         return session_id.strip()
 
     return str(uuid.uuid4())
+
+
+def _start_collecting_contact(
+    tenant: str,
+    session_id: str,
+    session_key: str,
+    service_id: str | None,
+    collect_fields: list[str],
+) -> tuple[str, str]:
+    SESSION_STATE[session_key] = {
+        "stage": "collecting_contact",
+        "service_id": service_id,
+        "next_field": collect_fields[0],
+        "data": {}
+    }
+    save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key])
+    return f"Ве молам кажете го вашето {collect_fields[0]}.", session_id
+
+
+def _is_booking_confirmation(message: str) -> bool:
+    return message.strip().lower() in BOOKING_CONFIRM_WORDS
 
 
 def generate_reply(tenant: str, message: str, session_id: str | None = None) -> tuple[str, str]:
@@ -108,6 +130,20 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         if state:
             SESSION_STATE[session_key] = state
 
+    if (
+        state
+        and state.get("stage") == "awaiting_booking_confirmation"
+        and allow_booking
+        and _is_booking_confirmation(message)
+    ):
+        return _start_collecting_contact(
+            tenant,
+            session_id,
+            session_key,
+            state.get("service_id"),
+            collect_fields,
+        )
+
     if state and state.get("stage") == "collecting_contact":
         next_field = state.get("next_field")
         state["data"][next_field] = message
@@ -147,14 +183,26 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             message_text = parsed.get("message")
 
             if intent == "confirm_booking" and allow_booking:
-                SESSION_STATE[session_key] = {
-                    "stage": "collecting_contact",
-                    "service_id": service_id,
-                    "next_field": collect_fields[0],
-                    "data": {}
+                return _start_collecting_contact(
+                    tenant,
+                    session_id,
+                    session_key,
+                    service_id,
+                    collect_fields,
+                )
+
+            if intent == "suggest_service" and allow_booking and service_id and service_id != "unknown":
+                bookable_service_ids = {
+                    service.get("id")
+                    for service in services
+                    if service.get("bookable")
                 }
-                save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key])
-                return f"Ве молам кажете го вашето {collect_fields[0]}.", session_id
+                if service_id in bookable_service_ids:
+                    SESSION_STATE[session_key] = {
+                        "stage": "awaiting_booking_confirmation",
+                        "service_id": service_id,
+                    }
+                    save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key])
 
             if isinstance(message_text, str) and message_text.strip():
                 return message_text, session_id
