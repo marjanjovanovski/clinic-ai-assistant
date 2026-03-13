@@ -1,28 +1,54 @@
 {
   "business": {
-    "name": "Risto ",
+    "id": "risto",
+    "name": "Risto",
     "type": "service",
-    "description": "Business that interacts with customers through messaging"
+    "language": "en",
+    "description": "Business that interacts with customers through messaging",
+    "contact": {
+      "phone": "",
+      "email": "",
+      "address": ""
+    }
   },
-
   "agent": {
     "name": "Assistant",
     "role": "Customer support assistant",
     "tone": "professional and friendly"
   },
-
+  "prompt_template": {
+    "system": "You are an AI assistant for {{business_name}}. Your goal: {{goal}}."
+  },
   "conversation": {
-    "goal": "help customers, answer questions, guide to booking or ordering",
+    "greeting": "Hello! How can I help you today?",
+    "goal": "Help customers, answer questions, and guide them to relevant services.",
+    "rules": [
+      "Stay within the business context.",
+      "Respond briefly and clearly."
+    ],
+    "decision_rules": [
+      "Return only valid JSON.",
+      "Use fallback when the request is unclear."
+    ],
     "fallback_message": "I'm sorry, I couldn't understand that. Could you clarify?"
   },
-
+  "services": [],
   "actions": {
-    "booking_enabled": false,
+    "allow_booking": false,
+    "collect_contact_fields": [],
     "handoff_enabled": false,
     "order_flow_enabled": false
   },
-
+  "output_contract": {
+    "unknown_service_id": "unknown",
+    "response_format": {
+      "intent": "string",
+      "service_id": "string",
+      "message": "string"
+    }
+  },
   "knowledge": {
+    "faq": [],
     "source": "static",
     "notes": "Placeholder for knowledge base integration later"
   }

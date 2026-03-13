@@ -5,3 +5,4 @@ __pycache__/
 .vscode/
 *.db
 clinic-ai-assistant-src/backend/clinic_ai_assistant.db
+.pytest_cache/

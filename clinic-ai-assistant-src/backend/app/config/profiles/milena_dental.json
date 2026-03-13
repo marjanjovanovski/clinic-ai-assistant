@@ -1,7 +1,7 @@
 {
   "business": {
     "id": "milena_dental",
-    "name": "Асистент на ПЗУ Д-Р Милена Игнатовски",
+    "name": "Асистент на ПЗУ Д-р Милена Игнатовски",
     "type": "dentist",
     "language": "mk",
     "contact": {
@@ -10,11 +10,14 @@
       "address": "Skopje"
     }
   },
-
+  "agent": {
+    "name": "Асистент",
+    "role": "Асистент за стоматолошки прашања и закажување",
+    "tone": "професионален и пријателски"
+  },
   "prompt_template": {
     "system": "You are an AI assistant for {{business_name}}. Your goal: {{goal}}. Only recommend services from the provided catalog."
   },
-
   "conversation": {
     "greeting": "Здраво живо,\n\nЈас сум асистент на Д-р Игнатовски, како можам да ви помогнам?\n\n(Бидете слободни, како да разговарате со Д-р Милена на телефон).",
     "goal": "Help patients identify the correct dental service and guide them to booking.",
@@ -37,15 +40,14 @@
       "Return only valid JSON.",
       "Do not return markdown.",
       "Do not return explanation outside JSON.",
-      "Use list_services when the user asks generally about available services.",
+      "Use greeting for opening or social messages.",
       "Use suggest_service only when there is a clear match to one service in the catalog.",
-      "Use clarify when symptoms are vague or there is not enough information.",
-      "Use out_of_scope when the request is not related to dental services.",
-      "If no service is clearly matched, use service_id = unknown.",
+      "Use confirm_booking only when the user clearly confirms scheduling or booking.",
+      "Use fallback when the request is unclear, outside scope, or no service can be matched.",
       "The message value must be short, safe, and natural."
-    ]
+    ],
+    "fallback_message": "Извинете, не можев да ја разберам пораката. Може ли да појасните?"
   },
-
   "services": [
     {
       "id": "filling",
@@ -59,20 +61,11 @@
       "priority": 1
     }
   ],
-
   "actions": {
     "allow_booking": true,
     "collect_contact_fields": ["name", "phone", "email"]
   },
-
   "output_contract": {
-    "allowed_intents": [
-      "confirm_booking",
-      "suggest_service",
-      "clarify",
-      "list_services",
-      "out_of_scope"
-    ],
     "unknown_service_id": "unknown",
     "response_format": {
       "intent": "string",
@@ -80,7 +73,6 @@
       "message": "string"
     }
   },
-
   "knowledge": {
     "faq": []
   }

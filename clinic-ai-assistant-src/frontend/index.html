@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="mk">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" href="/frontend/favicon.ico">
-  <title id="pageTitle">Loading...</title>
+  <title id="pageTitle">Се вчитува...</title>
   <style>
     * {
       box-sizing: border-box;
@@ -115,7 +115,7 @@
 </head>
 <body>
   <div class="chat-app">
-    <div class="chat-header" id="chatHeader">Loading...</div>
+    <div class="chat-header" id="chatHeader">Се вчитува...</div>
 
     <div class="chat-messages" id="chatMessages"></div>
 
@@ -124,12 +124,12 @@
         type="text"
         id="messageInput"
         class="chat-input"
-        placeholder="Type your message..."
+        placeholder="Напишете порака..."
       />
-      <button id="sendButton" class="send-button">Send</button>
+      <button id="sendButton" class="send-button">Испрати</button>
     </div>
 
-    <div class="status" id="statusText">Ready</div>
+    <div class="status" id="statusText">Подготвено</div>
   </div>
 
   <script>
@@ -165,7 +165,7 @@
         }
 
         const config = await response.json();
-        const businessName = config.business?.name || "Assistant";
+        const businessName = config.business?.name || config.assistant?.name || "Асистент";
         const greeting = config.conversation?.greeting || "Здраво! Како можам да ви помогнам денес?";
 
         chatHeader.textContent = businessName;
@@ -174,8 +174,8 @@
         chatMessages.innerHTML = "";
         addMessage(greeting, "bot");
       } catch (error) {
-        chatHeader.textContent = "Assistant";
-        document.title = "Assistant";
+        chatHeader.textContent = "Асистент";
+        document.title = "Асистент";
         chatMessages.innerHTML = "";
         addMessage("Здраво! Како можам да ви помогнам денес?", "bot");
         console.error("Failed to load tenant config:", error);
@@ -198,7 +198,7 @@
       messageInput.value = "";
       sendButton.disabled = true;
       messageInput.disabled = true;
-      statusText.textContent = "Sending...";
+      statusText.textContent = "Се испраќа...";
 
       try {
         const response = await fetch(API_URL, {
@@ -221,11 +221,15 @@
           sessionId = data.session_id;
           window.localStorage.setItem(sessionStorageKey, sessionId);
         }
-        addMessage(data.reply || "No reply returned from server.", "bot");
-        statusText.textContent = "Ready";
+        addMessage(data.reply || "Нема одговор од серверот.", "bot");
+        statusText.textContent = data.session_status === "completed"
+          ? "Барањето е завршено."
+          : data.session_status === "collecting_contact"
+            ? "Се собираат контакт податоци."
+            : "Подготвено";
       } catch (error) {
-        addMessage("Error connecting to backend.", "bot");
-        statusText.textContent = `Error: ${error.message}`;
+        addMessage("Настана грешка при поврзување со системот.", "bot");
+        statusText.textContent = `Грешка: ${error.message}`;
       } finally {
         isSending = false;
         sendButton.disabled = false;

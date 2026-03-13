@@ -10,18 +10,34 @@ from app.services.lead_store import load_lead_checkpoint, save_lead_checkpoint
 
 
 logger = logging.getLogger(__name__)
+DEBUG_AI = os.getenv("DEBUG_AI", "").strip().lower() == "true"
 SESSION_STATE = {}
 BOOKING_CONFIRM_WORDS = {"да", "da", "yes", "ok", "okej", "okay"}
-FIELD_LABELS = {
+FIELD_PROMPTS = {
     "name": "Ве молам кажете ни го вашето име.",
     "phone": "Ве молам кажете ни го вашиот телефон.",
     "email": "Ве молам кажете ни ја вашата е-пошта.",
 }
+CANONICAL_INTENTS = {"greeting", "suggest_service", "confirm_booking", "collect_contact", "fallback"}
 INTENT_ALIASES = {
+    "greeting": "greeting",
+    "hello": "greeting",
+    "welcome": "greeting",
+    "suggest_service": "suggest_service",
     "book_service": "suggest_service",
     "booking_inquiry": "suggest_service",
+    "booking_request": "suggest_service",
+    "list_services": "fallback",
+    "confirm_booking": "confirm_booking",
     "booking_initiated": "confirm_booking",
+    "booking_initiate": "confirm_booking",
     "booking_start": "confirm_booking",
+    "collect_contact": "collect_contact",
+    "clarify": "fallback",
+    "clarification": "fallback",
+    "out_of_scope": "fallback",
+    "ask_services": "fallback",
+    "fallback": "fallback",
 }
 
 
@@ -88,7 +104,7 @@ def _log_chat_state(
 
 
 def _field_prompt(field_name: str) -> str:
-    return FIELD_LABELS.get(field_name, field_name)
+    return FIELD_PROMPTS.get(field_name, field_name)
 
 
 def _start_collecting_contact(
@@ -112,22 +128,31 @@ def _is_booking_confirmation(message: str) -> bool:
     return message.strip().casefold() in BOOKING_CONFIRM_WORDS
 
 
-def _normalize_intent(intent: str | None) -> str | None:
+def _normalize_intent(intent: str | None) -> str:
     if not isinstance(intent, str):
-        return None
+        return "fallback"
 
-    normalized_intent = intent.strip()
-    normalized_key = normalized_intent.casefold()
+    normalized_key = intent.strip().casefold()
+    canonical_intent = INTENT_ALIASES.get(normalized_key, "fallback")
 
-    if normalized_key in INTENT_ALIASES:
-        return INTENT_ALIASES[normalized_key]
+    if canonical_intent not in CANONICAL_INTENTS:
+        return "fallback"
 
-    if "booking" in normalized_key or "book" in normalized_key:
-        if any(keyword in normalized_key for keyword in ("start", "initiate", "initiated", "confirm")):
-            return "confirm_booking"
-        return "suggest_service"
+    return canonical_intent
 
-    return normalized_intent
+
+def get_session_status(tenant: str, session_id: str | None) -> str:
+    if not session_id:
+        return "active"
+
+    state = _load_session_state(tenant, session_id)
+    stage = _stage_name(state)
+
+    if stage == "collecting_contact":
+        return "collecting_contact"
+    if stage == "completed":
+        return "completed"
+    return "active"
 
 
 def generate_reply(tenant: str, message: str, session_id: str | None = None) -> tuple[str, str]:
@@ -184,7 +209,8 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     if allow_booking:
         system_prompt += (
             "\n\nBooking capability: enabled."
-            "\nIf the user confirms booking (yes/da/ok), start collecting contact details."
+            "\nCanonical intents: greeting, suggest_service, confirm_booking, fallback."
+            "\nIf the user confirms booking, return confirm_booking."
             f"\nCollect these fields in order: {collect_fields}"
         )
 
@@ -205,6 +231,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         state = None
         stage_before = None
 
+    # Booking state 1: waiting for the user to confirm a suggested service.
     if (
         state
         and state.get("stage") == "awaiting_booking_confirmation"
@@ -221,12 +248,13 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         _log_chat_state(
             message=message,
             session_id=session_id,
-            intent="backend_confirmation",
+            intent="confirm_booking",
             stage_before=stage_before,
             stage_after="collecting_contact",
         )
         return reply, session_id
 
+    # Booking state 2: backend owns the contact collection prompts until completion.
     if state and state.get("stage") == "collecting_contact":
         next_field = state.get("next_field")
         state["data"][next_field] = message
@@ -260,7 +288,9 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     try:
         client = OpenAI(api_key=api_key)
 
-        print("OPENAI CALL START")
+        if DEBUG_AI:
+            logger.debug("OPENAI CALL START tenant=%s session_id=%s", tenant, session_id)
+
         response = client.responses.create(
             model="gpt-4.1-mini",
             input=[
@@ -268,8 +298,10 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 {"role": "user", "content": message}
             ]
         )
-        print("OPENAI CALL END")
-        print(response)
+
+        if DEBUG_AI:
+            logger.debug("OPENAI CALL END tenant=%s session_id=%s", tenant, session_id)
+            logger.debug("OPENAI RESPONSE TEXT %s", (response.output_text or "").strip())
 
         raw_output = (response.output_text or "").strip()
 
@@ -279,7 +311,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 _log_chat_state(
                     message=message,
                     session_id=session_id,
-                    intent="invalid_json_object",
+                    intent="fallback",
                     stage_before=stage_before,
                     stage_after=_stage_name(SESSION_STATE.get(session_key)),
                 )
@@ -319,6 +351,9 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                     }
                     save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key])
 
+            if intent not in {"greeting", "suggest_service", "fallback"}:
+                intent = "fallback"
+
             if isinstance(message_text, str) and message_text.strip():
                 _log_chat_state(
                     message=message,
@@ -339,23 +374,16 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             return _fallback_reply(profile), session_id
 
         except json.JSONDecodeError:
-            if raw_output:
-                _log_chat_state(
-                    message=message,
-                    session_id=session_id,
-                    intent="raw_text",
-                    stage_before=stage_before,
-                    stage_after=_stage_name(SESSION_STATE.get(session_key)),
-                )
-                return raw_output, session_id
-
             _log_chat_state(
                 message=message,
                 session_id=session_id,
-                intent="json_decode_error",
+                intent="fallback",
                 stage_before=stage_before,
                 stage_after=_stage_name(SESSION_STATE.get(session_key)),
             )
+            if raw_output:
+                return raw_output, session_id
+
             return _fallback_reply(profile), session_id
 
     except RateLimitError:

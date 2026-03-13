@@ -3,12 +3,17 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
 from app.routes.chat import router as chat_router
-from app.services.config_loader import TenantConfigError, TenantNotFoundError, load_profile_config
+from app.services.config_loader import (
+    TenantConfigError,
+    TenantNotFoundError,
+    load_profile_config,
+    load_public_profile_config,
+)
 from app.services.lead_store import init_leads_db
 
 load_dotenv()
@@ -23,11 +28,28 @@ app = FastAPI()
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
 INDEX_FILE = FRONTEND_DIR / "index.html"
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
+allowed_origins = [
+    origin.strip()
+    for origin in allowed_origins_env.split(",")
+    if origin.strip()
+]
+if not allowed_origins:
+    allowed_origins = DEFAULT_ALLOWED_ORIGINS
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -36,14 +58,17 @@ app.include_router(chat_router)
 
 app.mount("/frontend", StaticFiles(directory=str(FRONTEND_DIR)), name="frontend")
 
+
 @app.get("/health")
 def health():
     return {"status": "Clinic AI Assistant running"}
 
+
 @app.get("/config/{tenant}")
 def get_config(tenant: str):
     try:
-        return load_profile_config(tenant)
+        load_profile_config(tenant)
+        return load_public_profile_config(tenant)
     except TenantNotFoundError:
         raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found")
     except TenantConfigError:
