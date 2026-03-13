@@ -9,7 +9,13 @@ from app.services.lead_store import load_lead_checkpoint, save_lead_checkpoint
 
 
 SESSION_STATE = {}
-BOOKING_CONFIRM_WORDS = {"da", "yes", "ok"}
+BOOKING_CONFIRM_WORDS = {"да", "da", "yes", "ok", "okej", "okay"}
+INTENT_ALIASES = {
+    "book_service": "suggest_service",
+    "booking_inquiry": "suggest_service",
+    "booking_initiated": "confirm_booking",
+    "booking_start": "confirm_booking",
+}
 
 
 class AIInferenceError(Exception):
@@ -55,7 +61,25 @@ def _start_collecting_contact(
 
 
 def _is_booking_confirmation(message: str) -> bool:
-    return message.strip().lower() in BOOKING_CONFIRM_WORDS
+    return message.strip().casefold() in BOOKING_CONFIRM_WORDS
+
+
+def _normalize_intent(intent: str | None) -> str | None:
+    if not isinstance(intent, str):
+        return None
+
+    normalized_intent = intent.strip()
+    normalized_key = normalized_intent.casefold()
+
+    if normalized_key in INTENT_ALIASES:
+        return INTENT_ALIASES[normalized_key]
+
+    if "booking" in normalized_key or "book" in normalized_key:
+        if any(keyword in normalized_key for keyword in ("start", "initiate", "initiated", "confirm")):
+            return "confirm_booking"
+        return "suggest_service"
+
+    return normalized_intent
 
 
 def generate_reply(tenant: str, message: str, session_id: str | None = None) -> tuple[str, str]:
@@ -178,7 +202,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             if not isinstance(parsed, dict):
                 return _fallback_reply(profile), session_id
 
-            intent = parsed.get("intent")
+            intent = _normalize_intent(parsed.get("intent"))
             service_id = parsed.get("service_id")
             message_text = parsed.get("message")
 
