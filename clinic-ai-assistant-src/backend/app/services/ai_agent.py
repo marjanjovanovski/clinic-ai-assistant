@@ -17,11 +17,6 @@ SESSION_STATE = {}
 INTERACTION_HISTORY = {}
 MAX_INTERACTION_HISTORY = 6
 BOOKING_CONFIRM_WORDS = {"да", "da", "yes", "ok", "okej", "okay"}
-FIELD_PROMPTS = {
-    "name": "Ве молам кажете ни го вашето име.",
-    "phone": "Ве молам кажете ни го вашиот телефон.",
-    "email": "Ве молам кажете ни ја вашата е-пошта.",
-}
 CANONICAL_INTENTS = {"greeting", "suggest_service", "confirm_booking", "collect_contact", "fallback"}
 INTENT_ALIASES = {
     "greeting": "greeting",
@@ -100,7 +95,7 @@ CASUAL_REPLY_PATTERNS = (
             "thanks",
             "thank you",
         ),
-        "\u0412\u0438 \u0431\u043b\u0430\u0433\u043e\u0434\u0430\u0440\u0430\u043c. \u0410\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435, \u0441\u043b\u043e\u0431\u043e\u0434\u043d\u043e \u043a\u0430\u0436\u0435\u0442\u0435 \u0448\u0442\u043e \u0432\u0435 \u0438\u043d\u0442\u0435\u0440\u0435\u0441\u0438\u0440\u0430.",
+        "thanks",
     ),
     (
         (
@@ -108,7 +103,7 @@ CASUAL_REPLY_PATTERNS = (
             "\u0432\u0430\u0443",
             "\u043b\u0435\u043b\u0435",
         ),
-        "\u0412\u0438 \u0431\u043b\u0430\u0433\u043e\u0434\u0430\u0440\u0430\u043c, \u0434\u0440\u0430\u0433\u043e \u043c\u0438 \u0435 \u0448\u0442\u043e \u043f\u043e\u043c\u043e\u0433\u043d\u0430\u0432. \u0410\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435, \u043c\u043e\u0436\u0430\u043c \u0438 \u0434\u0430 \u0432\u0435 \u043d\u0430\u0441\u043e\u0447\u0430\u043c \u043a\u043e\u043d \u0441\u043e\u043e\u0434\u0432\u0435\u0442\u043d\u0430 \u0443\u0441\u043b\u0443\u0433\u0430 \u0438\u043b\u0438 \u043a\u043e\u043d\u0441\u0443\u043b\u0442\u0430\u0446\u0438\u0458\u0430.",
+        "wow",
     ),
     (
         (
@@ -119,7 +114,7 @@ CASUAL_REPLY_PATTERNS = (
             "odlicno",
             "great",
         ),
-        "\u0414\u0440\u0430\u0433\u043e \u043c\u0438 \u0435. \u041a\u0430\u0436\u0435\u0442\u0435 \u0430\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435 \u0434\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u043c\u0435 \u0443\u0441\u043b\u0443\u0433\u0430 \u0438\u043b\u0438 \u0434\u0430 \u0437\u0430\u043a\u0430\u0436\u0435\u043c\u0435 \u043a\u043e\u043d\u0441\u0443\u043b\u0442\u0430\u0446\u0438\u0458\u0430.",
+        "positive",
     ),
 )
 
@@ -135,7 +130,7 @@ def _fallback_reply(profile: dict) -> str:
     if isinstance(fallback_message, str) and fallback_message.strip():
         return fallback_message
 
-    return "I couldn't generate a valid response right now."
+    return ""
 
 
 def _session_key(tenant: str, session_id: str) -> str:
@@ -204,8 +199,43 @@ def _trace_stage_transition(
     )
 
 
-def _field_prompt(field_name: str) -> str:
-    return FIELD_PROMPTS.get(field_name, field_name)
+def _profile_text(profile: dict, *path: str) -> str | None:
+    value = profile
+    for key in path:
+        if not isinstance(value, dict):
+            return None
+        value = value.get(key)
+
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+
+    return None
+
+
+def _profile_text_map(profile: dict, *path: str) -> dict:
+    value = profile
+    for key in path:
+        if not isinstance(value, dict):
+            return {}
+        value = value.get(key)
+
+    return value if isinstance(value, dict) else {}
+
+
+def _render_profile_text(profile: dict, path: tuple[str, ...], **values) -> str | None:
+    template = _profile_text(profile, *path)
+    if not template:
+        return None
+
+    return template.format(**values)
+
+
+def _field_prompt(profile: dict, field_name: str) -> str:
+    field_prompts = _profile_text_map(profile, "reply_texts", "field_prompts")
+    value = field_prompts.get(field_name)
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return field_name
 
 
 def _status_for_stage(stage: str | None) -> str:
@@ -323,6 +353,7 @@ def _repetition_reformulation(
     message: str,
     session_key: str,
     services: list[dict],
+    profile: dict,
 ) -> str | None:
     history = _recent_interactions(session_key)
     if not history:
@@ -333,27 +364,13 @@ def _repetition_reformulation(
         return None
 
     if _is_broad_pricing_request(message):
-        return (
-            "\u0426\u0435\u043d\u0438\u0442\u0435 \u0437\u0430\u0432\u0438\u0441\u0430\u0442 \u043e\u0434 \u043a\u043e\u043d\u043a\u0440\u0435\u0442\u043d\u0430\u0442\u0430 \u0443\u0441\u043b\u0443\u0433\u0430. "
-            "\u0410\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435, \u043a\u0430\u0436\u0435\u0442\u0435 \u043c\u0438 \u0448\u0442\u043e \u0442\u043e\u0447\u043d\u043e \u0432\u0435 \u0438\u043d\u0442\u0435\u0440\u0435\u0441\u0438\u0440\u0430, "
-            "\u043d\u0430 \u043f\u0440\u0438\u043c\u0435\u0440 \u0431\u0435\u043b\u0435\u045a\u0435, \u043f\u043b\u043e\u043c\u0431\u0438\u0440\u0430\u045a\u0435 "
-            "\u0438\u043b\u0438 \u043a\u043e\u043d\u0441\u0443\u043b\u0442\u0430\u0446\u0438\u0458\u0430, \u043f\u0430 \u045c\u0435 \u0432\u0438 \u0434\u0430\u0434\u0430\u043c \u043e\u0440\u0438\u0435\u043d\u0442\u0430\u0446\u0438\u0458\u0430."
-        )
+        return _profile_text(profile, "repetition_responses", "broad_pricing")
 
     if _is_service_list_request(message):
-        return (
-            "\u0412\u0435\u045c\u0435 \u0432\u0438 \u0433\u0438 \u043d\u0430\u0431\u0440\u043e\u0458\u0430\u0432 \u0443\u0441\u043b\u0443\u0433\u0438\u0442\u0435, "
-            "\u043d\u043e \u0430\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435 \u043c\u043e\u0436\u0430\u043c \u0438 \u043f\u043e\u043a\u043e\u043d\u043a\u0440\u0435\u0442\u043d\u043e \u0434\u0430 \u0432\u0435 \u043d\u0430\u0441\u043e\u0447\u0430\u043c. "
-            "\u041a\u0430\u0436\u0435\u0442\u0435 \u043c\u0438 \u0434\u0430\u043b\u0438 \u0432\u0435 \u0438\u043d\u0442\u0435\u0440\u0435\u0441\u0438\u0440\u0430 "
-            "\u0435\u0441\u0442\u0435\u0442\u0438\u043a\u0430, \u0431\u043e\u043b\u043a\u0430, \u0447\u0438\u0441\u0442\u0435\u045a\u0435 \u0438\u043b\u0438 \u043a\u043e\u043d\u0441\u0443\u043b\u0442\u0430\u0446\u0438\u0458\u0430."
-        )
+        return _profile_text(profile, "repetition_responses", "service_list")
 
     if _is_consultation_explanation_request(message, services):
-        return (
-            "\u0422\u043e\u0430 \u0435 \u043f\u043e\u0447\u0435\u0442\u0435\u043d \u043f\u0440\u0435\u0433\u043b\u0435\u0434 \u0438 \u0440\u0430\u0437\u0433\u043e\u0432\u043e\u0440 "
-            "\u0437\u0430 \u0434\u0430 \u0441\u0435 \u0432\u0438\u0434\u0438 \u0448\u0442\u043e \u0435 \u043d\u0430\u0458\u0441\u043e\u043e\u0434\u0432\u0435\u0442\u043d\u043e \u0437\u0430 \u0432\u0430\u0441. "
-            "\u0410\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435, \u043c\u043e\u0436\u0435\u043c\u0435 \u0438 \u0432\u0435\u0434\u043d\u0430\u0448 \u0434\u0430 \u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0438\u043c\u0435 \u0441\u043e \u0437\u0430\u043a\u0430\u0436\u0443\u0432\u0430\u045a\u0435."
-        )
+        return _profile_text(profile, "repetition_responses", "consultation_explanation")
 
     return None
 
@@ -367,6 +384,7 @@ def _finalize_reply(
     reply: str,
     response_type: str | None,
     services: list[dict],
+    profile: dict,
     stage_after: str | None,
 ) -> str:
     final_reply = reply
@@ -374,6 +392,7 @@ def _finalize_reply(
         message=message,
         session_key=session_key,
         services=services,
+        profile=profile,
     )
     if reformulated:
         final_reply = reformulated
@@ -405,6 +424,7 @@ def _start_collecting_contact(
     session_key: str,
     service_id: str | None,
     collect_fields: list[str],
+    profile: dict,
 ) -> tuple[str, str]:
     SESSION_STATE[session_key] = {
         "stage": "collecting_contact",
@@ -413,7 +433,7 @@ def _start_collecting_contact(
         "data": {}
     }
     save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key])
-    return _field_prompt(collect_fields[0]), session_id
+    return _field_prompt(profile, collect_fields[0]), session_id
 
 
 def _is_booking_confirmation(message: str) -> bool:
@@ -484,42 +504,35 @@ def _is_price_request(message: str) -> bool:
     return any(trigger in normalized_message for trigger in PRICE_TRIGGERS)
 
 
-def _greeting_reply(message: str) -> str | None:
+def _greeting_reply(message: str, profile: dict) -> str | None:
     normalized_message = _normalize_lookup_text(message)
     if normalized_message not in GREETING_TRIGGERS:
         return None
 
-    return "\u0417\u0434\u0440\u0430\u0432\u043e, \u043a\u0430\u043a\u043e \u043c\u043e\u0436\u0430\u043c \u0434\u0430 \u0432\u0438 \u043f\u043e\u043c\u043e\u0433\u043d\u0430\u043c?"
+    return _profile_text(profile, "reply_texts", "greeting_short")
 
 
-def _service_clarification_reply(message: str) -> str | None:
+def _service_clarification_reply(message: str, profile: dict) -> str | None:
     normalized_message = _normalize_lookup_text(message)
 
     if normalized_message == "koja usluga mi treba":
-        return (
-            "\u0417\u0430 \u0434\u0430 \u0432\u0435 \u043d\u0430\u0441\u043e\u0447\u0430\u043c \u043d\u0430\u0458\u0434\u043e\u0431\u0440\u043e, "
-            "\u043a\u0430\u0436\u0435\u0442\u0435 \u043c\u0438 \u0434\u0430\u043b\u0438 \u0438\u043c\u0430\u0442\u0435 \u0431\u043e\u043b\u043a\u0430, "
-            "\u0441\u0430\u043a\u0430\u0442\u0435 \u0435\u0441\u0442\u0435\u0442\u0441\u043a\u0430 \u043a\u043e\u0440\u0435\u043a\u0446\u0438\u0458\u0430 "
-            "\u0438\u043b\u0438 \u0441\u0430\u043a\u0430\u0442\u0435 \u0441\u0430\u043c\u043e \u043f\u0440\u0435\u0433\u043b\u0435\u0434."
-        )
+        return _profile_text(profile, "reply_texts", "service_clarification_specific", "koja_usluga_mi_treba")
 
     if any(trigger in normalized_message for trigger in SERVICE_CLARIFICATION_TRIGGERS):
-        return (
-            "\u041a\u0430\u0436\u0435\u0442\u0435 \u043c\u0438 \u043d\u0430\u043a\u0440\u0430\u0442\u043a\u043e \u0448\u0442\u043e \u0432\u0435 \u043c\u0430\u0447\u0438 "
-            "\u0438\u043b\u0438 \u0448\u0442\u043e \u0441\u0430\u043a\u0430\u0442\u0435 \u0434\u0430 \u043f\u043e\u0434\u043e\u0431\u0440\u0438\u0442\u0435, "
-            "\u043f\u0430 \u045c\u0435 \u0432\u0435 \u043d\u0430\u0441\u043e\u0447\u0430\u043c \u043a\u043e\u043d \u043d\u0430\u0458\u0441\u043e\u043e\u0434\u0432\u0435\u0442\u043d\u0430 "
-            "\u0443\u0441\u043b\u0443\u0433\u0430 \u0438\u043b\u0438 \u043a\u043e\u043d\u0441\u0443\u043b\u0442\u0430\u0446\u0438\u0458\u0430."
-        )
+        return _profile_text(profile, "reply_texts", "service_clarification")
 
     return None
 
 
-def _casual_reply(message: str) -> str | None:
+def _casual_reply(message: str, profile: dict) -> str | None:
     normalized_message = _normalize_lookup_text(message)
+    casual_replies = _profile_text_map(profile, "reply_texts", "casual_replies")
 
-    for triggers, reply in CASUAL_REPLY_PATTERNS:
+    for triggers, reply_key in CASUAL_REPLY_PATTERNS:
         if any(trigger in normalized_message for trigger in triggers):
-            return reply
+            reply = casual_replies.get(reply_key)
+            if isinstance(reply, str) and reply.strip():
+                return reply.strip()
 
     return None
 
@@ -600,7 +613,7 @@ def _service_list_reply(profile: dict, services: list[dict]) -> str:
     return "\n".join(lines).strip()
 
 
-def _orientation_price_text(service: dict) -> str | None:
+def _orientation_price_text(service: dict, profile: dict) -> str | None:
     service_name = _service_display_name(service)
     price = service.get("price", service.get("\u0446\u0435\u043d\u0430"))
     currency = service.get("\u0432\u0430\u043b\u0443\u0442\u0430")
@@ -609,25 +622,52 @@ def _orientation_price_text(service: dict) -> str | None:
 
     if isinstance(price, (int, float)):
         currency_text = f" {currency}" if isinstance(currency, str) and currency.strip() else ""
-        first_line = f"{service_name} \u0447\u0438\u043d\u0438 \u043e\u043a\u043e\u043b\u0443 {price:g}{currency_text}."
+        first_line = _render_profile_text(
+            profile,
+            ("reply_texts", "price_templates", "numeric"),
+            service_name=service_name,
+            price=f"{price:g}",
+            currency=currency_text,
+        )
     elif isinstance(price, str) and price.strip():
-        first_line = f"{service_name} \u0435 {price.strip()}."
         if price.strip().casefold() == "\u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e":
-            first_line = f"{service_name} \u0435 \u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u0430."
+            first_line = _render_profile_text(
+                profile,
+                ("reply_texts", "price_templates", "free"),
+                service_name=service_name,
+            )
+        else:
+            first_line = _render_profile_text(
+                profile,
+                ("reply_texts", "price_templates", "text"),
+                service_name=service_name,
+                price=price.strip(),
+            )
     elif isinstance(price_range, str) and price_range.strip():
-        first_line = f"\u041e\u0440\u0438\u0435\u043d\u0442\u0430\u0446\u0438\u0441\u043a\u0438\u043e\u0442 \u0446\u0435\u043d\u043e\u0432\u0435\u043d \u043e\u043f\u0441\u0435\u0433 \u0437\u0430 {service_name.lower()} \u0435 {price_range.strip()}."
+        first_line = _render_profile_text(
+            profile,
+            ("reply_texts", "price_templates", "range"),
+            service_name=service_name,
+            service_name_lower=service_name.lower(),
+            price_range=price_range.strip(),
+        )
     else:
+        return None
+
+    if not first_line:
         return None
 
     lines = [first_line]
     if description:
         lines.append(description)
     lines.append("")
-    lines.append("\u0417\u0430 \u0442\u043e\u0447\u043d\u0430 \u043f\u0440\u043e\u0446\u0435\u043d\u043a\u0430 \u043d\u0430\u0458\u0434\u043e\u0431\u0440\u043e \u0435 \u0434\u0430 \u0441\u0435 \u043d\u0430\u043f\u0440\u0430\u0432\u0438 \u043a\u0440\u0430\u0442\u043a\u0430 \u043a\u043e\u043d\u0441\u0443\u043b\u0442\u0430\u0446\u0438\u0458\u0430.")
+    followup = _profile_text(profile, "reply_texts", "price_followup")
+    if followup:
+        lines.append(followup)
     return "\n".join(lines)
 
 
-def _service_description_reply(message: str, services: list[dict]) -> str | None:
+def _service_description_reply(message: str, services: list[dict], profile: dict) -> str | None:
     normalized_message = _normalize_lookup_text(message)
     if not any(trigger in normalized_message for trigger in SERVICE_DESCRIPTION_TRIGGERS):
         return None
@@ -641,18 +681,16 @@ def _service_description_reply(message: str, services: list[dict]) -> str | None
     if not description:
         return None
 
-    article_name = service_name
-    if service_name == "\u0411\u0435\u043b\u0435\u045a\u0435 \u043d\u0430 \u0437\u0430\u0431\u0438":
-        article_name = "\u0411\u0435\u043b\u0435\u045a\u0435\u0442\u043e \u043d\u0430 \u0437\u0430\u0431\u0438"
-    elif service_name == "\u0421\u0442\u043e\u043c\u0430\u0442\u043e\u043b\u043e\u0448\u043a\u0430 \u043a\u043e\u043d\u0441\u0443\u043b\u0442\u0430\u0446\u0438\u0458\u0430":
-        article_name = "\u0421\u0442\u043e\u043c\u0430\u0442\u043e\u043b\u043e\u0448\u043a\u0430\u0442\u0430 \u043a\u043e\u043d\u0441\u0443\u043b\u0442\u0430\u0446\u0438\u0458\u0430"
-
+    article_name = service.get("article_name") or service_name
     sentence_description = description[0].lower() + description[1:] if description else description
-    return (
-        f"{article_name} \u0435 {sentence_description}"
-        "\n\n"
-        "\u0410\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435, \u043c\u043e\u0436\u0435\u043c\u0435 \u043a\u0440\u0430\u0442\u043a\u043e \u0434\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u043c\u0435 "
-        "\u0434\u0430\u043b\u0438 \u0442\u043e\u0430 \u0435 \u0441\u043e\u043e\u0434\u0432\u0435\u0442\u043d\u0430\u0442\u0430 \u043e\u043f\u0446\u0438\u0458\u0430 \u0437\u0430 \u0432\u0430\u0441."
+    followup = _profile_text(profile, "reply_texts", "service_description_followup")
+    return _render_profile_text(
+        profile,
+        ("reply_texts", "service_description_template"),
+        article_name=article_name,
+        service_name=service_name,
+        description=sentence_description,
+        followup=followup or "",
     )
 
 
@@ -812,6 +850,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             session_key,
             state.get("service_id"),
             collect_fields,
+            profile,
         )
         _trace_stage_transition(
             tenant,
@@ -835,6 +874,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             reply=reply,
             response_type="confirm_booking",
             services=services,
+            profile=profile,
             stage_after="collecting_contact",
         )
         return final_reply, session_id
@@ -863,7 +903,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 stage_before=stage_before,
                 stage_after="collecting_contact",
             )
-            reply = _field_prompt(remaining[0])
+            reply = _field_prompt(profile, remaining[0])
             final_reply = _finalize_reply(
                 tenant=tenant,
                 session_id=session_id,
@@ -872,6 +912,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 reply=reply,
                 response_type="collect_contact",
                 services=services,
+                profile=profile,
                 stage_after="collecting_contact",
             )
             return final_reply, session_id
@@ -893,7 +934,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             stage_before=stage_before,
             stage_after="completed",
         )
-        reply = "Ви благодарам. Вашето барање за термин е примено. Клиниката ќе ве контактира."
+        reply = _profile_text(profile, "reply_texts", "booking_completed")
         final_reply = _finalize_reply(
             tenant=tenant,
             session_id=session_id,
@@ -902,11 +943,12 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             reply=reply,
             response_type="collect_contact",
             services=services,
+            profile=profile,
             stage_after="completed",
         )
         return final_reply, session_id
 
-    greeting_reply = _greeting_reply(message)
+    greeting_reply = _greeting_reply(message, profile)
     if greeting_reply:
         _log_chat_state(
             message=message,
@@ -923,11 +965,12 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             reply=greeting_reply,
             response_type="greeting",
             services=services,
+            profile=profile,
             stage_after=_stage_name(SESSION_STATE.get(session_key)),
         )
         return final_reply, session_id
 
-    clarification_reply = _service_clarification_reply(message)
+    clarification_reply = _service_clarification_reply(message, profile)
     if clarification_reply:
         _log_chat_state(
             message=message,
@@ -944,6 +987,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             reply=clarification_reply,
             response_type="service_clarification",
             services=services,
+            profile=profile,
             stage_after=_stage_name(SESSION_STATE.get(session_key)),
         )
         return final_reply, session_id
@@ -965,13 +1009,14 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             reply=reply,
             response_type="service_list",
             services=services,
+            profile=profile,
             stage_after=_stage_name(SESSION_STATE.get(session_key)),
         )
         return final_reply, session_id
 
     if _is_price_request(message):
         matched_service = _match_service_for_message(message, services)
-        price_reply = _orientation_price_text(matched_service) if matched_service else None
+        price_reply = _orientation_price_text(matched_service, profile) if matched_service else None
         if price_reply:
             _log_chat_state(
                 message=message,
@@ -988,11 +1033,12 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 reply=price_reply,
                 response_type="explicit_price",
                 services=services,
+                profile=profile,
                 stage_after=_stage_name(SESSION_STATE.get(session_key)),
             )
             return final_reply, session_id
 
-    description_reply = _service_description_reply(message, services)
+    description_reply = _service_description_reply(message, services, profile)
     if description_reply:
         _log_chat_state(
             message=message,
@@ -1009,11 +1055,12 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             reply=description_reply,
             response_type="service_description",
             services=services,
+            profile=profile,
             stage_after=_stage_name(SESSION_STATE.get(session_key)),
         )
         return final_reply, session_id
 
-    casual_reply = _casual_reply(message)
+    casual_reply = _casual_reply(message, profile)
     if casual_reply:
         _log_chat_state(
             message=message,
@@ -1030,6 +1077,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             reply=casual_reply,
             response_type="casual",
             services=services,
+            profile=profile,
             stage_after=_stage_name(SESSION_STATE.get(session_key)),
         )
         return final_reply, session_id
@@ -1082,6 +1130,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                     reply=reply,
                     response_type="fallback",
                     services=services,
+                    profile=profile,
                     stage_after=_stage_name(SESSION_STATE.get(session_key)),
                 )
                 return final_reply, session_id
@@ -1107,6 +1156,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                     session_key,
                     service_id,
                     collect_fields,
+                    profile,
                 )
                 _trace_stage_transition(
                     tenant,
@@ -1130,6 +1180,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                     reply=reply,
                     response_type="confirm_booking",
                     services=services,
+                    profile=profile,
                     stage_after="collecting_contact",
                 )
                 return final_reply, session_id
@@ -1173,6 +1224,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                     reply=message_text,
                     response_type=intent,
                     services=services,
+                    profile=profile,
                     stage_after=_stage_name(SESSION_STATE.get(session_key)),
                 )
                 return final_reply, session_id
@@ -1199,6 +1251,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 reply=reply,
                 response_type="fallback",
                 services=services,
+                profile=profile,
                 stage_after=_stage_name(SESSION_STATE.get(session_key)),
             )
             return final_reply, session_id
@@ -1226,6 +1279,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 reply=reply,
                 response_type="fallback",
                 services=services,
+                profile=profile,
                 stage_after=_stage_name(SESSION_STATE.get(session_key)),
             )
             return final_reply, session_id

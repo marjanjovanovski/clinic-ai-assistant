@@ -32,6 +32,38 @@
     ],
     "fallback_message": "I'm sorry, I couldn't understand that. Could you clarify?"
   },
+  "reply_texts": {
+    "greeting_short": "Hello! How can I help you?",
+    "service_clarification": "Tell me briefly what you need help with, and I can guide you to the most suitable service.",
+    "service_clarification_specific": {
+      "koja_usluga_mi_treba": "Tell me a bit more about what you need, and I can guide you to the most suitable service."
+    },
+    "casual_replies": {
+      "thanks": "You're welcome. Feel free to tell me what you need.",
+      "wow": "Glad I could help. If you want, I can guide you to the right service.",
+      "positive": "Glad to hear that. Let me know if you'd like help with a service or booking."
+    },
+    "price_templates": {
+      "numeric": "{service_name} costs around {price}{currency}.",
+      "text": "{service_name} is {price}.",
+      "free": "{service_name} is free.",
+      "range": "The orientation price range for {service_name_lower} is {price_range}."
+    },
+    "price_followup": "For an exact estimate, the best next step is a short consultation.",
+    "service_description_template": "{article_name} is {description}\n\n{followup}",
+    "service_description_followup": "If you want, I can also help check whether that is the right option for you.",
+    "field_prompts": {
+      "name": "Please share your name.",
+      "phone": "Please share your phone number.",
+      "email": "Please share your email address."
+    },
+    "booking_completed": "Thank you. Your booking request has been received. The business will contact you."
+  },
+  "repetition_responses": {
+    "broad_pricing": "Prices depend on the specific service. If you want, tell me exactly what interests you and I can give you orientation.",
+    "service_list": "I already listed the services, but I can guide you more specifically if you want.",
+    "consultation_explanation": "It is an initial review and conversation to see what is most appropriate for you. If you want, we can continue with booking right away."
+  },
   "services": [],
   "actions": {
     "allow_booking": false,
