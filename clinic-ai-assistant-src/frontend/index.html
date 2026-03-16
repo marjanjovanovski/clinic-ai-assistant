@@ -56,8 +56,11 @@
       padding: 12px 14px;
       border-radius: 12px;
       line-height: 1.4;
-      white-space: pre-wrap;
       word-break: break-word;
+    }
+
+    .message-text {
+      white-space: pre-wrap;
     }
 
     .message.user {
@@ -68,6 +71,31 @@
     .message.bot {
       align-self: flex-start;
       background: #f1f5f9;
+    }
+
+    .message-structured {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .structured-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .structured-title {
+      font-weight: 700;
+    }
+
+    .structured-list {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .structured-list li {
+      margin: 0;
     }
 
     .chat-input-area {
@@ -148,10 +176,83 @@
     const API_URL = `/chat?tenant=${encodeURIComponent(tenant)}`;
     const CONFIG_URL = `/config/${encodeURIComponent(tenant)}`;
 
+    function renderMessageContent(text) {
+      const value = String(text || "");
+      const lines = value.split(/\r?\n/);
+      const hasStructuredLines = lines.some((line) => {
+        const trimmed = line.trim();
+        return trimmed.startsWith("• ") || trimmed.startsWith("– ");
+      });
+
+      if (!hasStructuredLines) {
+        const textEl = document.createElement("div");
+        textEl.className = "message-text";
+        textEl.textContent = value;
+        return textEl;
+      }
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "message-structured";
+
+      let currentGroup = null;
+      let currentList = null;
+
+      for (const rawLine of lines) {
+        const trimmed = rawLine.trim();
+
+        if (!trimmed) {
+          currentList = null;
+          continue;
+        }
+
+        if (trimmed.startsWith("• ")) {
+          currentGroup = document.createElement("div");
+          currentGroup.className = "structured-group";
+
+          const titleEl = document.createElement("div");
+          titleEl.className = "structured-title";
+          titleEl.textContent = trimmed.slice(2).trim();
+
+          currentGroup.appendChild(titleEl);
+          wrapper.appendChild(currentGroup);
+          currentList = null;
+          continue;
+        }
+
+        if (trimmed.startsWith("– ")) {
+          if (!currentGroup) {
+            currentGroup = document.createElement("div");
+            currentGroup.className = "structured-group";
+            wrapper.appendChild(currentGroup);
+          }
+
+          if (!currentList) {
+            currentList = document.createElement("ul");
+            currentList.className = "structured-list";
+            currentGroup.appendChild(currentList);
+          }
+
+          const itemEl = document.createElement("li");
+          itemEl.textContent = trimmed.slice(2).trim();
+          currentList.appendChild(itemEl);
+          continue;
+        }
+
+        const textEl = document.createElement("div");
+        textEl.className = "message-text";
+        textEl.textContent = trimmed;
+        wrapper.appendChild(textEl);
+        currentGroup = null;
+        currentList = null;
+      }
+
+      return wrapper;
+    }
+
     function addMessage(text, sender) {
       const messageEl = document.createElement("div");
       messageEl.classList.add("message", sender);
-      messageEl.textContent = text;
+      messageEl.appendChild(renderMessageContent(text));
       chatMessages.appendChild(messageEl);
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
