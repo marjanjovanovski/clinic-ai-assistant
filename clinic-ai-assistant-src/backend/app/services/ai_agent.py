@@ -60,6 +60,38 @@ PRICE_TRIGGERS = (
     "kolku cini",
     "price",
 )
+CASUAL_REPLY_PATTERNS = (
+    (
+        (
+            "\u0444\u0430\u043b\u0430",
+            "\u0431\u043b\u0430\u0433\u043e\u0434\u0430\u0440\u0430\u043c",
+            "fala",
+            "blagodaram",
+            "thanks",
+            "thank you",
+        ),
+        "\u0412\u0438 \u0431\u043b\u0430\u0433\u043e\u0434\u0430\u0440\u0430\u043c. \u0410\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435, \u0441\u043b\u043e\u0431\u043e\u0434\u043d\u043e \u043a\u0430\u0436\u0435\u0442\u0435 \u0448\u0442\u043e \u0432\u0435 \u0438\u043d\u0442\u0435\u0440\u0435\u0441\u0438\u0440\u0430.",
+    ),
+    (
+        (
+            "wow",
+            "\u0432\u0430\u0443",
+            "\u043b\u0435\u043b\u0435",
+        ),
+        "\u0412\u0438 \u0431\u043b\u0430\u0433\u043e\u0434\u0430\u0440\u0430\u043c, \u0434\u0440\u0430\u0433\u043e \u043c\u0438 \u0435 \u0448\u0442\u043e \u043f\u043e\u043c\u043e\u0433\u043d\u0430\u0432. \u0410\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435, \u043c\u043e\u0436\u0430\u043c \u0438 \u0434\u0430 \u0432\u0435 \u043d\u0430\u0441\u043e\u0447\u0430\u043c \u043a\u043e\u043d \u0441\u043e\u043e\u0434\u0432\u0435\u0442\u043d\u0430 \u0443\u0441\u043b\u0443\u0433\u0430 \u0438\u043b\u0438 \u043a\u043e\u043d\u0441\u0443\u043b\u0442\u0430\u0446\u0438\u0458\u0430.",
+    ),
+    (
+        (
+            "\u0441\u0443\u043f\u0435\u0440",
+            "\u043e\u0434\u043b\u0438\u0447\u043d\u043e",
+            "super",
+            "odlichno",
+            "odlicno",
+            "great",
+        ),
+        "\u0414\u0440\u0430\u0433\u043e \u043c\u0438 \u0435. \u041a\u0430\u0436\u0435\u0442\u0435 \u0430\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435 \u0434\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u043c\u0435 \u0443\u0441\u043b\u0443\u0433\u0430 \u0438\u043b\u0438 \u0434\u0430 \u0437\u0430\u043a\u0430\u0436\u0435\u043c\u0435 \u043a\u043e\u043d\u0441\u0443\u043b\u0442\u0430\u0446\u0438\u0458\u0430.",
+    ),
+)
 
 
 class AIInferenceError(Exception):
@@ -253,6 +285,16 @@ def _is_service_list_request(message: str) -> bool:
 def _is_price_request(message: str) -> bool:
     normalized_message = _normalize_lookup_text(message)
     return any(trigger in normalized_message for trigger in PRICE_TRIGGERS)
+
+
+def _casual_reply(message: str) -> str | None:
+    normalized_message = _normalize_lookup_text(message)
+
+    for triggers, reply in CASUAL_REPLY_PATTERNS:
+        if any(trigger in normalized_message for trigger in triggers):
+            return reply
+
+    return None
 
 
 def _catalog_categories(profile: dict, services: list[dict]) -> list[dict]:
@@ -615,6 +657,23 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 _stage_name(SESSION_STATE.get(session_key)),
             )
             return price_reply, session_id
+
+    casual_reply = _casual_reply(message)
+    if casual_reply:
+        _log_chat_state(
+            message=message,
+            session_id=session_id,
+            intent="fallback",
+            stage_before=stage_before,
+            stage_after=_stage_name(SESSION_STATE.get(session_key)),
+        )
+        _trace_response(
+            tenant,
+            session_id,
+            casual_reply,
+            _stage_name(SESSION_STATE.get(session_key)),
+        )
+        return casual_reply, session_id
 
     try:
         client = OpenAI(api_key=api_key)
