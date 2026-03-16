@@ -44,11 +44,18 @@ INTENT_ALIASES = {
 SERVICE_LIST_TRIGGERS = (
     "\u0448\u0442\u043e \u0443\u0441\u043b\u0443\u0433\u0438",
     "\u043a\u043e\u0438 \u0443\u0441\u043b\u0443\u0433\u0438",
+    "\u0443\u0441\u043b\u0443\u0433\u0430",
+    "\u0443\u0441\u043b\u0443\u0433\u0438",
     "\u0443\u0441\u043b\u0443\u0433\u0438 \u043d\u0443\u0434\u0438\u0442\u0435",
     "\u0448\u0442\u043e \u043d\u0443\u0434\u0438\u0442\u0435",
+    "usluga",
+    "uslugi",
+    "service",
+    "services",
     "koi uslugi",
     "shto uslugi",
     "uslugi nudite",
+    "shto nudite",
     "sto nudite",
 )
 PRICE_TRIGGERS = (
