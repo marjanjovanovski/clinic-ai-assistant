@@ -16,7 +16,7 @@ DEBUG_AI = os.getenv("DEBUG_AI", "").strip().lower() == "true"
 SESSION_STATE = {}
 INTERACTION_HISTORY = {}
 MAX_INTERACTION_HISTORY = 6
-BOOKING_CONFIRM_WORDS = {"да", "da", "yes", "ok", "okej", "okay"}
+BOOKING_CONFIRM_WORDS = {"да", "da", "yes", "ok", "okej", "okay", "може", "moze"}
 CANONICAL_INTENTS = {"greeting", "suggest_service", "confirm_booking", "collect_contact", "fallback"}
 INTENT_ALIASES = {
     "greeting": "greeting",
@@ -117,6 +117,35 @@ CASUAL_REPLY_PATTERNS = (
         "positive",
     ),
 )
+CONTACT_CLARIFICATION_PREFIXES = ("dali", "дали", "mozhe", "moze", "може")
+CONTACT_CLARIFICATION_PHRASES = (
+    "ili",
+    "или",
+    "sluzbenata",
+    "sluzbena",
+    "privatnata",
+    "privatna",
+    "која",
+    "kakva",
+    "каква",
+    "which one",
+)
+SERVICE_DETAIL_TRIGGERS = (
+    "анестез",
+    "anestez",
+    "инјекц",
+    "inekc",
+    "боли",
+    "boli",
+    "боли ли",
+    "koliko tra",
+    "колку трае",
+    "дали се става",
+    "dali se stava",
+    "дали има",
+    "dali ima",
+)
+SAFE_DETAIL_FALLBACK = "Тоа може да зависи од конкретниот третман. Најдобро е стоматологот да процени на преглед."
 
 
 class AIInferenceError(Exception):
@@ -282,6 +311,14 @@ def _recent_interactions(session_key: str) -> list[dict]:
     return INTERACTION_HISTORY.get(session_key, [])
 
 
+def _last_interaction(session_key: str) -> dict | None:
+    history = _recent_interactions(session_key)
+    if not history:
+        return None
+
+    return history[-1]
+
+
 def _record_interaction(session_key: str, message: str, reply: str, response_type: str | None) -> None:
     history = INTERACTION_HISTORY.setdefault(session_key, [])
     history.append(
@@ -346,6 +383,86 @@ def _is_consultation_explanation_request(message: str, services: list[dict]) -> 
             "objasni",
         )
     )
+
+
+def _consultation_service(services: list[dict]) -> dict | None:
+    for service in services:
+        if service.get("id") == "consultation":
+            return service
+    return None
+
+
+def _should_start_consultation_booking(message: str, session_key: str, services: list[dict]) -> bool:
+    if not _is_booking_confirmation(message):
+        return False
+
+    last_item = _last_interaction(session_key)
+    if not last_item:
+        return False
+
+    if last_item.get("response_type") == "service_list":
+        return False
+
+    consultation_service = _consultation_service(services)
+    if not consultation_service:
+        return False
+
+    last_reply = last_item.get("reply", "")
+    matched_service = _match_service_for_message(last_reply, services) if isinstance(last_reply, str) else None
+    return bool(matched_service and matched_service.get("id") == consultation_service.get("id"))
+
+
+def _is_contact_clarification(message: str) -> bool:
+    normalized_message = _normalize_lookup_text(message)
+    if not normalized_message:
+        return False
+
+    if "?" in message:
+        return True
+
+    if any(normalized_message.startswith(prefix) for prefix in CONTACT_CLARIFICATION_PREFIXES):
+        return True
+
+    return any(phrase in normalized_message for phrase in CONTACT_CLARIFICATION_PHRASES)
+
+
+def _contact_clarification_reply(profile: dict, field_name: str) -> str:
+    field_label = _field_prompt(profile, field_name)
+    if field_name == "email":
+        return f"Може и службената и приватната. {field_label}"
+    if field_name == "phone":
+        return f"Може да оставите број на кој најлесно можеме да ве добиеме. {field_label}"
+    if field_name == "name":
+        return f"Слободно оставете го името на кое сакате да ве евидентираме. {field_label}"
+    return field_label
+
+
+def _unknown_service_detail_reply(message: str, services: list[dict]) -> str | None:
+    normalized_message = _normalize_lookup_text(message)
+    if not any(trigger in normalized_message for trigger in SERVICE_DETAIL_TRIGGERS):
+        return None
+
+    service = _match_service_for_message(message, services)
+    if not service:
+        return None
+
+    known_text_parts: list[str] = []
+    for field_name in ("name", "име", "description", "опис", "article_name", "category"):
+        value = service.get(field_name)
+        if isinstance(value, str) and value.strip():
+            known_text_parts.append(_normalize_lookup_text(value))
+
+    for field_name in ("aliases", "keywords", "symptoms", "препорачано_за"):
+        values = service.get(field_name) or []
+        if isinstance(values, list):
+            for item in values:
+                if isinstance(item, str) and item.strip():
+                    known_text_parts.append(_normalize_lookup_text(item))
+
+    if any(trigger in " ".join(known_text_parts) for trigger in SERVICE_DETAIL_TRIGGERS):
+        return None
+
+    return SAFE_DETAIL_FALLBACK
 
 
 def _repetition_reformulation(
@@ -882,6 +999,22 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     # Booking state 2: backend owns the contact collection prompts until completion.
     if state and state.get("stage") == "collecting_contact":
         next_field = state.get("next_field")
+
+        if _is_contact_clarification(message):
+            reply = _contact_clarification_reply(profile, next_field)
+            final_reply = _finalize_reply(
+                tenant=tenant,
+                session_id=session_id,
+                session_key=session_key,
+                message=message,
+                reply=reply,
+                response_type="collect_contact",
+                services=services,
+                profile=profile,
+                stage_after="collecting_contact",
+            )
+            return final_reply, session_id
+
         state["data"][next_field] = message
 
         remaining = [field for field in collect_fields if field not in state["data"]]
@@ -945,6 +1078,53 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             services=services,
             profile=profile,
             stage_after="completed",
+        )
+        return final_reply, session_id
+
+    if not state and allow_booking and _should_start_consultation_booking(message, session_key, services):
+        SESSION_STATE[session_key] = {
+            "stage": "awaiting_booking_confirmation",
+            "service_id": "consultation",
+        }
+        _trace_stage_transition(
+            tenant,
+            session_id,
+            stage_before,
+            "awaiting_booking_confirmation",
+            reason="predicted_consultation_confirmation",
+        )
+        reply, session_id = _start_collecting_contact(
+            tenant,
+            session_id,
+            session_key,
+            "consultation",
+            collect_fields,
+            profile,
+        )
+        _trace_stage_transition(
+            tenant,
+            session_id,
+            "awaiting_booking_confirmation",
+            "collecting_contact",
+            reason="predicted_consultation_confirmation",
+        )
+        _log_chat_state(
+            message=message,
+            session_id=session_id,
+            intent="confirm_booking",
+            stage_before=stage_before,
+            stage_after="collecting_contact",
+        )
+        final_reply = _finalize_reply(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            message=message,
+            reply=reply,
+            response_type="confirm_booking",
+            services=services,
+            profile=profile,
+            stage_after="collecting_contact",
         )
         return final_reply, session_id
 
@@ -1076,6 +1256,28 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             message=message,
             reply=casual_reply,
             response_type="casual",
+            services=services,
+            profile=profile,
+            stage_after=_stage_name(SESSION_STATE.get(session_key)),
+        )
+        return final_reply, session_id
+
+    cautious_detail_reply = _unknown_service_detail_reply(message, services)
+    if cautious_detail_reply:
+        _log_chat_state(
+            message=message,
+            session_id=session_id,
+            intent="fallback",
+            stage_before=stage_before,
+            stage_after=_stage_name(SESSION_STATE.get(session_key)),
+        )
+        final_reply = _finalize_reply(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            message=message,
+            reply=cautious_detail_reply,
+            response_type="fallback",
             services=services,
             profile=profile,
             stage_after=_stage_name(SESSION_STATE.get(session_key)),
