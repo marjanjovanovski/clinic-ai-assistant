@@ -320,7 +320,7 @@ def _greeting_reply(message: str) -> str | None:
     if normalized_message not in GREETING_TRIGGERS:
         return None
 
-    return "\u0417\u0434\u0440\u0430\u0432\u043e, \u043a\u0430\u043a\u043e \u043c\u043e\u0436\u0430\u043c \u0434\u0430 \u0432\u0438 \u043f\u043e\u043c\u043e\u0433\u043d\u0430\u043c \u0434\u0435\u043d\u0435\u0441?"
+    return "\u0417\u0434\u0440\u0430\u0432\u043e, \u043a\u0430\u043a\u043e \u043c\u043e\u0436\u0430\u043c \u0434\u0430 \u0432\u0438 \u043f\u043e\u043c\u043e\u0433\u043d\u0430\u043c?"
 
 
 def _service_clarification_reply(message: str) -> str | None:
@@ -440,11 +440,13 @@ def _orientation_price_text(service: dict) -> str | None:
 
     if isinstance(price, (int, float)):
         currency_text = f" {currency}" if isinstance(currency, str) and currency.strip() else ""
-        first_line = f"{service_name} \u0435 \u043e\u043a\u043e\u043b\u0443 {price:g}{currency_text}."
+        first_line = f"{service_name} \u0447\u0438\u043d\u0438 \u043e\u043a\u043e\u043b\u0443 {price:g}{currency_text}."
     elif isinstance(price, str) and price.strip():
         first_line = f"{service_name} \u0435 {price.strip()}."
+        if price.strip().casefold() == "\u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e":
+            first_line = f"{service_name} \u0435 \u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u0430."
     elif isinstance(price_range, str) and price_range.strip():
-        first_line = f"\u0417\u0430 {service_name.lower()} \u043e\u0440\u0438\u0435\u043d\u0442\u0430\u0446\u0438\u0441\u043a\u0438\u043e\u0442 \u0446\u0435\u043d\u043e\u0432\u0435\u043d \u043e\u043f\u0441\u0435\u0433 \u0435 {price_range.strip()}."
+        first_line = f"\u041e\u0440\u0438\u0435\u043d\u0442\u0430\u0446\u0438\u0441\u043a\u0438\u043e\u0442 \u0446\u0435\u043d\u043e\u0432\u0435\u043d \u043e\u043f\u0441\u0435\u0433 \u0437\u0430 {service_name.lower()} \u0435 {price_range.strip()}."
     else:
         return None
 
@@ -470,11 +472,18 @@ def _service_description_reply(message: str, services: list[dict]) -> str | None
     if not description:
         return None
 
+    article_name = service_name
+    if service_name == "\u0411\u0435\u043b\u0435\u045a\u0435 \u043d\u0430 \u0437\u0430\u0431\u0438":
+        article_name = "\u0411\u0435\u043b\u0435\u045a\u0435\u0442\u043e \u043d\u0430 \u0437\u0430\u0431\u0438"
+    elif service_name == "\u0421\u0442\u043e\u043c\u0430\u0442\u043e\u043b\u043e\u0448\u043a\u0430 \u043a\u043e\u043d\u0441\u0443\u043b\u0442\u0430\u0446\u0438\u0458\u0430":
+        article_name = "\u0421\u0442\u043e\u043c\u0430\u0442\u043e\u043b\u043e\u0448\u043a\u0430\u0442\u0430 \u043a\u043e\u043d\u0441\u0443\u043b\u0442\u0430\u0446\u0438\u0458\u0430"
+
+    sentence_description = description[0].lower() + description[1:] if description else description
     return (
-        f"{service_name} \u0435 \u0443\u0441\u043b\u0443\u0433\u0430 \u0437\u0430 {description[0].lower() + description[1:]}"
+        f"{article_name} \u0435 {sentence_description}"
         "\n\n"
-        "\u0410\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435, \u043c\u043e\u0436\u0435\u043c\u0435 \u0438 \u043a\u0440\u0430\u0442\u043a\u043e \u0434\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u043c\u0435 "
-        "\u0434\u0430\u043b\u0438 \u0442\u043e\u0430 \u0435 \u043d\u0430\u0458\u0441\u043e\u043e\u0434\u0432\u0435\u0442\u043d\u0430\u0442\u0430 \u043e\u043f\u0446\u0438\u0458\u0430 \u0437\u0430 \u0432\u0430\u0441."
+        "\u0410\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435, \u043c\u043e\u0436\u0435\u043c\u0435 \u043a\u0440\u0430\u0442\u043a\u043e \u0434\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u043c\u0435 "
+        "\u0434\u0430\u043b\u0438 \u0442\u043e\u0430 \u0435 \u0441\u043e\u043e\u0434\u0432\u0435\u0442\u043d\u0430\u0442\u0430 \u043e\u043f\u0446\u0438\u0458\u0430 \u0437\u0430 \u0432\u0430\u0441."
     )
 
 
