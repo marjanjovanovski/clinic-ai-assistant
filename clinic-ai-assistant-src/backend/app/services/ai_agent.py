@@ -58,6 +58,12 @@ SERVICE_LIST_TRIGGERS = (
     "shto nudite",
     "sto nudite",
 )
+GREETING_TRIGGERS = (
+    "zdravo",
+    "zdravoo",
+    "hello",
+    "hi",
+)
 PRICE_TRIGGERS = (
     "\u0446\u0435\u043d\u0430",
     "\u043a\u043e\u043b\u043a\u0443 \u0447\u0438\u043d\u0438",
@@ -66,6 +72,21 @@ PRICE_TRIGGERS = (
     "kolku chini",
     "kolku cini",
     "price",
+)
+SERVICE_CLARIFICATION_TRIGGERS = (
+    "soodvetna usluga",
+    "koja usluga",
+    "koja usluga mi treba",
+    "kakva usluga mi treba",
+    "recommend service",
+)
+SERVICE_DESCRIPTION_TRIGGERS = (
+    "kazete mi za",
+    "shto e",
+    "objasni mi",
+    "\u043a\u0430\u0436\u0435\u0442\u0435 \u043c\u0438 \u0437\u0430",
+    "\u0448\u0442\u043e \u0435",
+    "\u043e\u0431\u0458\u0430\u0441\u043d\u0438 \u043c\u0438",
 )
 CASUAL_REPLY_PATTERNS = (
     (
@@ -294,6 +315,36 @@ def _is_price_request(message: str) -> bool:
     return any(trigger in normalized_message for trigger in PRICE_TRIGGERS)
 
 
+def _greeting_reply(message: str) -> str | None:
+    normalized_message = _normalize_lookup_text(message)
+    if normalized_message not in GREETING_TRIGGERS:
+        return None
+
+    return "\u0417\u0434\u0440\u0430\u0432\u043e, \u043a\u0430\u043a\u043e \u043c\u043e\u0436\u0430\u043c \u0434\u0430 \u0432\u0438 \u043f\u043e\u043c\u043e\u0433\u043d\u0430\u043c \u0434\u0435\u043d\u0435\u0441?"
+
+
+def _service_clarification_reply(message: str) -> str | None:
+    normalized_message = _normalize_lookup_text(message)
+
+    if normalized_message == "koja usluga mi treba":
+        return (
+            "\u0417\u0430 \u0434\u0430 \u0432\u0435 \u043d\u0430\u0441\u043e\u0447\u0430\u043c \u043d\u0430\u0458\u0434\u043e\u0431\u0440\u043e, "
+            "\u043a\u0430\u0436\u0435\u0442\u0435 \u043c\u0438 \u0434\u0430\u043b\u0438 \u0438\u043c\u0430\u0442\u0435 \u0431\u043e\u043b\u043a\u0430, "
+            "\u0441\u0430\u043a\u0430\u0442\u0435 \u0435\u0441\u0442\u0435\u0442\u0441\u043a\u0430 \u043a\u043e\u0440\u0435\u043a\u0446\u0438\u0458\u0430 "
+            "\u0438\u043b\u0438 \u0441\u0430\u043a\u0430\u0442\u0435 \u0441\u0430\u043c\u043e \u043f\u0440\u0435\u0433\u043b\u0435\u0434."
+        )
+
+    if any(trigger in normalized_message for trigger in SERVICE_CLARIFICATION_TRIGGERS):
+        return (
+            "\u041a\u0430\u0436\u0435\u0442\u0435 \u043c\u0438 \u043d\u0430\u043a\u0440\u0430\u0442\u043a\u043e \u0448\u0442\u043e \u0432\u0435 \u043c\u0430\u0447\u0438 "
+            "\u0438\u043b\u0438 \u0448\u0442\u043e \u0441\u0430\u043a\u0430\u0442\u0435 \u0434\u0430 \u043f\u043e\u0434\u043e\u0431\u0440\u0438\u0442\u0435, "
+            "\u043f\u0430 \u045c\u0435 \u0432\u0435 \u043d\u0430\u0441\u043e\u0447\u0430\u043c \u043a\u043e\u043d \u043d\u0430\u0458\u0441\u043e\u043e\u0434\u0432\u0435\u0442\u043d\u0430 "
+            "\u0443\u0441\u043b\u0443\u0433\u0430 \u0438\u043b\u0438 \u043a\u043e\u043d\u0441\u0443\u043b\u0442\u0430\u0446\u0438\u0458\u0430."
+        )
+
+    return None
+
+
 def _casual_reply(message: str) -> str | None:
     normalized_message = _normalize_lookup_text(message)
 
@@ -405,6 +456,28 @@ def _orientation_price_text(service: dict) -> str | None:
     return "\n".join(lines)
 
 
+def _service_description_reply(message: str, services: list[dict]) -> str | None:
+    normalized_message = _normalize_lookup_text(message)
+    if not any(trigger in normalized_message for trigger in SERVICE_DESCRIPTION_TRIGGERS):
+        return None
+
+    service = _match_service_for_message(message, services)
+    if not service:
+        return None
+
+    service_name = _service_display_name(service)
+    description = _service_display_description(service)
+    if not description:
+        return None
+
+    return (
+        f"{service_name} \u0435 \u0443\u0441\u043b\u0443\u0433\u0430 \u0437\u0430 {description[0].lower() + description[1:]}"
+        "\n\n"
+        "\u0410\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435, \u043c\u043e\u0436\u0435\u043c\u0435 \u0438 \u043a\u0440\u0430\u0442\u043a\u043e \u0434\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u043c\u0435 "
+        "\u0434\u0430\u043b\u0438 \u0442\u043e\u0430 \u0435 \u043d\u0430\u0458\u0441\u043e\u043e\u0434\u0432\u0435\u0442\u043d\u0430\u0442\u0430 \u043e\u043f\u0446\u0438\u0458\u0430 \u0437\u0430 \u0432\u0430\u0441."
+    )
+
+
 def get_session_status(tenant: str, session_id: str | None) -> str:
     if not session_id:
         return "active"
@@ -472,8 +545,6 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             "symptoms": service.get("symptoms", []),
             "aliases": service.get("aliases", []),
             "category": service.get("category"),
-            "price": service.get("price", service.get("\u0446\u0435\u043d\u0430")),
-            "price_range": service.get("price_range", service.get("\u0446\u0435\u043d\u043e\u0432\u0435\u043d_\u043e\u043f\u0441\u0435\u0433")),
             "bookable": service.get("bookable", False)
         }
         for service in services
@@ -504,8 +575,8 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             "\n\nBooking capability: enabled."
             "\nCanonical intents: greeting, suggest_service, confirm_booking, fallback."
             "\nIf the user confirms booking, return confirm_booking."
-            "\nIf the user asks for a price and the catalog includes price or price_range, mention that orientation price and then recommend consultation."
             "\nIf the user asks what services are available, present them grouped by category."
+            "\nDo not volunteer prices in general descriptive answers."
             f"\nCollect these fields in order: {collect_fields}"
         )
 
@@ -629,6 +700,40 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         _trace_response(tenant, session_id, reply, "completed")
         return reply, session_id
 
+    greeting_reply = _greeting_reply(message)
+    if greeting_reply:
+        _log_chat_state(
+            message=message,
+            session_id=session_id,
+            intent="greeting",
+            stage_before=stage_before,
+            stage_after=_stage_name(SESSION_STATE.get(session_key)),
+        )
+        _trace_response(
+            tenant,
+            session_id,
+            greeting_reply,
+            _stage_name(SESSION_STATE.get(session_key)),
+        )
+        return greeting_reply, session_id
+
+    clarification_reply = _service_clarification_reply(message)
+    if clarification_reply:
+        _log_chat_state(
+            message=message,
+            session_id=session_id,
+            intent="fallback",
+            stage_before=stage_before,
+            stage_after=_stage_name(SESSION_STATE.get(session_key)),
+        )
+        _trace_response(
+            tenant,
+            session_id,
+            clarification_reply,
+            _stage_name(SESSION_STATE.get(session_key)),
+        )
+        return clarification_reply, session_id
+
     if _is_service_list_request(message):
         reply = _service_list_reply(profile, services)
         _log_chat_state(
@@ -664,6 +769,23 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 _stage_name(SESSION_STATE.get(session_key)),
             )
             return price_reply, session_id
+
+    description_reply = _service_description_reply(message, services)
+    if description_reply:
+        _log_chat_state(
+            message=message,
+            session_id=session_id,
+            intent="suggest_service",
+            stage_before=stage_before,
+            stage_after=_stage_name(SESSION_STATE.get(session_key)),
+        )
+        _trace_response(
+            tenant,
+            session_id,
+            description_reply,
+            _stage_name(SESSION_STATE.get(session_key)),
+        )
+        return description_reply, session_id
 
     casual_reply = _casual_reply(message)
     if casual_reply:
