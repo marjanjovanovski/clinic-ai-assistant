@@ -48,6 +48,27 @@
     ],
     "fallback_message": "Извинете, не сум сигурен дека точно ја разбрав пораката. Можете ли накратко да ми опишете што ве мачи или што сакате да направите?"
   },
+  "conversation_rules": {
+    "booking_confirm_words": ["да", "da", "yes", "ok", "okej", "okay", "може", "moze"],
+    "greeting_triggers": ["zdravo", "zdravoo", "hello", "hi"],
+    "service_list_triggers": ["што услуги", "кои услуги", "услуга", "услуги", "услуги нудите", "што нудите", "usluga", "uslugi", "service", "services", "koi uslugi", "shto uslugi", "uslugi nudite", "shto nudite", "sto nudite"],
+    "price_triggers": ["цена", "колку чини", "колкава е цената", "cena", "kolku chini", "kolku cini", "price"],
+    "contact_clarification_prefixes": ["dali", "дали", "mozhe", "moze", "може"],
+    "contact_clarification_phrases": ["ili", "или", "sluzbenata", "sluzbena", "privatnata", "privatna", "која", "kakva", "каква", "which one"],
+    "service_detail_triggers": ["анестез", "anestez", "инјекц", "inekc", "боли", "boli", "боли ли", "koliko tra", "колку трае", "дали се става", "dali se stava", "дали има", "dali ima"],
+    "safe_detail_fallback": "Тоа може да зависи од конкретниот третман. Најдобро е стоматологот да процени на преглед.",
+    "service_clarification_triggers": ["soodvetna usluga", "koja usluga", "kakva usluga mi treba", "recommend service"],
+    "service_clarification_specific_triggers": ["koja usluga mi treba"],
+    "service_description_triggers": ["kazete mi za", "shto e", "objasni mi", "кажете ми за", "што е", "објасни ми"],
+    "consultation_explanation_triggers": ["каква", "што е", "објасни", "kakva", "shto e", "objasni"],
+    "broad_pricing_price_terms": ["цена", "цени", "колку", "чини", "чинат", "cena", "ceni", "kolku", "chini", "cini", "price", "prices"],
+    "broad_pricing_service_terms": ["услуга", "услуги", "услугите", "usluga", "uslugi", "service", "services"],
+    "casual_reply_patterns": [
+      { "triggers": ["фала", "благодарам", "fala", "blagodaram", "thanks", "thank you"], "reply_key": "thanks" },
+      { "triggers": ["wow", "вау", "леле"], "reply_key": "wow" },
+      { "triggers": ["супер", "одлично", "super", "odlichno", "odlicno", "great"], "reply_key": "positive" }
+    ]
+  },
   "reply_texts": {
     "greeting_short": "Здраво, како можам да ви помогнам?",
     "service_clarification": "Кажете ми накратко што ве мачи или што сакате да подобрите, па ќе ве насочам кон најсоодветна услуга или консултација.",
@@ -72,6 +93,12 @@
       "name": "Ве молам кажете ни го вашето име.",
       "phone": "Ве молам кажете ни го вашиот телефон.",
       "email": "Ве молам кажете ни ја вашата е-пошта."
+    },
+    "contact_clarification_replies": {
+      "name": "Слободно оставете го името на кое сакате да ве евидентираме. {field_prompt}",
+      "phone": "Може да оставите број на кој најлесно можеме да ве добиеме. {field_prompt}",
+      "email": "Може и службената и приватната. {field_prompt}",
+      "default": "{field_prompt}"
     },
     "booking_completed": "Ви благодарам. Вашето барање за термин е примено. Клиниката ќе ве контактира."
   },

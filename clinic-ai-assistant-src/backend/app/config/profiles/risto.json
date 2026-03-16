@@ -32,6 +32,27 @@
     ],
     "fallback_message": "I'm sorry, I couldn't understand that. Could you clarify?"
   },
+  "conversation_rules": {
+    "booking_confirm_words": ["да", "da", "yes", "ok", "okej", "okay", "може", "moze"],
+    "greeting_triggers": ["zdravo", "zdravoo", "hello", "hi"],
+    "service_list_triggers": ["што услуги", "кои услуги", "услуга", "услуги", "услуги нудите", "што нудите", "usluga", "uslugi", "service", "services", "koi uslugi", "shto uslugi", "uslugi nudite", "shto nudite", "sto nudite"],
+    "price_triggers": ["цена", "колку чини", "колкава е цената", "cena", "kolku chini", "kolku cini", "price"],
+    "contact_clarification_prefixes": ["dali", "дали", "mozhe", "moze", "може"],
+    "contact_clarification_phrases": ["ili", "или", "sluzbenata", "sluzbena", "privatnata", "privatna", "која", "kakva", "каква", "which one"],
+    "service_detail_triggers": ["анестез", "anestez", "инјекц", "inekc", "боли", "boli", "боли ли", "koliko tra", "колку трае", "дали се става", "dali se stava", "дали има", "dali ima"],
+    "safe_detail_fallback": "That can depend on the specific treatment. The dentist should assess that during an examination.",
+    "service_clarification_triggers": ["soodvetna usluga", "koja usluga", "kakva usluga mi treba", "recommend service"],
+    "service_clarification_specific_triggers": ["koja usluga mi treba"],
+    "service_description_triggers": ["kazete mi za", "shto e", "objasni mi", "кажете ми за", "што е", "објасни ми"],
+    "consultation_explanation_triggers": ["каква", "што е", "објасни", "kakva", "shto e", "objasni"],
+    "broad_pricing_price_terms": ["цена", "цени", "колку", "чини", "чинат", "cena", "ceni", "kolku", "chini", "cini", "price", "prices"],
+    "broad_pricing_service_terms": ["услуга", "услуги", "услугите", "usluga", "uslugi", "service", "services"],
+    "casual_reply_patterns": [
+      { "triggers": ["фала", "благодарам", "fala", "blagodaram", "thanks", "thank you"], "reply_key": "thanks" },
+      { "triggers": ["wow", "вау", "леле"], "reply_key": "wow" },
+      { "triggers": ["супер", "одлично", "super", "odlichno", "odlicno", "great"], "reply_key": "positive" }
+    ]
+  },
   "reply_texts": {
     "greeting_short": "Hello! How can I help you?",
     "service_clarification": "Tell me briefly what you need help with, and I can guide you to the most suitable service.",
@@ -56,6 +77,12 @@
       "name": "Please share your name.",
       "phone": "Please share your phone number.",
       "email": "Please share your email address."
+    },
+    "contact_clarification_replies": {
+      "name": "Please share the name you want us to use. {field_prompt}",
+      "phone": "You can leave the number where we can reach you most easily. {field_prompt}",
+      "email": "Either a work or private email is fine. {field_prompt}",
+      "default": "{field_prompt}"
     },
     "booking_completed": "Thank you. Your booking request has been received. The business will contact you."
   },

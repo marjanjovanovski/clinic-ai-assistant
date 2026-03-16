@@ -16,7 +16,6 @@ DEBUG_AI = os.getenv("DEBUG_AI", "").strip().lower() == "true"
 SESSION_STATE = {}
 INTERACTION_HISTORY = {}
 MAX_INTERACTION_HISTORY = 6
-BOOKING_CONFIRM_WORDS = {"да", "da", "yes", "ok", "okej", "okay", "може", "moze"}
 CANONICAL_INTENTS = {"greeting", "suggest_service", "confirm_booking", "collect_contact", "fallback"}
 INTENT_ALIASES = {
     "greeting": "greeting",
@@ -38,114 +37,6 @@ INTENT_ALIASES = {
     "ask_services": "fallback",
     "fallback": "fallback",
 }
-SERVICE_LIST_TRIGGERS = (
-    "\u0448\u0442\u043e \u0443\u0441\u043b\u0443\u0433\u0438",
-    "\u043a\u043e\u0438 \u0443\u0441\u043b\u0443\u0433\u0438",
-    "\u0443\u0441\u043b\u0443\u0433\u0430",
-    "\u0443\u0441\u043b\u0443\u0433\u0438",
-    "\u0443\u0441\u043b\u0443\u0433\u0438 \u043d\u0443\u0434\u0438\u0442\u0435",
-    "\u0448\u0442\u043e \u043d\u0443\u0434\u0438\u0442\u0435",
-    "usluga",
-    "uslugi",
-    "service",
-    "services",
-    "koi uslugi",
-    "shto uslugi",
-    "uslugi nudite",
-    "shto nudite",
-    "sto nudite",
-)
-GREETING_TRIGGERS = (
-    "zdravo",
-    "zdravoo",
-    "hello",
-    "hi",
-)
-PRICE_TRIGGERS = (
-    "\u0446\u0435\u043d\u0430",
-    "\u043a\u043e\u043b\u043a\u0443 \u0447\u0438\u043d\u0438",
-    "\u043a\u043e\u043b\u043a\u0430\u0432\u0430 \u0435 \u0446\u0435\u043d\u0430\u0442\u0430",
-    "cena",
-    "kolku chini",
-    "kolku cini",
-    "price",
-)
-SERVICE_CLARIFICATION_TRIGGERS = (
-    "soodvetna usluga",
-    "koja usluga",
-    "koja usluga mi treba",
-    "kakva usluga mi treba",
-    "recommend service",
-)
-SERVICE_DESCRIPTION_TRIGGERS = (
-    "kazete mi za",
-    "shto e",
-    "objasni mi",
-    "\u043a\u0430\u0436\u0435\u0442\u0435 \u043c\u0438 \u0437\u0430",
-    "\u0448\u0442\u043e \u0435",
-    "\u043e\u0431\u0458\u0430\u0441\u043d\u0438 \u043c\u0438",
-)
-CASUAL_REPLY_PATTERNS = (
-    (
-        (
-            "\u0444\u0430\u043b\u0430",
-            "\u0431\u043b\u0430\u0433\u043e\u0434\u0430\u0440\u0430\u043c",
-            "fala",
-            "blagodaram",
-            "thanks",
-            "thank you",
-        ),
-        "thanks",
-    ),
-    (
-        (
-            "wow",
-            "\u0432\u0430\u0443",
-            "\u043b\u0435\u043b\u0435",
-        ),
-        "wow",
-    ),
-    (
-        (
-            "\u0441\u0443\u043f\u0435\u0440",
-            "\u043e\u0434\u043b\u0438\u0447\u043d\u043e",
-            "super",
-            "odlichno",
-            "odlicno",
-            "great",
-        ),
-        "positive",
-    ),
-)
-CONTACT_CLARIFICATION_PREFIXES = ("dali", "дали", "mozhe", "moze", "може")
-CONTACT_CLARIFICATION_PHRASES = (
-    "ili",
-    "или",
-    "sluzbenata",
-    "sluzbena",
-    "privatnata",
-    "privatna",
-    "која",
-    "kakva",
-    "каква",
-    "which one",
-)
-SERVICE_DETAIL_TRIGGERS = (
-    "анестез",
-    "anestez",
-    "инјекц",
-    "inekc",
-    "боли",
-    "boli",
-    "боли ли",
-    "koliko tra",
-    "колку трае",
-    "дали се става",
-    "dali se stava",
-    "дали има",
-    "dali ima",
-)
-SAFE_DETAIL_FALLBACK = "Тоа може да зависи од конкретниот третман. Најдобро е стоматологот да процени на преглед."
 
 
 class AIInferenceError(Exception):
@@ -251,6 +142,19 @@ def _profile_text_map(profile: dict, *path: str) -> dict:
     return value if isinstance(value, dict) else {}
 
 
+def _profile_list(profile: dict, *path: str) -> list[str]:
+    value = profile
+    for key in path:
+        if not isinstance(value, dict):
+            return []
+        value = value.get(key)
+
+    if not isinstance(value, list):
+        return []
+
+    return [item.strip() for item in value if isinstance(item, str) and item.strip()]
+
+
 def _render_profile_text(profile: dict, path: tuple[str, ...], **values) -> str | None:
     template = _profile_text(profile, *path)
     if not template:
@@ -265,6 +169,32 @@ def _field_prompt(profile: dict, field_name: str) -> str:
     if isinstance(value, str) and value.strip():
         return value.strip()
     return field_name
+
+
+def _conversation_rule_list(profile: dict, rule_name: str) -> list[str]:
+    return _profile_list(profile, "conversation_rules", rule_name)
+
+
+def _conversation_rule_patterns(profile: dict) -> list[tuple[list[str], str]]:
+    patterns = profile.get("conversation_rules", {}).get("casual_reply_patterns", [])
+    if not isinstance(patterns, list):
+        return []
+
+    normalized_patterns: list[tuple[list[str], str]] = []
+    for item in patterns:
+        if not isinstance(item, dict):
+            continue
+
+        triggers = item.get("triggers")
+        reply_key = item.get("reply_key")
+        if not isinstance(triggers, list) or not isinstance(reply_key, str) or not reply_key.strip():
+            continue
+
+        clean_triggers = [trigger.strip() for trigger in triggers if isinstance(trigger, str) and trigger.strip()]
+        if clean_triggers:
+            normalized_patterns.append((clean_triggers, reply_key.strip()))
+
+    return normalized_patterns
 
 
 def _status_for_stage(stage: str | None) -> str:
@@ -332,41 +262,22 @@ def _record_interaction(session_key: str, message: str, reply: str, response_typ
         del history[:-MAX_INTERACTION_HISTORY]
 
 
-def _is_broad_pricing_request(message: str) -> bool:
+def _is_broad_pricing_request(message: str, profile: dict) -> bool:
     normalized_message = _normalize_lookup_text(message)
+    price_terms = _conversation_rule_list(profile, "broad_pricing_price_terms")
     has_price_language = any(
         token in normalized_message
-        for token in (
-            "\u0446\u0435\u043d\u0430",
-            "\u0446\u0435\u043d\u0438",
-            "\u043a\u043e\u043b\u043a\u0443",
-            "\u0447\u0438\u043d\u0438",
-            "\u0447\u0438\u043d\u0430\u0442",
-            "cena",
-            "ceni",
-            "kolku",
-            "chini",
-            "cini",
-            "price",
-            "prices",
-        )
+        for token in price_terms
     )
+    service_terms = _conversation_rule_list(profile, "broad_pricing_service_terms")
     has_service_language = any(
         token in normalized_message
-        for token in (
-            "\u0443\u0441\u043b\u0443\u0433\u0430",
-            "\u0443\u0441\u043b\u0443\u0433\u0438",
-            "\u0443\u0441\u043b\u0443\u0433\u0438\u0442\u0435",
-            "usluga",
-            "uslugi",
-            "service",
-            "services",
-        )
+        for token in service_terms
     )
-    return has_price_language and has_service_language and not _is_price_request(message)
+    return has_price_language and has_service_language and not _is_price_request(message, profile)
 
 
-def _is_consultation_explanation_request(message: str, services: list[dict]) -> bool:
+def _is_consultation_explanation_request(message: str, services: list[dict], profile: dict) -> bool:
     normalized_message = _normalize_lookup_text(message)
     consultation_service = _match_service_for_message(message, services)
     if not consultation_service or consultation_service.get("id") != "consultation":
@@ -374,14 +285,7 @@ def _is_consultation_explanation_request(message: str, services: list[dict]) -> 
 
     return any(
         trigger in normalized_message
-        for trigger in (
-            "\u043a\u0430\u043a\u0432\u0430",
-            "\u0448\u0442\u043e \u0435",
-            "\u043e\u0431\u0458\u0430\u0441\u043d\u0438",
-            "kakva",
-            "shto e",
-            "objasni",
-        )
+        for trigger in _conversation_rule_list(profile, "consultation_explanation_triggers")
     )
 
 
@@ -392,8 +296,8 @@ def _consultation_service(services: list[dict]) -> dict | None:
     return None
 
 
-def _should_start_consultation_booking(message: str, session_key: str, services: list[dict]) -> bool:
-    if not _is_booking_confirmation(message):
+def _should_start_consultation_booking(message: str, session_key: str, services: list[dict], profile: dict) -> bool:
+    if not _is_booking_confirmation(message, profile):
         return False
 
     last_item = _last_interaction(session_key)
@@ -412,7 +316,7 @@ def _should_start_consultation_booking(message: str, session_key: str, services:
     return bool(matched_service and matched_service.get("id") == consultation_service.get("id"))
 
 
-def _is_contact_clarification(message: str) -> bool:
+def _is_contact_clarification(message: str, profile: dict) -> bool:
     normalized_message = _normalize_lookup_text(message)
     if not normalized_message:
         return False
@@ -420,26 +324,27 @@ def _is_contact_clarification(message: str) -> bool:
     if "?" in message:
         return True
 
-    if any(normalized_message.startswith(prefix) for prefix in CONTACT_CLARIFICATION_PREFIXES):
+    prefixes = _conversation_rule_list(profile, "contact_clarification_prefixes")
+    if any(normalized_message.startswith(prefix) for prefix in prefixes):
         return True
 
-    return any(phrase in normalized_message for phrase in CONTACT_CLARIFICATION_PHRASES)
+    phrases = _conversation_rule_list(profile, "contact_clarification_phrases")
+    return any(phrase in normalized_message for phrase in phrases)
 
 
 def _contact_clarification_reply(profile: dict, field_name: str) -> str:
     field_label = _field_prompt(profile, field_name)
-    if field_name == "email":
-        return f"Може и службената и приватната. {field_label}"
-    if field_name == "phone":
-        return f"Може да оставите број на кој најлесно можеме да ве добиеме. {field_label}"
-    if field_name == "name":
-        return f"Слободно оставете го името на кое сакате да ве евидентираме. {field_label}"
+    contact_replies = _profile_text_map(profile, "reply_texts", "contact_clarification_replies")
+    template = contact_replies.get(field_name) or contact_replies.get("default")
+    if isinstance(template, str) and template.strip():
+        return template.strip().format(field_prompt=field_label)
     return field_label
 
 
-def _unknown_service_detail_reply(message: str, services: list[dict]) -> str | None:
+def _unknown_service_detail_reply(message: str, services: list[dict], profile: dict) -> str | None:
     normalized_message = _normalize_lookup_text(message)
-    if not any(trigger in normalized_message for trigger in SERVICE_DETAIL_TRIGGERS):
+    detail_triggers = _conversation_rule_list(profile, "service_detail_triggers")
+    if not any(trigger in normalized_message for trigger in detail_triggers):
         return None
 
     service = _match_service_for_message(message, services)
@@ -459,10 +364,10 @@ def _unknown_service_detail_reply(message: str, services: list[dict]) -> str | N
                 if isinstance(item, str) and item.strip():
                     known_text_parts.append(_normalize_lookup_text(item))
 
-    if any(trigger in " ".join(known_text_parts) for trigger in SERVICE_DETAIL_TRIGGERS):
+    if any(trigger in " ".join(known_text_parts) for trigger in detail_triggers):
         return None
 
-    return SAFE_DETAIL_FALLBACK
+    return _profile_text(profile, "conversation_rules", "safe_detail_fallback")
 
 
 def _repetition_reformulation(
@@ -480,13 +385,13 @@ def _repetition_reformulation(
     if not repeated:
         return None
 
-    if _is_broad_pricing_request(message):
+    if _is_broad_pricing_request(message, profile):
         return _profile_text(profile, "repetition_responses", "broad_pricing")
 
-    if _is_service_list_request(message):
+    if _is_service_list_request(message, profile):
         return _profile_text(profile, "repetition_responses", "service_list")
 
-    if _is_consultation_explanation_request(message, services):
+    if _is_consultation_explanation_request(message, services, profile):
         return _profile_text(profile, "repetition_responses", "consultation_explanation")
 
     return None
@@ -553,8 +458,11 @@ def _start_collecting_contact(
     return _field_prompt(profile, collect_fields[0]), session_id
 
 
-def _is_booking_confirmation(message: str) -> bool:
-    return message.strip().casefold() in BOOKING_CONFIRM_WORDS
+def _is_booking_confirmation(message: str, profile: dict) -> bool:
+    return message.strip().casefold() in {
+        word.casefold()
+        for word in _conversation_rule_list(profile, "booking_confirm_words")
+    }
 
 
 def _normalize_intent(intent: str | None) -> str:
@@ -611,19 +519,28 @@ def _match_service_for_message(message: str, services: list[dict]) -> dict | Non
     return best_match
 
 
-def _is_service_list_request(message: str) -> bool:
+def _is_service_list_request(message: str, profile: dict) -> bool:
     normalized_message = _normalize_lookup_text(message)
-    return any(trigger in normalized_message for trigger in SERVICE_LIST_TRIGGERS)
+    return any(
+        trigger in normalized_message
+        for trigger in _conversation_rule_list(profile, "service_list_triggers")
+    )
 
 
-def _is_price_request(message: str) -> bool:
+def _is_price_request(message: str, profile: dict) -> bool:
     normalized_message = _normalize_lookup_text(message)
-    return any(trigger in normalized_message for trigger in PRICE_TRIGGERS)
+    return any(
+        trigger in normalized_message
+        for trigger in _conversation_rule_list(profile, "price_triggers")
+    )
 
 
 def _greeting_reply(message: str, profile: dict) -> str | None:
     normalized_message = _normalize_lookup_text(message)
-    if normalized_message not in GREETING_TRIGGERS:
+    if normalized_message not in {
+        trigger.casefold()
+        for trigger in _conversation_rule_list(profile, "greeting_triggers")
+    }:
         return None
 
     return _profile_text(profile, "reply_texts", "greeting_short")
@@ -632,10 +549,16 @@ def _greeting_reply(message: str, profile: dict) -> str | None:
 def _service_clarification_reply(message: str, profile: dict) -> str | None:
     normalized_message = _normalize_lookup_text(message)
 
-    if normalized_message == "koja usluga mi treba":
+    if normalized_message in {
+        trigger.casefold()
+        for trigger in _conversation_rule_list(profile, "service_clarification_specific_triggers")
+    }:
         return _profile_text(profile, "reply_texts", "service_clarification_specific", "koja_usluga_mi_treba")
 
-    if any(trigger in normalized_message for trigger in SERVICE_CLARIFICATION_TRIGGERS):
+    if any(
+        trigger in normalized_message
+        for trigger in _conversation_rule_list(profile, "service_clarification_triggers")
+    ):
         return _profile_text(profile, "reply_texts", "service_clarification")
 
     return None
@@ -645,7 +568,7 @@ def _casual_reply(message: str, profile: dict) -> str | None:
     normalized_message = _normalize_lookup_text(message)
     casual_replies = _profile_text_map(profile, "reply_texts", "casual_replies")
 
-    for triggers, reply_key in CASUAL_REPLY_PATTERNS:
+    for triggers, reply_key in _conversation_rule_patterns(profile):
         if any(trigger in normalized_message for trigger in triggers):
             reply = casual_replies.get(reply_key)
             if isinstance(reply, str) and reply.strip():
@@ -786,7 +709,10 @@ def _orientation_price_text(service: dict, profile: dict) -> str | None:
 
 def _service_description_reply(message: str, services: list[dict], profile: dict) -> str | None:
     normalized_message = _normalize_lookup_text(message)
-    if not any(trigger in normalized_message for trigger in SERVICE_DESCRIPTION_TRIGGERS):
+    if not any(
+        trigger in normalized_message
+        for trigger in _conversation_rule_list(profile, "service_description_triggers")
+    ):
         return None
 
     service = _match_service_for_message(message, services)
@@ -959,7 +885,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         state
         and state.get("stage") == "awaiting_booking_confirmation"
         and allow_booking
-        and _is_booking_confirmation(message)
+        and _is_booking_confirmation(message, profile)
     ):
         reply, session_id = _start_collecting_contact(
             tenant,
@@ -1000,7 +926,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     if state and state.get("stage") == "collecting_contact":
         next_field = state.get("next_field")
 
-        if _is_contact_clarification(message):
+        if _is_contact_clarification(message, profile):
             reply = _contact_clarification_reply(profile, next_field)
             final_reply = _finalize_reply(
                 tenant=tenant,
@@ -1081,7 +1007,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         )
         return final_reply, session_id
 
-    if not state and allow_booking and _should_start_consultation_booking(message, session_key, services):
+    if not state and allow_booking and _should_start_consultation_booking(message, session_key, services, profile):
         SESSION_STATE[session_key] = {
             "stage": "awaiting_booking_confirmation",
             "service_id": "consultation",
@@ -1172,7 +1098,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         )
         return final_reply, session_id
 
-    if _is_service_list_request(message):
+    if _is_service_list_request(message, profile):
         reply = _service_list_reply(profile, services)
         _log_chat_state(
             message=message,
@@ -1194,7 +1120,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         )
         return final_reply, session_id
 
-    if _is_price_request(message):
+    if _is_price_request(message, profile):
         matched_service = _match_service_for_message(message, services)
         price_reply = _orientation_price_text(matched_service, profile) if matched_service else None
         if price_reply:
@@ -1262,7 +1188,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         )
         return final_reply, session_id
 
-    cautious_detail_reply = _unknown_service_detail_reply(message, services)
+    cautious_detail_reply = _unknown_service_detail_reply(message, services, profile)
     if cautious_detail_reply:
         _log_chat_state(
             message=message,
