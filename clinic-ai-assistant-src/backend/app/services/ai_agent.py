@@ -14,6 +14,8 @@ from app.services.session_trace_logger import trace_event
 logger = logging.getLogger(__name__)
 DEBUG_AI = os.getenv("DEBUG_AI", "").strip().lower() == "true"
 SESSION_STATE = {}
+INTERACTION_HISTORY = {}
+MAX_INTERACTION_HISTORY = 6
 BOOKING_CONFIRM_WORDS = {"да", "da", "yes", "ok", "okej", "okay"}
 FIELD_PROMPTS = {
     "name": "Ве молам кажете ни го вашето име.",
@@ -212,6 +214,173 @@ def _status_for_stage(stage: str | None) -> str:
     if stage == "completed":
         return "completed"
     return "active"
+
+
+def _message_tokens(value: str) -> set[str]:
+    normalized = _normalize_lookup_text(value)
+    return {
+        token
+        for token in re.split(r"[^a-zA-Z0-9\u0400-\u04FF]+", normalized)
+        if token
+    }
+
+
+def _messages_are_similar(left: str, right: str) -> bool:
+    left_normalized = _normalize_lookup_text(left)
+    right_normalized = _normalize_lookup_text(right)
+
+    if not left_normalized or not right_normalized:
+        return False
+
+    if left_normalized == right_normalized:
+        return True
+
+    if left_normalized in right_normalized or right_normalized in left_normalized:
+        return True
+
+    left_tokens = _message_tokens(left_normalized)
+    right_tokens = _message_tokens(right_normalized)
+    if not left_tokens or not right_tokens:
+        return False
+
+    overlap = len(left_tokens & right_tokens)
+    smallest = min(len(left_tokens), len(right_tokens))
+    return smallest > 0 and (overlap / smallest) >= 0.75
+
+
+def _recent_interactions(session_key: str) -> list[dict]:
+    return INTERACTION_HISTORY.get(session_key, [])
+
+
+def _record_interaction(session_key: str, message: str, reply: str, response_type: str | None) -> None:
+    history = INTERACTION_HISTORY.setdefault(session_key, [])
+    history.append(
+        {
+            "message": _normalize_lookup_text(message),
+            "reply": reply,
+            "response_type": response_type,
+        }
+    )
+    if len(history) > MAX_INTERACTION_HISTORY:
+        del history[:-MAX_INTERACTION_HISTORY]
+
+
+def _is_broad_pricing_request(message: str) -> bool:
+    normalized_message = _normalize_lookup_text(message)
+    has_price_language = any(
+        token in normalized_message
+        for token in (
+            "\u0446\u0435\u043d\u0430",
+            "\u0446\u0435\u043d\u0438",
+            "\u043a\u043e\u043b\u043a\u0443",
+            "\u0447\u0438\u043d\u0438",
+            "\u0447\u0438\u043d\u0430\u0442",
+            "cena",
+            "ceni",
+            "kolku",
+            "chini",
+            "cini",
+            "price",
+            "prices",
+        )
+    )
+    has_service_language = any(
+        token in normalized_message
+        for token in (
+            "\u0443\u0441\u043b\u0443\u0433\u0430",
+            "\u0443\u0441\u043b\u0443\u0433\u0438",
+            "\u0443\u0441\u043b\u0443\u0433\u0438\u0442\u0435",
+            "usluga",
+            "uslugi",
+            "service",
+            "services",
+        )
+    )
+    return has_price_language and has_service_language and not _is_price_request(message)
+
+
+def _is_consultation_explanation_request(message: str, services: list[dict]) -> bool:
+    normalized_message = _normalize_lookup_text(message)
+    consultation_service = _match_service_for_message(message, services)
+    if not consultation_service or consultation_service.get("id") != "consultation":
+        return False
+
+    return any(
+        trigger in normalized_message
+        for trigger in (
+            "\u043a\u0430\u043a\u0432\u0430",
+            "\u0448\u0442\u043e \u0435",
+            "\u043e\u0431\u0458\u0430\u0441\u043d\u0438",
+            "kakva",
+            "shto e",
+            "objasni",
+        )
+    )
+
+
+def _repetition_reformulation(
+    *,
+    message: str,
+    session_key: str,
+    services: list[dict],
+) -> str | None:
+    history = _recent_interactions(session_key)
+    if not history:
+        return None
+
+    repeated = any(_messages_are_similar(message, item.get("message", "")) for item in reversed(history))
+    if not repeated:
+        return None
+
+    if _is_broad_pricing_request(message):
+        return (
+            "\u0426\u0435\u043d\u0438\u0442\u0435 \u0437\u0430\u0432\u0438\u0441\u0430\u0442 \u043e\u0434 \u043a\u043e\u043d\u043a\u0440\u0435\u0442\u043d\u0430\u0442\u0430 \u0443\u0441\u043b\u0443\u0433\u0430. "
+            "\u0410\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435, \u043a\u0430\u0436\u0435\u0442\u0435 \u043c\u0438 \u0448\u0442\u043e \u0442\u043e\u0447\u043d\u043e \u0432\u0435 \u0438\u043d\u0442\u0435\u0440\u0435\u0441\u0438\u0440\u0430, "
+            "\u043d\u0430 \u043f\u0440\u0438\u043c\u0435\u0440 \u0431\u0435\u043b\u0435\u045a\u0435, \u043f\u043b\u043e\u043c\u0431\u0438\u0440\u0430\u045a\u0435 "
+            "\u0438\u043b\u0438 \u043a\u043e\u043d\u0441\u0443\u043b\u0442\u0430\u0446\u0438\u0458\u0430, \u043f\u0430 \u045c\u0435 \u0432\u0438 \u0434\u0430\u0434\u0430\u043c \u043e\u0440\u0438\u0435\u043d\u0442\u0430\u0446\u0438\u0458\u0430."
+        )
+
+    if _is_service_list_request(message):
+        return (
+            "\u0412\u0435\u045c\u0435 \u0432\u0438 \u0433\u0438 \u043d\u0430\u0431\u0440\u043e\u0458\u0430\u0432 \u0443\u0441\u043b\u0443\u0433\u0438\u0442\u0435, "
+            "\u043d\u043e \u0430\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435 \u043c\u043e\u0436\u0430\u043c \u0438 \u043f\u043e\u043a\u043e\u043d\u043a\u0440\u0435\u0442\u043d\u043e \u0434\u0430 \u0432\u0435 \u043d\u0430\u0441\u043e\u0447\u0430\u043c. "
+            "\u041a\u0430\u0436\u0435\u0442\u0435 \u043c\u0438 \u0434\u0430\u043b\u0438 \u0432\u0435 \u0438\u043d\u0442\u0435\u0440\u0435\u0441\u0438\u0440\u0430 "
+            "\u0435\u0441\u0442\u0435\u0442\u0438\u043a\u0430, \u0431\u043e\u043b\u043a\u0430, \u0447\u0438\u0441\u0442\u0435\u045a\u0435 \u0438\u043b\u0438 \u043a\u043e\u043d\u0441\u0443\u043b\u0442\u0430\u0446\u0438\u0458\u0430."
+        )
+
+    if _is_consultation_explanation_request(message, services):
+        return (
+            "\u0422\u043e\u0430 \u0435 \u043f\u043e\u0447\u0435\u0442\u0435\u043d \u043f\u0440\u0435\u0433\u043b\u0435\u0434 \u0438 \u0440\u0430\u0437\u0433\u043e\u0432\u043e\u0440 "
+            "\u0437\u0430 \u0434\u0430 \u0441\u0435 \u0432\u0438\u0434\u0438 \u0448\u0442\u043e \u0435 \u043d\u0430\u0458\u0441\u043e\u043e\u0434\u0432\u0435\u0442\u043d\u043e \u0437\u0430 \u0432\u0430\u0441. "
+            "\u0410\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435, \u043c\u043e\u0436\u0435\u043c\u0435 \u0438 \u0432\u0435\u0434\u043d\u0430\u0448 \u0434\u0430 \u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0438\u043c\u0435 \u0441\u043e \u0437\u0430\u043a\u0430\u0436\u0443\u0432\u0430\u045a\u0435."
+        )
+
+    return None
+
+
+def _finalize_reply(
+    *,
+    tenant: str,
+    session_id: str,
+    session_key: str,
+    message: str,
+    reply: str,
+    response_type: str | None,
+    services: list[dict],
+    stage_after: str | None,
+) -> str:
+    final_reply = reply
+    reformulated = _repetition_reformulation(
+        message=message,
+        session_key=session_key,
+        services=services,
+    )
+    if reformulated:
+        final_reply = reformulated
+
+    _record_interaction(session_key, message, final_reply, response_type)
+    _trace_response(tenant, session_id, final_reply, stage_after)
+    return final_reply
 
 
 def _trace_response(
@@ -610,6 +779,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     if state and state.get("stage") == "completed":
         old_session_id = session_id
         SESSION_STATE.pop(session_key, None)
+        INTERACTION_HISTORY.pop(session_key, None)
         session_id = _normalize_session_id(None)
         session_key = _session_key(tenant, session_id)
         state = None
@@ -657,8 +827,17 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             stage_before=stage_before,
             stage_after="collecting_contact",
         )
-        _trace_response(tenant, session_id, reply, "collecting_contact")
-        return reply, session_id
+        final_reply = _finalize_reply(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            message=message,
+            reply=reply,
+            response_type="confirm_booking",
+            services=services,
+            stage_after="collecting_contact",
+        )
+        return final_reply, session_id
 
     # Booking state 2: backend owns the contact collection prompts until completion.
     if state and state.get("stage") == "collecting_contact":
@@ -685,8 +864,17 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 stage_after="collecting_contact",
             )
             reply = _field_prompt(remaining[0])
-            _trace_response(tenant, session_id, reply, "collecting_contact")
-            return reply, session_id
+            final_reply = _finalize_reply(
+                tenant=tenant,
+                session_id=session_id,
+                session_key=session_key,
+                message=message,
+                reply=reply,
+                response_type="collect_contact",
+                services=services,
+                stage_after="collecting_contact",
+            )
+            return final_reply, session_id
 
         SESSION_STATE.pop(session_key, None)
         state["stage"] = "completed"
@@ -706,8 +894,17 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             stage_after="completed",
         )
         reply = "Ви благодарам. Вашето барање за термин е примено. Клиниката ќе ве контактира."
-        _trace_response(tenant, session_id, reply, "completed")
-        return reply, session_id
+        final_reply = _finalize_reply(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            message=message,
+            reply=reply,
+            response_type="collect_contact",
+            services=services,
+            stage_after="completed",
+        )
+        return final_reply, session_id
 
     greeting_reply = _greeting_reply(message)
     if greeting_reply:
@@ -718,13 +915,17 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             stage_before=stage_before,
             stage_after=_stage_name(SESSION_STATE.get(session_key)),
         )
-        _trace_response(
-            tenant,
-            session_id,
-            greeting_reply,
-            _stage_name(SESSION_STATE.get(session_key)),
+        final_reply = _finalize_reply(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            message=message,
+            reply=greeting_reply,
+            response_type="greeting",
+            services=services,
+            stage_after=_stage_name(SESSION_STATE.get(session_key)),
         )
-        return greeting_reply, session_id
+        return final_reply, session_id
 
     clarification_reply = _service_clarification_reply(message)
     if clarification_reply:
@@ -735,13 +936,17 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             stage_before=stage_before,
             stage_after=_stage_name(SESSION_STATE.get(session_key)),
         )
-        _trace_response(
-            tenant,
-            session_id,
-            clarification_reply,
-            _stage_name(SESSION_STATE.get(session_key)),
+        final_reply = _finalize_reply(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            message=message,
+            reply=clarification_reply,
+            response_type="service_clarification",
+            services=services,
+            stage_after=_stage_name(SESSION_STATE.get(session_key)),
         )
-        return clarification_reply, session_id
+        return final_reply, session_id
 
     if _is_service_list_request(message):
         reply = _service_list_reply(profile, services)
@@ -752,13 +957,17 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             stage_before=stage_before,
             stage_after=_stage_name(SESSION_STATE.get(session_key)),
         )
-        _trace_response(
-            tenant,
-            session_id,
-            reply,
-            _stage_name(SESSION_STATE.get(session_key)),
+        final_reply = _finalize_reply(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            message=message,
+            reply=reply,
+            response_type="service_list",
+            services=services,
+            stage_after=_stage_name(SESSION_STATE.get(session_key)),
         )
-        return reply, session_id
+        return final_reply, session_id
 
     if _is_price_request(message):
         matched_service = _match_service_for_message(message, services)
@@ -771,13 +980,17 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 stage_before=stage_before,
                 stage_after=_stage_name(SESSION_STATE.get(session_key)),
             )
-            _trace_response(
-                tenant,
-                session_id,
-                price_reply,
-                _stage_name(SESSION_STATE.get(session_key)),
+            final_reply = _finalize_reply(
+                tenant=tenant,
+                session_id=session_id,
+                session_key=session_key,
+                message=message,
+                reply=price_reply,
+                response_type="explicit_price",
+                services=services,
+                stage_after=_stage_name(SESSION_STATE.get(session_key)),
             )
-            return price_reply, session_id
+            return final_reply, session_id
 
     description_reply = _service_description_reply(message, services)
     if description_reply:
@@ -788,13 +1001,17 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             stage_before=stage_before,
             stage_after=_stage_name(SESSION_STATE.get(session_key)),
         )
-        _trace_response(
-            tenant,
-            session_id,
-            description_reply,
-            _stage_name(SESSION_STATE.get(session_key)),
+        final_reply = _finalize_reply(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            message=message,
+            reply=description_reply,
+            response_type="service_description",
+            services=services,
+            stage_after=_stage_name(SESSION_STATE.get(session_key)),
         )
-        return description_reply, session_id
+        return final_reply, session_id
 
     casual_reply = _casual_reply(message)
     if casual_reply:
@@ -805,13 +1022,17 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             stage_before=stage_before,
             stage_after=_stage_name(SESSION_STATE.get(session_key)),
         )
-        _trace_response(
-            tenant,
-            session_id,
-            casual_reply,
-            _stage_name(SESSION_STATE.get(session_key)),
+        final_reply = _finalize_reply(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            message=message,
+            reply=casual_reply,
+            response_type="casual",
+            services=services,
+            stage_after=_stage_name(SESSION_STATE.get(session_key)),
         )
-        return casual_reply, session_id
+        return final_reply, session_id
 
     try:
         client = OpenAI(api_key=api_key)
@@ -853,8 +1074,17 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                     stage_after=_stage_name(SESSION_STATE.get(session_key)),
                 )
                 reply = _fallback_reply(profile)
-                _trace_response(tenant, session_id, reply, _stage_name(SESSION_STATE.get(session_key)))
-                return reply, session_id
+                final_reply = _finalize_reply(
+                    tenant=tenant,
+                    session_id=session_id,
+                    session_key=session_key,
+                    message=message,
+                    reply=reply,
+                    response_type="fallback",
+                    services=services,
+                    stage_after=_stage_name(SESSION_STATE.get(session_key)),
+                )
+                return final_reply, session_id
 
             raw_intent = parsed.get("intent")
             intent = _normalize_intent(raw_intent)
@@ -892,8 +1122,17 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                     stage_before=stage_before,
                     stage_after="collecting_contact",
                 )
-                _trace_response(tenant, session_id, reply, "collecting_contact")
-                return reply, session_id
+                final_reply = _finalize_reply(
+                    tenant=tenant,
+                    session_id=session_id,
+                    session_key=session_key,
+                    message=message,
+                    reply=reply,
+                    response_type="confirm_booking",
+                    services=services,
+                    stage_after="collecting_contact",
+                )
+                return final_reply, session_id
 
             if intent == "suggest_service" and allow_booking and service_id and service_id != "unknown":
                 bookable_service_ids = {
@@ -926,13 +1165,17 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                     stage_before=stage_before,
                     stage_after=_stage_name(SESSION_STATE.get(session_key)),
                 )
-                _trace_response(
-                    tenant,
-                    session_id,
-                    message_text,
-                    _stage_name(SESSION_STATE.get(session_key)),
+                final_reply = _finalize_reply(
+                    tenant=tenant,
+                    session_id=session_id,
+                    session_key=session_key,
+                    message=message,
+                    reply=message_text,
+                    response_type=intent,
+                    services=services,
+                    stage_after=_stage_name(SESSION_STATE.get(session_key)),
                 )
-                return message_text, session_id
+                return final_reply, session_id
 
             trace_event(
                 tenant,
@@ -948,8 +1191,17 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 stage_after=_stage_name(SESSION_STATE.get(session_key)),
             )
             reply = _fallback_reply(profile)
-            _trace_response(tenant, session_id, reply, _stage_name(SESSION_STATE.get(session_key)))
-            return reply, session_id
+            final_reply = _finalize_reply(
+                tenant=tenant,
+                session_id=session_id,
+                session_key=session_key,
+                message=message,
+                reply=reply,
+                response_type="fallback",
+                services=services,
+                stage_after=_stage_name(SESSION_STATE.get(session_key)),
+            )
+            return final_reply, session_id
 
         except json.JSONDecodeError:
             trace_event(
@@ -966,8 +1218,17 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 stage_after=_stage_name(SESSION_STATE.get(session_key)),
             )
             reply = raw_output or _fallback_reply(profile)
-            _trace_response(tenant, session_id, reply, _stage_name(SESSION_STATE.get(session_key)))
-            return reply, session_id
+            final_reply = _finalize_reply(
+                tenant=tenant,
+                session_id=session_id,
+                session_key=session_key,
+                message=message,
+                reply=reply,
+                response_type="fallback",
+                services=services,
+                stage_after=_stage_name(SESSION_STATE.get(session_key)),
+            )
+            return final_reply, session_id
 
     except RateLimitError as exc:
         trace_event(
