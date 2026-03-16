@@ -6,5 +6,5 @@ __pycache__/
 *.db
 clinic-ai-assistant-src/backend/clinic_ai_assistant.db
 .pytest_cache/
-backend/runtime_traces/
+**/runtime_traces/
 FollowUpWithAris.txt
