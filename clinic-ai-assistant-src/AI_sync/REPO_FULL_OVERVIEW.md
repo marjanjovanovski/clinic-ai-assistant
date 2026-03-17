@@ -18,13 +18,13 @@
   - exclude `.git/`
   - exclude `__pycache__/`
   - exclude `.venv/`
-  - exclude `site-packages/`
-  - exclude `runtime_traces/`
   - exclude `*.db`
   - exclude binary artifacts outside included frontend assets
-  - exclude cache artifacts
   - exclude `clinic-ai-assistant docs/`
   - exclude `personal-team-touch/`
+  - exclude cache artifacts
+  - exclude `runtime_traces/`
+  - exclude `site-packages/`
   - exclude top-level ad hoc artifacts not covered by inclusion rules
 
 ## 3. Folder Structure
