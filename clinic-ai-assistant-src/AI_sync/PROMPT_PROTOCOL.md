@@ -29,6 +29,41 @@ Every task must declare exactly one mode:
 
 Modes must never be mixed in a single task.
 
+### 1.2.1 Mode Enforcement (Mandatory)
+
+Every task MUST begin with exactly one explicit mode declaration.
+
+The only valid mode declarations are:
+
+- `MODE: IMPLEMENT`
+- `MODE: VERIFY`
+
+If `MODE` is missing:
+
+- The task must be rejected.
+
+If more than one mode declaration is present:
+
+- The task must be rejected.
+
+If both valid modes are present anywhere in the same task:
+
+- The task must be rejected.
+
+If the task contains both read-only intent and write intent:
+
+- The task must be rejected.
+
+Codex must not infer mode from context.
+
+Codex must not infer mode from wording.
+
+Codex must not infer mode from implied intent.
+
+Codex must not proceed on ambiguous prompts.
+
+Codex must require explicit mode before execution begins.
+
 ### 1.3 Artifact-Based Outputs Required
 
 Every task must define the required output artifact or response artifact in advance.
