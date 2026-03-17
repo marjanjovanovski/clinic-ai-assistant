@@ -13,8 +13,6 @@ Every applicable task MUST return all of the following:
 - Full file content OR diff of changes
 - First 20 lines preview
 
-Exact file paths MUST be returned as plain text only.
-
 Exact file paths must be returned as raw plain text with no prefixes, labels, or formatting characters.
 
 Markdown links must not be used for artifact paths.
