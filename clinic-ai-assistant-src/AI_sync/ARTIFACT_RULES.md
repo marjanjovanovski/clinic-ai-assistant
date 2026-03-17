@@ -15,9 +15,9 @@ Every applicable task MUST return all of the following:
 
 Exact file paths MUST be returned as plain text only.
 
-Markdown links must not be used for artifact paths.
-
 Exact file paths must be returned as raw plain text with no prefixes, labels, or formatting characters.
+
+Markdown links must not be used for artifact paths.
 
 For newly created files:
 - Full file content MUST be returned
