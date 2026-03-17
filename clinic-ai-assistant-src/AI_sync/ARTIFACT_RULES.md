@@ -13,6 +13,10 @@ Every applicable task MUST return all of the following:
 - Full file content OR diff of changes
 - First 20 lines preview
 
+Exact file paths MUST be returned as plain text only.
+
+Markdown links must not be used for artifact paths.
+
 For newly created files:
 - Full file content MUST be returned
 
@@ -27,6 +31,7 @@ For modified existing files:
 - Codex must not omit any required artifact
 - Codex must not replace required artifacts with summaries
 - Codex must not alter the requested artifact format
+- Codex must not replace plain text artifact paths with markdown links
 - If returned artifacts do not match actual file state:
   - The task is considered FAILED
 
