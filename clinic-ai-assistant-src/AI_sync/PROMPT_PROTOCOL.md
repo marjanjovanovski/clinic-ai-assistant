@@ -168,6 +168,8 @@ Rules:
 - Verification must be performed as a separate `MODE: VERIFY` task
 - Verification must follow the defined verification template
 - Verification must not modify any files
+- If the verification step is skipped:
+  - The implementation task must be rejected
 - If verification fails:
   - The implementation task is considered incomplete
   - The task must not be closed
