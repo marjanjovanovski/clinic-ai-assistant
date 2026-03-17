@@ -39,6 +39,16 @@ If no file change is allowed, the task must define the required return structure
 
 Outputs must be tied to named artifacts, not open-ended summaries.
 
+Examples:
+
+- "Return exact file path"
+- "Return full file content"
+- "Return line count"
+- "Return first 20 lines preview"
+- "Return diff of changes"
+
+If a required artifact is not returned, the task is invalid.
+
 ### 1.4 Repository Scope Constraints
 
 Every task must explicitly limit repository scope.
@@ -85,6 +95,26 @@ At minimum, final verification must confirm:
 - requested return items present
 
 Verification tasks must end with a readiness, compliance, or findings summary tied to the requested return format.
+
+### 1.7 Failure Handling (Mandatory)
+
+If any protocol rule is violated:
+
+- STOP execution immediately
+- Report violation
+- Do not continue task
+
+No partial completion allowed.
+
+### 1.8 Task Traceability
+
+Every task must include:
+
+`TASK_ID: <unique_name>`
+
+`TASK_ID` must be unique per task.
+
+It is used for tracking and debugging execution.
 
 ## 2. Implementation Prompt Template
 
