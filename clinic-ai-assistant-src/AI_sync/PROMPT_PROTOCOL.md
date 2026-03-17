@@ -151,6 +151,28 @@ Every task must include:
 
 It is used for tracking and debugging execution.
 
+### 1.9 Execution Feedback Loop (Mandatory)
+
+After every `MODE: IMPLEMENT` task, a verification step MUST be executed before any new implementation task begins.
+
+The verification must explicitly confirm:
+
+- Did the target file change as expected
+- Does the file content exactly match the requested output
+- Does the result satisfy the stated goal
+- Did the task remain inside the defined scope
+
+Rules:
+
+- No new implementation task may begin before verification passes
+- Verification must be performed as a separate `MODE: VERIFY` task
+- Verification must follow the defined verification template
+- Verification must not modify any files
+- If verification fails:
+  - The implementation task is considered incomplete
+  - The task must not be closed
+  - A corrective implementation task must be issued
+
 ## 2. Implementation Prompt Template
 
 Use this template for all write tasks. No variations are allowed.
