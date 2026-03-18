@@ -136,7 +136,7 @@
 - path: clinic-ai-assistant-src/backend/app/services/lead_store.py
   - file type: python
   - layer classification: service
-  - role/purpose: SQLite lead checkpoint initialization, persistence, and checkpoint recovery
+  - role/purpose: SQLite lead checkpoint initialization, verified persistence, exact-row readback, and checkpoint recovery using tenant/session identity
 - path: clinic-ai-assistant-src/backend/app/services/session_trace_logger.py
   - file type: python
   - layer classification: service
@@ -254,16 +254,30 @@
 - `ai_agent.py` currently implements:
   - deterministic booking-state handling
   - bounded recent-context carry
-  - stale contact-state escape for clear global intents
   - catalog/service-list routing
   - explicit booking-confirm gating
   - lightweight contact value plausibility checks
   - clarification recovery that distinguishes booking-scope confusion from field-level clarification
+  - ownership clarification continuity for name/phone/email during active booking
+  - active booking flow lock during `collecting_contact`
+  - forward-only contact collection with one active field at a time
+  - combined contact parsing only as a secondary path for explicit bundled input
+  - persistence-gated booking completion
+  - recovery that prefers persisted booking truth over stale in-memory contact state
+- `lead_store.py` currently implements:
+  - checkpoint save attempts with exact `tenant + session_id` row verification after commit
+  - required-field-aware persistence success evaluation
+  - structured persistence result reporting back to `ai_agent.py`
+  - checkpoint hydration from both saved JSON state and persisted contact columns
 - tenant profile JSON currently owns:
   - conversation behavior configuration
   - booking/contact wording
   - clarification reply text
   - service/pricing/catalog phrasing
+- `milena_dental.json` currently reflects:
+  - stepwise booking contact intro wording
+  - natural Macedonian field prompts and clarification replies
+  - current live receptionist-style behavior for the main tenant
 - `milena_dental.json` is the most actively refined tenant profile and should be treated as the primary live reference for current Macedonian behavior
 
 ## 10. Recent Completed Development
@@ -273,15 +287,33 @@
 - moved conversation behavior and booking/contact phrasing into tenant profile configuration
 - refined `milena_dental.json` contact collection wording for clearer natural Macedonian
 - removed clarification reply duplication in contact collection wording
+- aligned booking contact intro wording with stepwise collection from the name field first
 - tightened booking progression so explicit configured confirmation is required before contact collection starts
 - improved booking clarification recovery so confusion about what is being booked no longer collapses into repeated field prompts
-- improved `ai_agent.py` handling for:
-  - catalog request recognition
-  - acknowledgment/topic continuity
-  - stale booking-state escape
-  - clarification recovery during booking flow
+- hardened contact input gating so filler and meta replies do not advance booking fields
+- hardened phone-field validation and clarification recovery
+- stabilized booking checkpoint continuity and forward-only field progression
+- kept ownership-style clarification inside the active booking field flow
+- added active booking flow lock so `collecting_contact` does not drift into greeting or unrelated informational routing
+- enforced verified persistence before booking confirmation
+- limited combined contact parsing to explicit bundled input as a secondary convenience path
+- hardened persistence authority so only required fields determine save success and persisted DB truth is authoritative during recovery
 
-## 11. Sync Note For Collaborators
+## 11. Current Stability / Likely Next Testing Focus
+
+- currently stable areas:
+  - booking confirmation requires explicit booking confirmation input
+  - active booking stays inside booking flow during contact collection
+  - contact collection is stepwise by default
+  - combined input is convenience-only and no longer the primary path
+  - booking completion depends on verified persistence, not only in-memory state
+  - recovery prefers persisted checkpoint/database truth for saved contact fields
+- likely future testing focus:
+  - full end-to-end booking verification against real DB rows during live chat
+  - repeated interruption/resume behavior across the same `session_id`
+  - tenant-by-tenant behavior parity outside `milena_dental.json`
+
+## 12. Sync Note For Collaborators
 
 - if a collaborator drifted before these updates, they may still think AI_sync is only a prompt-rules folder
 - that is no longer accurate
@@ -289,4 +321,5 @@
   - AI_sync = deterministic AI Execution Protocol Layer
   - `PROMPT_PROTOCOL.md` = active execution contract
   - tenant profile JSON = approved home for conversational/configuration content
-  - `ai_agent.py` = logic/orchestration layer only
+  - `ai_agent.py` = logic/orchestration, validation, flow control, and persistence-gating layer only
+  - `lead_store.py` = verified persistence and checkpoint recovery layer
