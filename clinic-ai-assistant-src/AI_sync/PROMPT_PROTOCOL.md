@@ -89,6 +89,95 @@ The task must be rejected if it requires both `IMPLEMENT` and `VERIFY` in the sa
 
 Non-atomic prompts are invalid for execution under this protocol.
 
+## Task Naming Convention Protocol
+
+### 1.1.6 Required Format
+
+All tasks must follow the exact format:
+
+`TASK_<TYPE>_<SHORT_NAME>`
+
+### 1.1.7 TYPE Definition
+
+`<TYPE>` is deterministic and not free text.
+
+The only allowed values are:
+
+- `IMPL`
+- `VERIFY`
+
+No other `<TYPE>` values are allowed.
+
+### 1.1.8 SHORT_NAME Rules
+
+`<SHORT_NAME>` represents the concise description of the task outcome.
+
+`<SHORT_NAME>` must be uppercase.
+
+`<SHORT_NAME>` must use underscores only.
+
+`<SHORT_NAME>` must be concise and descriptive of the outcome.
+
+`<SHORT_NAME>` must not exceed 5 words.
+
+`<SHORT_NAME>` must describe the task result, not the action.
+
+Example:
+
+- `SYNC_FILE`
+- not `DO_SYNC`
+
+### 1.1.9 Naming Enforcement
+
+`TASK_ID` must be present in every task.
+
+`TASK_ID` must match the naming convention exactly.
+
+If `TASK_ID` is missing:
+
+- The task must be rejected.
+
+If `TASK_ID` format is invalid:
+
+- The task must be rejected.
+
+### 1.1.10 Duplicate Prevention
+
+`TASK_ID` must be unique per task.
+
+If duplicate `TASK_ID` is detected:
+
+- The task must be rejected.
+
+### 1.1.11 Consistency With Mode
+
+`TASK_<TYPE>` must match `MODE`.
+
+If the task uses `MODE: IMPLEMENT`:
+
+- `TYPE` must be `IMPL`
+
+If the task uses `MODE: VERIFY`:
+
+- `TYPE` must be `VERIFY`
+
+If `MODE` and `TYPE` do not match:
+
+- The task must be rejected.
+
+### 1.1.12 Naming Quality Rule
+
+Task names must be short, descriptive, uppercase, and underscore-separated.
+
+Naming must remain consistent between related implementation and verification tasks when they refer to the same work item.
+
+### 1.1.13 Required Examples
+
+The section must include at minimum:
+
+- `TASK_IMPL_SYNC_FILE`
+- `TASK_VERIFY_BOOKING_FLOW`
+
 ### 1.2 Separate Verification vs Implementation
 
 Every task must declare exactly one mode:
