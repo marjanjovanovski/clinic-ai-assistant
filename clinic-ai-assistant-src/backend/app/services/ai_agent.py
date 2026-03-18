@@ -467,7 +467,7 @@ def _repetition_reformulation(
         return _profile_text(profile, "repetition_responses", "broad_pricing")
 
     if _is_service_list_request(message, profile):
-        return _profile_text(profile, "repetition_responses", "service_list")
+        return _service_list_reply(profile, services)
 
     if _is_consultation_explanation_request(message, services, profile):
         return _profile_text(profile, "repetition_responses", "consultation_explanation")
@@ -599,10 +599,13 @@ def _match_service_for_message(message: str, services: list[dict]) -> dict | Non
 
 def _is_service_list_request(message: str, profile: dict) -> bool:
     normalized_message = _normalize_lookup_text(message)
-    return any(
+    if any(
         trigger in normalized_message
         for trigger in _conversation_rule_list(profile, "service_list_triggers")
-    )
+    ):
+        return True
+
+    return "katalog" in normalized_message or "каталог" in normalized_message
 
 
 def _is_price_request(message: str, profile: dict) -> bool:
@@ -653,6 +656,44 @@ def _casual_reply(message: str, profile: dict) -> str | None:
                 return reply.strip()
 
     return None
+
+
+def _is_acknowledgment_input(message: str, profile: dict) -> bool:
+    normalized_message = _normalize_lookup_text(message)
+    if not normalized_message:
+        return False
+
+    if normalized_message in {
+        word.casefold()
+        for word in _conversation_rule_list(profile, "booking_confirm_words")
+    }:
+        return True
+
+    for triggers, _reply_key in _conversation_rule_patterns(profile):
+        if any(trigger in normalized_message for trigger in triggers):
+            return True
+
+    return False
+
+
+def _has_active_topic_context(session_key: str, services: list[dict]) -> bool:
+    last_item = _last_interaction(session_key)
+    if not last_item:
+        return False
+
+    response_type = last_item.get("response_type")
+    if response_type in {"greeting", "casual"}:
+        return False
+
+    last_message = last_item.get("message", "")
+    if isinstance(last_message, str) and _match_service_for_message(last_message, services):
+        return True
+
+    last_reply = last_item.get("reply", "")
+    if isinstance(last_reply, str) and _match_service_for_message(last_reply, services):
+        return True
+
+    return response_type in {"suggest_service", "service_description", "explicit_price"}
 
 
 def _catalog_categories(profile: dict, services: list[dict]) -> list[dict]:
@@ -812,6 +853,17 @@ def _service_description_reply(message: str, services: list[dict], profile: dict
         service_name=service_name,
         description=sentence_description,
         followup=followup or "",
+    )
+
+
+def _is_global_service_intent(message: str, services: list[dict], profile: dict) -> bool:
+    return any(
+        (
+            _is_service_list_request(message, profile),
+            _is_price_request(message, profile),
+            bool(_service_clarification_reply(message, profile)),
+            bool(_service_description_reply(message, services, profile)),
+        )
     )
 
 
@@ -1002,6 +1054,34 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             stage_after="collecting_contact",
         )
         return final_reply, session_id
+
+    if (
+        state
+        and state.get("stage") == "collecting_contact"
+        and _is_global_service_intent(message, services, profile)
+    ):
+        old_session_id = session_id
+        SESSION_STATE.pop(session_key, None)
+        INTERACTION_HISTORY.pop(session_key, None)
+        session_id = _normalize_session_id(None)
+        session_key = _session_key(tenant, session_id)
+        state = None
+        stage_before = None
+        trace_event(
+            tenant,
+            old_session_id,
+            "SESSION_RESET_FOR_GLOBAL_INTENT",
+            old_session_id=old_session_id,
+            new_session_id=session_id,
+            reason="stale_collecting_contact_global_intent",
+        )
+        trace_event(
+            tenant,
+            session_id,
+            "SESSION_CREATED",
+            reason="stale_collecting_contact_global_intent",
+            previous_session_id=old_session_id,
+        )
 
     # Booking state 2: backend owns the contact collection prompts until completion.
     if state and state.get("stage") == "collecting_contact":
@@ -1265,7 +1345,10 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         return final_reply, session_id
 
     casual_reply = _casual_reply(message, profile)
-    if casual_reply:
+    if casual_reply and not (
+        _is_acknowledgment_input(message, profile)
+        and _has_active_topic_context(session_key, services)
+    ):
         _log_chat_state(
             message=message,
             session_id=session_id,
