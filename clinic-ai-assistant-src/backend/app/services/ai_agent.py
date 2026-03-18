@@ -772,6 +772,13 @@ def _normalize_collecting_contact_state(state: dict, collect_fields: list[str]) 
     return state, missing_fields, changed
 
 
+def _has_active_booking_lock(state: dict | None) -> bool:
+    if not isinstance(state, dict):
+        return False
+
+    return state.get("stage") == "collecting_contact"
+
+
 def _is_booking_confirmation(message: str, profile: dict) -> bool:
     return message.strip().casefold() in {
         word.casefold()
@@ -1299,37 +1306,8 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         )
         return final_reply, session_id
 
-    if (
-        state
-        and state.get("stage") == "collecting_contact"
-        and not state.get("data")
-        and _is_global_service_intent(message, services, profile)
-    ):
-        old_session_id = session_id
-        SESSION_STATE.pop(session_key, None)
-        INTERACTION_HISTORY.pop(session_key, None)
-        session_id = _normalize_session_id(None)
-        session_key = _session_key(tenant, session_id)
-        state = None
-        stage_before = None
-        trace_event(
-            tenant,
-            old_session_id,
-            "SESSION_RESET_FOR_GLOBAL_INTENT",
-            old_session_id=old_session_id,
-            new_session_id=session_id,
-            reason="stale_collecting_contact_global_intent",
-        )
-        trace_event(
-            tenant,
-            session_id,
-            "SESSION_CREATED",
-            reason="stale_collecting_contact_global_intent",
-            previous_session_id=old_session_id,
-        )
-
     # Booking state 2: backend owns the contact collection prompts until completion.
-    if state and state.get("stage") == "collecting_contact":
+    if _has_active_booking_lock(state):
         next_field = state.get("next_field")
         missing_fields = [field for field in collect_fields if field not in state.get("data", {})]
 
