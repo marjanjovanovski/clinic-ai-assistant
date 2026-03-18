@@ -46,7 +46,7 @@ Define deterministic failure handling behavior for execution failures.
 ## 6. Failure Type: scope violation
 
 - Detection signal:
-  - Read or write activity exceeds the task’s allowed scope
+  - Read or write activity exceeds the task's allowed scope
 - Mandatory action:
   - Stop execution immediately
   - Mark the task as failed
