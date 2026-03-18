@@ -5,6 +5,8 @@
 - repository name: clinic-ai-assistant
 - primary purpose: multi-tenant clinic chat assistant with deterministic routing, tenant-driven configuration, booking/contact collection, and control-layer sync artifacts
 - primary stack: FastAPI, OpenAI Responses API, Python, SQLite, static HTML/CSS/JS, JSON tenant profiles, dotenv
+- current sync status: deterministic task execution framework active in `clinic-ai-assistant-src/AI_sync/`
+- current control-layer identity: AI Execution Protocol Layer complete for task atomicity, identity, session discipline, lifecycle control, context isolation, and backend configuration separation
 
 ## 2. Included Scope
 
@@ -94,7 +96,7 @@
 - path: clinic-ai-assistant-src/AI_sync/PROMPT_PROTOCOL.md
   - file type: markdown
   - layer classification: sync artifact
-  - role/purpose: defines the tasking protocol, execution modes, verification rules, and control-layer workflow
+  - role/purpose: defines the deterministic AI Execution Protocol Layer including prompt size control, task naming, session discipline, task state machine, execution context isolation, and backend configuration separation
 - path: clinic-ai-assistant-src/AI_sync/REPO_FULL_OVERVIEW.md
   - file type: markdown
   - layer classification: sync artifact
@@ -106,15 +108,15 @@
 - path: clinic-ai-assistant-src/backend/app/config/profiles/generic.json
   - file type: json
   - layer classification: config
-  - role/purpose: base tenant profile template with conversation rules, reply texts, and output contract schema
+  - role/purpose: base tenant profile template with conversation rules, reply texts, output contract schema, and shared conversation behavior structure
 - path: clinic-ai-assistant-src/backend/app/config/profiles/milena_dental.json
   - file type: json
   - layer classification: config
-  - role/purpose: primary Macedonian clinic tenant profile with catalog, rules, prompts, and booking configuration
+  - role/purpose: primary Macedonian clinic tenant profile with catalog, rules, profile-driven conversation behavior, refined booking/contact wording, and active clinic flow configuration
 - path: clinic-ai-assistant-src/backend/app/config/profiles/risto.json
   - file type: json
   - layer classification: config
-  - role/purpose: sample tenant profile using the same configuration schema as the main clinic profile
+  - role/purpose: sample tenant profile using the same configuration schema as the main clinic profile, including behavior/config separation support
 - path: clinic-ai-assistant-src/backend/app/main.py
   - file type: python
   - layer classification: other included infrastructure
@@ -126,7 +128,7 @@
 - path: clinic-ai-assistant-src/backend/app/services/ai_agent.py
   - file type: python
   - layer classification: service
-  - role/purpose: conversation orchestration, deterministic routing, OpenAI fallback, booking state handling, and session flow control
+  - role/purpose: conversation orchestration, deterministic routing, OpenAI fallback, booking state handling, bounded context carry, clarification recovery, and session flow control using JSON-driven behavior configuration
 - path: clinic-ai-assistant-src/backend/app/services/config_loader.py
   - file type: python
   - layer classification: service
@@ -211,3 +213,80 @@
 
 - this file is full-regeneration only
 - patch-style sync is not allowed
+
+## 7. AI_sync Control-Layer Status
+
+- the AI_sync folder is no longer only a prompting aid
+- it now functions as a deterministic task execution framework for repository work
+- the active control-layer center is `clinic-ai-assistant-src/AI_sync/PROMPT_PROTOCOL.md`
+- the current protocol stack includes:
+  - Prompt Size Control Protocol
+  - Task Naming Convention Protocol
+  - Session Discipline Protocol
+  - Task State Machine Protocol
+  - Execution Context Isolation Protocol
+  - Backend Configuration Separation Protocol
+- practical meaning:
+  - every task must be atomic
+  - every task must have deterministic identity
+  - every task must follow explicit session and lifecycle rules
+  - no task may rely on hidden context
+  - backend configuration content must not be added to Python files
+
+## 8. Architecture Rules Currently In Force
+
+- tenant profile JSON under `clinic-ai-assistant-src/backend/app/config/profiles/` is the approved source for conversational/configuration content
+- Python is reserved for:
+  - logic
+  - routing
+  - state machine behavior
+  - orchestration
+- Python must not become the source of:
+  - reply wording
+  - trigger phrases
+  - behavior instructions
+  - booking/contact prompts
+  - assistant tone/style wording
+  - stage or flow wording intended for model behavior
+
+## 9. Backend State Snapshot
+
+- `ai_agent.py` currently implements:
+  - deterministic booking-state handling
+  - bounded recent-context carry
+  - stale contact-state escape for clear global intents
+  - catalog/service-list routing
+  - explicit booking-confirm gating
+  - lightweight contact value plausibility checks
+  - clarification recovery that distinguishes booking-scope confusion from field-level clarification
+- tenant profile JSON currently owns:
+  - conversation behavior configuration
+  - booking/contact wording
+  - clarification reply text
+  - service/pricing/catalog phrasing
+- `milena_dental.json` is the most actively refined tenant profile and should be treated as the primary live reference for current Macedonian behavior
+
+## 10. Recent Completed Development
+
+- completed the deterministic AI Execution Protocol Layer in `AI_sync`
+- formalized backend configuration separation so config content stays in tenant JSON instead of Python
+- moved conversation behavior and booking/contact phrasing into tenant profile configuration
+- refined `milena_dental.json` contact collection wording for clearer natural Macedonian
+- removed clarification reply duplication in contact collection wording
+- tightened booking progression so explicit configured confirmation is required before contact collection starts
+- improved booking clarification recovery so confusion about what is being booked no longer collapses into repeated field prompts
+- improved `ai_agent.py` handling for:
+  - catalog request recognition
+  - acknowledgment/topic continuity
+  - stale booking-state escape
+  - clarification recovery during booking flow
+
+## 11. Sync Note For Collaborators
+
+- if a collaborator drifted before these updates, they may still think AI_sync is only a prompt-rules folder
+- that is no longer accurate
+- the correct current framing is:
+  - AI_sync = deterministic AI Execution Protocol Layer
+  - `PROMPT_PROTOCOL.md` = active execution contract
+  - tenant profile JSON = approved home for conversational/configuration content
+  - `ai_agent.py` = logic/orchestration layer only
