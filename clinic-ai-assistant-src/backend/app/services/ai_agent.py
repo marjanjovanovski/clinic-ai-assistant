@@ -18,6 +18,9 @@ INTERACTION_HISTORY = {}
 MAX_INTERACTION_HISTORY = 6
 MAX_CONTEXT_INTERACTIONS = 1
 CANONICAL_INTENTS = {"greeting", "suggest_service", "confirm_booking", "collect_contact", "fallback"}
+BOOKING_INPUT_FIELD_VALUE = "FIELD_VALUE"
+BOOKING_INPUT_CLARIFICATION = "CLARIFICATION_QUESTION"
+BOOKING_INPUT_FEEDBACK = "FEEDBACK_OR_META"
 INTENT_ALIASES = {
     "greeting": "greeting",
     "hello": "greeting",
@@ -371,8 +374,49 @@ def _contact_clarification_reply(profile: dict, field_name: str) -> str:
     contact_replies = _profile_text_map(profile, "reply_texts", "contact_clarification_replies")
     template = contact_replies.get(field_name) or contact_replies.get("default")
     if isinstance(template, str) and template.strip():
-        return template.strip().format(field_prompt=field_label)
+        normalized_template = template.strip()
+        if "{field_prompt}" in normalized_template:
+            static_text = normalized_template.replace("{field_prompt}", "").strip()
+            if static_text:
+                return " ".join(static_text.split())
+        return normalized_template.format(field_prompt=field_label)
     return field_label
+
+
+def _classify_booking_input(message: str, profile: dict) -> str:
+    normalized_message = _normalize_lookup_text(message)
+    if not normalized_message:
+        return BOOKING_INPUT_FEEDBACK
+
+    if "?" in message or _is_contact_clarification(message, profile):
+        return BOOKING_INPUT_CLARIFICATION
+
+    return BOOKING_INPUT_FIELD_VALUE
+
+
+def _is_valid_contact_field_value(field_name: str | None, message: str, profile: dict) -> bool:
+    if field_name is None:
+        return False
+
+    trimmed_message = message.strip()
+    normalized_message = _normalize_lookup_text(trimmed_message)
+    if not normalized_message:
+        return False
+
+    if _classify_booking_input(message, profile) != BOOKING_INPUT_FIELD_VALUE:
+        return False
+
+    if field_name == "email":
+        if "@" not in trimmed_message:
+            return False
+
+        confirmation_words = {
+            word.casefold()
+            for word in _conversation_rule_list(profile, "booking_confirm_words")
+        }
+        return normalized_message not in confirmation_words
+
+    return True
 
 
 def _unknown_service_detail_reply(message: str, services: list[dict], profile: dict) -> str | None:
@@ -963,8 +1007,25 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     if state and state.get("stage") == "collecting_contact":
         next_field = state.get("next_field")
 
-        if _is_contact_clarification(message, profile):
+        booking_input_type = _classify_booking_input(message, profile)
+
+        if booking_input_type == BOOKING_INPUT_CLARIFICATION:
             reply = _contact_clarification_reply(profile, next_field)
+            final_reply = _finalize_reply(
+                tenant=tenant,
+                session_id=session_id,
+                session_key=session_key,
+                message=message,
+                reply=reply,
+                response_type="collect_contact",
+                services=services,
+                profile=profile,
+                stage_after="collecting_contact",
+            )
+            return final_reply, session_id
+
+        if not _is_valid_contact_field_value(next_field, message, profile):
+            reply = _field_prompt(profile, next_field)
             final_reply = _finalize_reply(
                 tenant=tenant,
                 session_id=session_id,
@@ -1308,6 +1369,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             intent = _normalize_intent(raw_intent)
             service_id = parsed.get("service_id")
             message_text = parsed.get("message")
+            booking_input_type = _classify_booking_input(message, profile)
 
             trace_event(
                 tenant,
@@ -1318,7 +1380,11 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 service_id=service_id,
             )
 
-            if intent == "confirm_booking" and allow_booking:
+            if (
+                intent == "confirm_booking"
+                and allow_booking
+                and booking_input_type == BOOKING_INPUT_FIELD_VALUE
+            ):
                 reply, session_id = _start_collecting_contact(
                     tenant,
                     session_id,
