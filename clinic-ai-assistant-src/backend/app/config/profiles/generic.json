@@ -91,6 +91,11 @@
     "service_list": "I already listed the services, but I can guide you more specifically if you want.",
     "consultation_explanation": "It is an initial review and conversation to see what is most appropriate for you. If you want, we can continue with booking right away."
   },
+  "conversation_behavior": {
+    "context_carry": {
+      "stage_context_template": "Current session stage: {stage}. Continue from this stage and do not restart the flow."
+    }
+  },
   "services": [],
   "actions": {
     "allow_booking": false,

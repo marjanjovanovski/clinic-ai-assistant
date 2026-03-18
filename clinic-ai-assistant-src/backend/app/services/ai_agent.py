@@ -16,6 +16,7 @@ DEBUG_AI = os.getenv("DEBUG_AI", "").strip().lower() == "true"
 SESSION_STATE = {}
 INTERACTION_HISTORY = {}
 MAX_INTERACTION_HISTORY = 6
+MAX_CONTEXT_INTERACTIONS = 1
 CANONICAL_INTENTS = {"greeting", "suggest_service", "confirm_booking", "collect_contact", "fallback"}
 INTENT_ALIASES = {
     "greeting": "greeting",
@@ -260,6 +261,39 @@ def _record_interaction(session_key: str, message: str, reply: str, response_typ
     )
     if len(history) > MAX_INTERACTION_HISTORY:
         del history[:-MAX_INTERACTION_HISTORY]
+
+
+def _bounded_ai_input(
+    *,
+    system_prompt: str,
+    session_key: str,
+    message: str,
+    stage: str | None,
+    stage_context_template: str | None,
+) -> list[dict]:
+    prompt_input: list[dict] = [{"role": "system", "content": system_prompt}]
+
+    if stage and isinstance(stage_context_template, str) and stage_context_template.strip():
+        prompt_input.append(
+            {
+                "role": "system",
+                "content": stage_context_template.format(stage=stage),
+            }
+        )
+
+    recent_context = _recent_interactions(session_key)[-MAX_CONTEXT_INTERACTIONS:]
+    for item in recent_context:
+        previous_user_message = item.get("message")
+        previous_assistant_reply = item.get("reply")
+
+        if isinstance(previous_user_message, str) and previous_user_message.strip():
+            prompt_input.append({"role": "user", "content": previous_user_message.strip()})
+
+        if isinstance(previous_assistant_reply, str) and previous_assistant_reply.strip():
+            prompt_input.append({"role": "assistant", "content": previous_assistant_reply.strip()})
+
+    prompt_input.append({"role": "user", "content": message})
+    return prompt_input
 
 
 def _is_broad_pricing_request(message: str, profile: dict) -> bool:
@@ -813,6 +847,9 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     rules_text = "\n".join(f"- {rule}" for rule in rules)
     communication_rules_text = "\n".join(f"- {rule}" for rule in communication_rules if isinstance(rule, str))
     categories_json = json.dumps(categories, ensure_ascii=False, indent=2)
+    conversation_behavior = profile.get("conversation_behavior", {})
+    context_carry = conversation_behavior.get("context_carry", {}) if isinstance(conversation_behavior, dict) else {}
+    stage_context_template = context_carry.get("stage_context_template")
 
     system_prompt = (
         template.replace("{{business_name}}", business_name)
@@ -1217,12 +1254,16 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             logger.debug("OPENAI CALL START tenant=%s session_id=%s", tenant, session_id)
 
         trace_event(tenant, session_id, "AI_CALL_START")
+        ai_input = _bounded_ai_input(
+            system_prompt=system_prompt,
+            session_key=session_key,
+            message=message,
+            stage=stage_before,
+            stage_context_template=stage_context_template,
+        )
         response = client.responses.create(
             model="gpt-4.1-mini",
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": message}
-            ]
+            input=ai_input
         )
         trace_event(tenant, session_id, "AI_CALL_END")
 
