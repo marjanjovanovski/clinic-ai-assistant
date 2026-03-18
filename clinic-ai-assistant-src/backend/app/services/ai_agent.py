@@ -394,6 +394,25 @@ def _classify_booking_input(message: str, profile: dict) -> str:
     return BOOKING_INPUT_FIELD_VALUE
 
 
+def _is_plausible_contact_name(message: str) -> bool:
+    if any(char.isdigit() for char in message):
+        return False
+
+    name_tokens = re.findall(r"[A-Za-z\u0400-\u04FF]+", message)
+    if not name_tokens:
+        return False
+
+    if len(name_tokens) > 4:
+        return False
+
+    return all(len(token) >= 2 for token in name_tokens)
+
+
+def _is_plausible_contact_phone(message: str) -> bool:
+    digits_only = re.sub(r"\D+", "", message)
+    return len(digits_only) >= 6
+
+
 def _is_valid_contact_field_value(field_name: str | None, message: str, profile: dict) -> bool:
     if field_name is None:
         return False
@@ -405,6 +424,12 @@ def _is_valid_contact_field_value(field_name: str | None, message: str, profile:
 
     if _classify_booking_input(message, profile) != BOOKING_INPUT_FIELD_VALUE:
         return False
+
+    if field_name == "name":
+        return _is_plausible_contact_name(trimmed_message)
+
+    if field_name == "phone":
+        return _is_plausible_contact_phone(trimmed_message)
 
     if field_name == "email":
         if "@" not in trimmed_message:
@@ -1467,6 +1492,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 intent == "confirm_booking"
                 and allow_booking
                 and booking_input_type == BOOKING_INPUT_FIELD_VALUE
+                and _is_booking_confirmation(message, profile)
             ):
                 reply, session_id = _start_collecting_contact(
                     tenant,
