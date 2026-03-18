@@ -383,6 +383,37 @@ def _contact_clarification_reply(profile: dict, field_name: str) -> str:
     return field_label
 
 
+def _is_field_level_clarification(message: str, field_name: str | None) -> bool:
+    if field_name is None:
+        return False
+
+    normalized_message = _normalize_lookup_text(message)
+    if not normalized_message:
+        return False
+
+    if field_name == "name":
+        return any(token in normalized_message for token in ("име", "im"))
+
+    if field_name == "phone":
+        return any(token in normalized_message for token in ("бро", "bro", "тел", "tel", "контакт", "kontakt"))
+
+    if field_name == "email":
+        return any(token in normalized_message for token in ("пошт", "mail", "email"))
+
+    return False
+
+
+def _is_booking_scope_clarification(message: str, field_name: str | None) -> bool:
+    normalized_message = _normalize_lookup_text(message)
+    if not normalized_message:
+        return False
+
+    if "закаж" in normalized_message or "zakaz" in normalized_message:
+        return True
+
+    return "?" in message and not _is_field_level_clarification(message, field_name)
+
+
 def _classify_booking_input(message: str, profile: dict) -> str:
     normalized_message = _normalize_lookup_text(message)
     if not normalized_message:
@@ -392,6 +423,39 @@ def _classify_booking_input(message: str, profile: dict) -> str:
         return BOOKING_INPUT_CLARIFICATION
 
     return BOOKING_INPUT_FIELD_VALUE
+
+
+def _booking_scope_clarification_reply(state: dict, services: list[dict], profile: dict) -> str:
+    service_id = state.get("service_id")
+    if service_id == "consultation":
+        consultation_reply = _profile_text(profile, "repetition_responses", "consultation_explanation")
+        if consultation_reply:
+            return consultation_reply
+
+    service = next(
+        (item for item in services if item.get("id") == service_id),
+        None,
+    )
+    if not isinstance(service, dict):
+        return _fallback_reply(profile)
+
+    service_name = _service_display_name(service)
+    description = _service_display_description(service)
+    if not service_name or not description:
+        return _fallback_reply(profile)
+
+    article_name = service.get("article_name") or service_name
+    sentence_description = description[0].lower() + description[1:] if description else description
+    followup = _profile_text(profile, "reply_texts", "service_description_followup")
+    reply = _render_profile_text(
+        profile,
+        ("reply_texts", "service_description_template"),
+        article_name=article_name,
+        service_name=service_name,
+        description=sentence_description,
+        followup=followup or "",
+    )
+    return reply or _fallback_reply(profile)
 
 
 def _is_plausible_contact_name(message: str) -> bool:
@@ -1115,7 +1179,10 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         booking_input_type = _classify_booking_input(message, profile)
 
         if booking_input_type == BOOKING_INPUT_CLARIFICATION:
-            reply = _contact_clarification_reply(profile, next_field)
+            if _is_booking_scope_clarification(message, next_field):
+                reply = _booking_scope_clarification_reply(state, services, profile)
+            else:
+                reply = _contact_clarification_reply(profile, next_field)
             final_reply = _finalize_reply(
                 tenant=tenant,
                 session_id=session_id,
