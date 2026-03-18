@@ -559,6 +559,66 @@ def _is_valid_contact_field_value(field_name: str | None, message: str, profile:
     return True
 
 
+def _extract_name_from_contact_bundle(message: str) -> str | None:
+    cleaned_message = re.sub(r"[^\w\s\u0400-\u04FF-]", " ", message, flags=re.UNICODE)
+    normalized_message = _normalize_lookup_text(cleaned_message)
+    if not normalized_message:
+        return None
+
+    normalized_message = re.sub(
+        r"\b(moeto ime e|jas sum|ime e|moeto ime|моето име е|јас сум|името е|моето име)\b",
+        " ",
+        normalized_message,
+    )
+    candidate_tokens = re.findall(r"[A-Za-z\u0400-\u04FF]+", normalized_message)
+    if not candidate_tokens:
+        return None
+
+    stopwords = {
+        "moeto", "ime", "e", "jas", "sum", "moze", "ve", "kontakt", "email", "mail",
+        "моето", "име", "е", "јас", "сум", "може", "ве", "контакт", "пошта",
+    }
+    filtered_tokens = [token for token in candidate_tokens if token not in stopwords]
+    if not filtered_tokens:
+        return None
+
+    if len(filtered_tokens) > 3:
+        return None
+
+    candidate_name = " ".join(token.capitalize() for token in filtered_tokens)
+    return candidate_name if _is_plausible_contact_name(candidate_name) else None
+
+
+def _extract_contact_fields_from_message(
+    message: str,
+    missing_fields: list[str],
+    profile: dict,
+) -> dict[str, str]:
+    extracted: dict[str, str] = {}
+    remaining_text = message.strip()
+
+    if "email" in missing_fields:
+        email_match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", remaining_text)
+        if email_match:
+            candidate_email = email_match.group(0).strip()
+            if _is_valid_contact_field_value("email", candidate_email, profile):
+                extracted["email"] = candidate_email
+                remaining_text = remaining_text.replace(candidate_email, " ")
+
+    if "phone" in missing_fields:
+        candidate_phone = re.sub(r"\D+", "", remaining_text)
+        if _is_plausible_contact_phone(candidate_phone):
+            extracted["phone"] = candidate_phone
+            remaining_text = re.sub(r"\D+", " ", remaining_text)
+
+    if "name" in missing_fields:
+        candidate_name = _extract_name_from_contact_bundle(remaining_text)
+        if candidate_name and _is_valid_contact_field_value("name", candidate_name, profile):
+            extracted["name"] = candidate_name
+
+    return extracted
+
+
 def _unknown_service_detail_reply(message: str, services: list[dict], profile: dict) -> str | None:
     normalized_message = _normalize_lookup_text(message)
     detail_triggers = _conversation_rule_list(profile, "service_detail_triggers")
@@ -674,6 +734,25 @@ def _start_collecting_contact(
     }
     save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key])
     return _field_prompt(profile, collect_fields[0]), session_id
+
+
+def _normalize_collecting_contact_state(state: dict, collect_fields: list[str]) -> tuple[dict, list[str], bool]:
+    changed = False
+
+    data = state.get("data")
+    if not isinstance(data, dict):
+        state["data"] = {}
+        data = state["data"]
+        changed = True
+
+    missing_fields = [field for field in collect_fields if field not in data]
+    expected_next_field = missing_fields[0] if missing_fields else None
+
+    if state.get("next_field") != expected_next_field:
+        state["next_field"] = expected_next_field
+        changed = True
+
+    return state, missing_fields, changed
 
 
 def _is_booking_confirmation(message: str, profile: dict) -> bool:
@@ -1153,6 +1232,14 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             previous_session_id=old_session_id,
         )
 
+    if state and state.get("stage") == "collecting_contact":
+        state, missing_fields, state_changed = _normalize_collecting_contact_state(state, collect_fields)
+        if state_changed:
+            save_lead_checkpoint(tenant, session_id, state)
+        if state.get("next_field") is None and missing_fields:
+            state["next_field"] = missing_fields[0]
+            save_lead_checkpoint(tenant, session_id, state)
+
     # Booking state 1: waiting for the user to confirm a suggested service.
     if (
         state
@@ -1198,6 +1285,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     if (
         state
         and state.get("stage") == "collecting_contact"
+        and not state.get("data")
         and _is_global_service_intent(message, services, profile)
     ):
         old_session_id = session_id
@@ -1226,6 +1314,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     # Booking state 2: backend owns the contact collection prompts until completion.
     if state and state.get("stage") == "collecting_contact":
         next_field = state.get("next_field")
+        missing_fields = [field for field in collect_fields if field not in state.get("data", {})]
 
         booking_input_type = _classify_booking_input(message, profile)
 
@@ -1234,6 +1323,90 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 reply = _booking_scope_clarification_reply(state, services, profile)
             else:
                 reply = _field_clarification_with_resume(profile, next_field)
+            final_reply = _finalize_reply(
+                tenant=tenant,
+                session_id=session_id,
+                session_key=session_key,
+                message=message,
+                reply=reply,
+                response_type="collect_contact",
+                services=services,
+                profile=profile,
+                stage_after="collecting_contact",
+            )
+            return final_reply, session_id
+
+        extracted_fields = _extract_contact_fields_from_message(message, missing_fields, profile)
+        if extracted_fields:
+            state["data"].update(extracted_fields)
+
+            updated_missing_fields = [field for field in collect_fields if field not in state["data"]]
+            if next_field in extracted_fields and not updated_missing_fields:
+                state["stage"] = "completed"
+                save_lead_checkpoint(tenant, session_id, state)
+                SESSION_STATE.pop(session_key, None)
+                _trace_stage_transition(
+                    tenant,
+                    session_id,
+                    stage_before,
+                    "completed",
+                    reason=f"collected_{next_field}_with_multi_field_parse",
+                )
+                _log_chat_state(
+                    message=message,
+                    session_id=session_id,
+                    intent="collect_contact",
+                    stage_before=stage_before,
+                    stage_after="completed",
+                )
+                reply = _profile_text(profile, "reply_texts", "booking_completed")
+                final_reply = _finalize_reply(
+                    tenant=tenant,
+                    session_id=session_id,
+                    session_key=session_key,
+                    message=message,
+                    reply=reply,
+                    response_type="collect_contact",
+                    services=services,
+                    profile=profile,
+                    stage_after="completed",
+                )
+                return final_reply, session_id
+
+            if next_field not in extracted_fields:
+                state["next_field"] = next_field
+                save_lead_checkpoint(tenant, session_id, state)
+                reply = _field_prompt(profile, next_field)
+                final_reply = _finalize_reply(
+                    tenant=tenant,
+                    session_id=session_id,
+                    session_key=session_key,
+                    message=message,
+                    reply=reply,
+                    response_type="collect_contact",
+                    services=services,
+                    profile=profile,
+                    stage_after="collecting_contact",
+                )
+                return final_reply, session_id
+
+            state["next_field"] = updated_missing_fields[0]
+            save_lead_checkpoint(tenant, session_id, state)
+            _trace_stage_transition(
+                tenant,
+                session_id,
+                stage_before,
+                "collecting_contact",
+                reason=f"multi_field_parse_after_{next_field}",
+            )
+            _log_chat_state(
+                message=message,
+                session_id=session_id,
+                intent="collect_contact",
+                stage_before=stage_before,
+                stage_after="collecting_contact",
+            )
+            reply = _field_prompt(profile, updated_missing_fields[0])
             final_reply = _finalize_reply(
                 tenant=tenant,
                 session_id=session_id,
@@ -1297,9 +1470,9 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             )
             return final_reply, session_id
 
-        SESSION_STATE.pop(session_key, None)
         state["stage"] = "completed"
         save_lead_checkpoint(tenant, session_id, state)
+        SESSION_STATE.pop(session_key, None)
         _trace_stage_transition(
             tenant,
             session_id,
