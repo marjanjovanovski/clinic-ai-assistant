@@ -16,6 +16,71 @@ Every task must explicitly define:
 
 Tasks must be narrowed to the smallest safe scope. If a task can be limited to one folder, one file, or one artifact, it must be.
 
+## Prompt Size Control Protocol
+
+### 1.1.1 Task Unit Definition
+
+A task must produce exactly one outcome.
+
+A task must modify exactly one logical area such as one file, one function, or one concern.
+
+A task must be executable without requiring another task to complete its own goal.
+
+If a task does not satisfy all three conditions:
+
+- The task is not atomic.
+- The task must be rejected.
+
+### 1.1.2 Multi-Goal Prompt Detection
+
+A prompt must be treated as multi-goal if it contains coordination patterns such as:
+
+- `and`
+- `also`
+- `then`
+
+A prompt must be treated as multi-goal if it contains multiple verbs affecting different areas.
+
+A prompt must be treated as multi-goal if it requests more than one expected output or outcome.
+
+### 1.1.3 Split Rule
+
+If a task is identified as multi-goal:
+
+- STOP execution.
+- Do not execute the task as written.
+- Return a structured split recommendation before any implementation proceeds.
+
+The required split format is:
+
+```text
+TASK SPLIT REQUIRED
+
+Original Task:
+<original prompt>
+
+Suggested Tasks:
+1. <task 1>
+2. <task 2>
+3. <task 3>
+```
+
+No task execution may proceed until the user confirms the split.
+
+### 1.1.4 Max Scope Rule
+
+The task must be rejected if it requires reading more than 3 files.
+
+The task must be rejected if it affects multiple system layers.
+
+The task must be rejected if it requires both `IMPLEMENT` and `VERIFY` in the same task.
+
+### 1.1.5 Enforcement Rule
+
+`IF TASK IS NOT ATOMIC -> DO NOT EXECUTE`
+
+Non-atomic prompts are invalid for execution under this protocol.
+
 ### 1.2 Separate Verification vs Implementation
 
 Every task must declare exactly one mode:
