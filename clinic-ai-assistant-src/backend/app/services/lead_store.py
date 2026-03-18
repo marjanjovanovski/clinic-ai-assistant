@@ -18,6 +18,54 @@ def _connect():
     return connection
 
 
+def _normalize_saved_value(value):
+    if not isinstance(value, str):
+        return None
+
+    normalized = value.strip()
+    return normalized or None
+
+
+def _fetch_persisted_lead(connection, tenant: str, session_id: str):
+    return connection.execute(
+        """
+        SELECT contact_name, contact_phone, contact_email, collected_data_json
+        FROM leads
+        WHERE tenant = ? AND session_id = ?
+        """,
+        (tenant, session_id),
+    ).fetchone()
+
+
+def _hydrate_state_from_row(row):
+    raw_state = row["collected_data_json"]
+
+    try:
+        state = json.loads(raw_state) if raw_state else {}
+    except (TypeError, json.JSONDecodeError):
+        state = {}
+
+    if not isinstance(state, dict):
+        state = {}
+
+    data = state.get("data")
+    if not isinstance(data, dict):
+        data = {}
+        state["data"] = data
+
+    persisted_data = {
+        "name": _normalize_saved_value(row["contact_name"]),
+        "phone": _normalize_saved_value(row["contact_phone"]),
+        "email": _normalize_saved_value(row["contact_email"]),
+    }
+
+    for field_name, value in persisted_data.items():
+        if value is not None:
+            data[field_name] = value
+
+    return state
+
+
 def init_leads_db():
     with _connect() as connection:
         connection.execute(
@@ -43,6 +91,11 @@ def save_lead_checkpoint(tenant: str, session_id: str, state: dict):
     now = datetime.now(timezone.utc).isoformat()
     data = state.get("data", {})
     stage = state.get("stage")
+    expected_data = {
+        "name": _normalize_saved_value(data.get("name")),
+        "phone": _normalize_saved_value(data.get("phone")),
+        "email": _normalize_saved_value(data.get("email")),
+    }
 
     trace_event(
         tenant,
@@ -87,6 +140,7 @@ def save_lead_checkpoint(tenant: str, session_id: str, state: dict):
                 ),
             )
             connection.commit()
+            persisted_row = _fetch_persisted_lead(connection, tenant, session_id)
     except sqlite3.Error as exc:
         trace_event(
             tenant,
@@ -97,25 +151,83 @@ def save_lead_checkpoint(tenant: str, session_id: str, state: dict):
             error=str(exc),
         )
         logger.exception("Failed to save lead checkpoint")
-        raise
+        return {
+            "success": False,
+            "stage": stage,
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+            "persisted_data": {},
+            "state_saved": False,
+        }
+
+    if not persisted_row:
+        trace_event(
+            tenant,
+            session_id,
+            "CHECKPOINT_SAVE",
+            action="failure",
+            stage=stage,
+            reason="missing_row_after_save",
+        )
+        return {
+            "success": False,
+            "stage": stage,
+            "error_type": "MissingPersistedRow",
+            "error": "Lead row missing after checkpoint save.",
+            "persisted_data": {},
+            "state_saved": False,
+        }
+
+    persisted_data = {
+        "name": _normalize_saved_value(persisted_row["contact_name"]),
+        "phone": _normalize_saved_value(persisted_row["contact_phone"]),
+        "email": _normalize_saved_value(persisted_row["contact_email"]),
+    }
+
+    try:
+        persisted_state = json.loads(persisted_row["collected_data_json"])
+        state_saved = isinstance(persisted_state, dict)
+    except (TypeError, json.JSONDecodeError):
+        persisted_state = None
+        state_saved = False
+
+    mismatched_fields = [
+        field_name
+        for field_name, expected_value in expected_data.items()
+        if expected_value is not None and persisted_data.get(field_name) != expected_value
+    ]
+
+    success = state_saved and not mismatched_fields
 
     trace_event(
         tenant,
         session_id,
         "DB_UPDATE",
         stage=stage,
-        contact_name=data.get("name"),
-        contact_phone=data.get("phone"),
-        contact_email=data.get("email"),
+        contact_name=persisted_data.get("name"),
+        contact_phone=persisted_data.get("phone"),
+        contact_email=persisted_data.get("email"),
     )
 
     trace_event(
         tenant,
         session_id,
         "LEAD_FINAL_SAVE" if stage == "completed" else "CHECKPOINT_SAVE",
-        action="success",
+        action="success" if success else "failure",
         stage=stage,
+        persisted_data=persisted_data,
+        mismatched_fields=mismatched_fields,
+        state_saved=state_saved,
     )
+
+    return {
+        "success": success,
+        "stage": stage,
+        "persisted_data": persisted_data,
+        "persisted_state": persisted_state,
+        "state_saved": state_saved,
+        "mismatched_fields": mismatched_fields,
+    }
 
 
 def load_lead_checkpoint(tenant: str, session_id: str):
@@ -128,14 +240,7 @@ def load_lead_checkpoint(tenant: str, session_id: str):
 
     try:
         with _connect() as connection:
-            row = connection.execute(
-                """
-                SELECT collected_data_json
-                FROM leads
-                WHERE tenant = ? AND session_id = ?
-                """,
-                (tenant, session_id),
-            ).fetchone()
+            row = _fetch_persisted_lead(connection, tenant, session_id)
     except sqlite3.Error as exc:
         trace_event(
             tenant,
@@ -157,7 +262,7 @@ def load_lead_checkpoint(tenant: str, session_id: str):
         )
         return None
 
-    state = json.loads(row["collected_data_json"])
+    state = _hydrate_state_from_row(row)
     trace_event(
         tenant,
         session_id,

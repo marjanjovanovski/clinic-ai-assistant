@@ -71,11 +71,34 @@ def _normalize_session_id(session_id: str | None) -> str:
 def _load_session_state(tenant: str, session_id: str) -> dict | None:
     session_key = _session_key(tenant, session_id)
     state = SESSION_STATE.get(session_key)
+    persisted_state = load_lead_checkpoint(tenant, session_id)
 
     if state is None:
-        state = load_lead_checkpoint(tenant, session_id)
-        if state:
-            SESSION_STATE[session_key] = state
+        state = persisted_state
+    elif isinstance(state, dict) and isinstance(persisted_state, dict):
+        state_data = state.get("data")
+        if not isinstance(state_data, dict):
+            state_data = {}
+            state["data"] = state_data
+
+        persisted_data = persisted_state.get("data")
+        if isinstance(persisted_data, dict):
+            for field_name, value in persisted_data.items():
+                if isinstance(value, str) and value.strip():
+                    state_data[field_name] = value
+
+        persisted_stage = persisted_state.get("stage")
+        if persisted_stage in {"awaiting_booking_confirmation", "collecting_contact", "completed"}:
+            state["stage"] = persisted_stage
+
+        if persisted_state.get("service_id"):
+            state["service_id"] = persisted_state.get("service_id")
+
+        if persisted_state.get("next_field") is not None:
+            state["next_field"] = persisted_state.get("next_field")
+
+    if state:
+        SESSION_STATE[session_key] = state
 
     return state
 
@@ -779,6 +802,36 @@ def _has_active_booking_lock(state: dict | None) -> bool:
     return state.get("stage") == "collecting_contact"
 
 
+def _persisted_fields_match(save_result: dict | None, required_fields: list[str]) -> bool:
+    if not isinstance(save_result, dict) or not save_result.get("success"):
+        return False
+
+    persisted_data = save_result.get("persisted_data")
+    if not isinstance(persisted_data, dict):
+        return False
+
+    return all(isinstance(persisted_data.get(field_name), str) and persisted_data.get(field_name).strip() for field_name in required_fields)
+
+
+def _recover_from_persistence_failure(
+    state: dict,
+    collect_fields: list[str],
+    save_result: dict | None,
+    fallback_field: str | None,
+) -> str:
+    persisted_data = save_result.get("persisted_data") if isinstance(save_result, dict) else {}
+    if not isinstance(persisted_data, dict):
+        persisted_data = {}
+
+    missing_fields = [field_name for field_name in collect_fields if not persisted_data.get(field_name)]
+    retry_field = missing_fields[0] if missing_fields else fallback_field or collect_fields[0]
+
+    state["stage"] = "collecting_contact"
+    state["next_field"] = retry_field
+    state.setdefault("data", {}).pop(retry_field, None)
+    return retry_field
+
+
 def _is_booking_confirmation(message: str, profile: dict) -> bool:
     return message.strip().casefold() in {
         word.casefold()
@@ -1338,7 +1391,37 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             updated_missing_fields = [field for field in collect_fields if field not in state["data"]]
             if next_field in extracted_fields and not updated_missing_fields:
                 state["stage"] = "completed"
-                save_lead_checkpoint(tenant, session_id, state)
+                save_result = save_lead_checkpoint(tenant, session_id, state)
+                if not _persisted_fields_match(save_result, collect_fields):
+                    retry_field = _recover_from_persistence_failure(state, collect_fields, save_result, next_field)
+                    SESSION_STATE[session_key] = state
+                    _trace_stage_transition(
+                        tenant,
+                        session_id,
+                        stage_before,
+                        "collecting_contact",
+                        reason=f"persistence_retry_after_{next_field}_with_multi_field_parse",
+                    )
+                    _log_chat_state(
+                        message=message,
+                        session_id=session_id,
+                        intent="collect_contact",
+                        stage_before=stage_before,
+                        stage_after="collecting_contact",
+                    )
+                    reply = _field_prompt(profile, retry_field)
+                    final_reply = _finalize_reply(
+                        tenant=tenant,
+                        session_id=session_id,
+                        session_key=session_key,
+                        message=message,
+                        reply=reply,
+                        response_type="collect_contact",
+                        services=services,
+                        profile=profile,
+                        stage_after="collecting_contact",
+                    )
+                    return final_reply, session_id
                 SESSION_STATE.pop(session_key, None)
                 _trace_stage_transition(
                     tenant,
@@ -1370,7 +1453,23 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
 
             if next_field not in extracted_fields:
                 state["next_field"] = next_field
-                save_lead_checkpoint(tenant, session_id, state)
+                save_result = save_lead_checkpoint(tenant, session_id, state)
+                if not _persisted_fields_match(save_result, list(extracted_fields.keys())):
+                    retry_field = _recover_from_persistence_failure(state, collect_fields, save_result, next_field)
+                    SESSION_STATE[session_key] = state
+                    reply = _field_prompt(profile, retry_field)
+                    final_reply = _finalize_reply(
+                        tenant=tenant,
+                        session_id=session_id,
+                        session_key=session_key,
+                        message=message,
+                        reply=reply,
+                        response_type="collect_contact",
+                        services=services,
+                        profile=profile,
+                        stage_after="collecting_contact",
+                    )
+                    return final_reply, session_id
                 reply = _field_prompt(profile, next_field)
                 final_reply = _finalize_reply(
                     tenant=tenant,
@@ -1386,7 +1485,23 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 return final_reply, session_id
 
             state["next_field"] = updated_missing_fields[0]
-            save_lead_checkpoint(tenant, session_id, state)
+            save_result = save_lead_checkpoint(tenant, session_id, state)
+            if not _persisted_fields_match(save_result, list(extracted_fields.keys())):
+                retry_field = _recover_from_persistence_failure(state, collect_fields, save_result, next_field)
+                SESSION_STATE[session_key] = state
+                reply = _field_prompt(profile, retry_field)
+                final_reply = _finalize_reply(
+                    tenant=tenant,
+                    session_id=session_id,
+                    session_key=session_key,
+                    message=message,
+                    reply=reply,
+                    response_type="collect_contact",
+                    services=services,
+                    profile=profile,
+                    stage_after="collecting_contact",
+                )
+                return final_reply, session_id
             _trace_stage_transition(
                 tenant,
                 session_id,
@@ -1436,7 +1551,23 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
 
         if remaining:
             state["next_field"] = remaining[0]
-            save_lead_checkpoint(tenant, session_id, state)
+            save_result = save_lead_checkpoint(tenant, session_id, state)
+            if not _persisted_fields_match(save_result, [next_field]):
+                retry_field = _recover_from_persistence_failure(state, collect_fields, save_result, next_field)
+                SESSION_STATE[session_key] = state
+                reply = _field_prompt(profile, retry_field)
+                final_reply = _finalize_reply(
+                    tenant=tenant,
+                    session_id=session_id,
+                    session_key=session_key,
+                    message=message,
+                    reply=reply,
+                    response_type="collect_contact",
+                    services=services,
+                    profile=profile,
+                    stage_after="collecting_contact",
+                )
+                return final_reply, session_id
             _trace_stage_transition(
                 tenant,
                 session_id,
@@ -1466,7 +1597,37 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             return final_reply, session_id
 
         state["stage"] = "completed"
-        save_lead_checkpoint(tenant, session_id, state)
+        save_result = save_lead_checkpoint(tenant, session_id, state)
+        if not _persisted_fields_match(save_result, collect_fields):
+            retry_field = _recover_from_persistence_failure(state, collect_fields, save_result, next_field)
+            SESSION_STATE[session_key] = state
+            _trace_stage_transition(
+                tenant,
+                session_id,
+                stage_before,
+                "collecting_contact",
+                reason=f"persistence_retry_after_{next_field}",
+            )
+            _log_chat_state(
+                message=message,
+                session_id=session_id,
+                intent="collect_contact",
+                stage_before=stage_before,
+                stage_after="collecting_contact",
+            )
+            reply = _field_prompt(profile, retry_field)
+            final_reply = _finalize_reply(
+                tenant=tenant,
+                session_id=session_id,
+                session_key=session_key,
+                message=message,
+                reply=reply,
+                response_type="collect_contact",
+                services=services,
+                profile=profile,
+                stage_after="collecting_contact",
+            )
+            return final_reply, session_id
         SESSION_STATE.pop(session_key, None)
         _trace_stage_transition(
             tenant,
