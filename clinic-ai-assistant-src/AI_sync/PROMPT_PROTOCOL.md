@@ -307,7 +307,9 @@ No partial completion allowed.
 
 Every task must include:
 
-`TASK_ID: <unique_name>`
+`TASK_ID: TASK_<TYPE>_<SHORT_NAME>`
+
+`TASK_ID` must follow the required naming convention exactly.
 
 `TASK_ID` must be unique per task.
 
