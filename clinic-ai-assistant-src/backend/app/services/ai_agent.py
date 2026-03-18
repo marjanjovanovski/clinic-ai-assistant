@@ -76,16 +76,13 @@ def _load_session_state(tenant: str, session_id: str) -> dict | None:
     if state is None:
         state = persisted_state
     elif isinstance(state, dict) and isinstance(persisted_state, dict):
-        state_data = state.get("data")
-        if not isinstance(state_data, dict):
-            state_data = {}
-            state["data"] = state_data
-
         persisted_data = persisted_state.get("data")
         if isinstance(persisted_data, dict):
+            authoritative_data = {}
             for field_name, value in persisted_data.items():
                 if isinstance(value, str) and value.strip():
-                    state_data[field_name] = value
+                    authoritative_data[field_name] = value
+            state["data"] = authoritative_data
 
         persisted_stage = persisted_state.get("stage")
         if persisted_stage in {"awaiting_booking_confirmation", "collecting_contact", "completed"}:
@@ -806,7 +803,7 @@ def _start_collecting_contact(
         "next_field": collect_fields[0],
         "data": {}
     }
-    save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key])
+    save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key], required_fields=collect_fields)
     return _field_prompt(profile, collect_fields[0]), session_id
 
 
@@ -844,7 +841,8 @@ def _persisted_fields_match(save_result: dict | None, required_fields: list[str]
     if not isinstance(persisted_data, dict):
         return False
 
-    return all(isinstance(persisted_data.get(field_name), str) and persisted_data.get(field_name).strip() for field_name in required_fields)
+    normalized_required_fields = [field_name for field_name in required_fields if field_name in {"name", "phone", "email"}]
+    return all(isinstance(persisted_data.get(field_name), str) and persisted_data.get(field_name).strip() for field_name in normalized_required_fields)
 
 
 def _recover_from_persistence_failure(
@@ -1346,10 +1344,10 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     if state and state.get("stage") == "collecting_contact":
         state, missing_fields, state_changed = _normalize_collecting_contact_state(state, collect_fields)
         if state_changed:
-            save_lead_checkpoint(tenant, session_id, state)
+            save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
         if state.get("next_field") is None and missing_fields:
             state["next_field"] = missing_fields[0]
-            save_lead_checkpoint(tenant, session_id, state)
+            save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
 
     # Booking state 1: waiting for the user to confirm a suggested service.
     if (
@@ -1427,7 +1425,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             updated_missing_fields = [field for field in collect_fields if field not in state["data"]]
             if next_field in extracted_fields and not updated_missing_fields:
                 state["stage"] = "completed"
-                save_result = save_lead_checkpoint(tenant, session_id, state)
+                save_result = save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
                 if not _persisted_fields_match(save_result, collect_fields):
                     retry_field = _recover_from_persistence_failure(state, collect_fields, save_result, next_field)
                     SESSION_STATE[session_key] = state
@@ -1489,7 +1487,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
 
             if next_field not in extracted_fields:
                 state["next_field"] = next_field
-                save_result = save_lead_checkpoint(tenant, session_id, state)
+                save_result = save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
                 if not _persisted_fields_match(save_result, list(extracted_fields.keys())):
                     retry_field = _recover_from_persistence_failure(state, collect_fields, save_result, next_field)
                     SESSION_STATE[session_key] = state
@@ -1521,7 +1519,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 return final_reply, session_id
 
             state["next_field"] = updated_missing_fields[0]
-            save_result = save_lead_checkpoint(tenant, session_id, state)
+            save_result = save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
             if not _persisted_fields_match(save_result, list(extracted_fields.keys())):
                 retry_field = _recover_from_persistence_failure(state, collect_fields, save_result, next_field)
                 SESSION_STATE[session_key] = state
@@ -1587,7 +1585,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
 
         if remaining:
             state["next_field"] = remaining[0]
-            save_result = save_lead_checkpoint(tenant, session_id, state)
+            save_result = save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
             if not _persisted_fields_match(save_result, [next_field]):
                 retry_field = _recover_from_persistence_failure(state, collect_fields, save_result, next_field)
                 SESSION_STATE[session_key] = state
@@ -1633,7 +1631,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             return final_reply, session_id
 
         state["stage"] = "completed"
-        save_result = save_lead_checkpoint(tenant, session_id, state)
+        save_result = save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
         if not _persisted_fields_match(save_result, collect_fields):
             retry_field = _recover_from_persistence_failure(state, collect_fields, save_result, next_field)
             SESSION_STATE[session_key] = state
@@ -2023,7 +2021,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                         "stage": "awaiting_booking_confirmation",
                         "service_id": service_id,
                     }
-                    save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key])
+                    save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key], required_fields=collect_fields)
                     _trace_stage_transition(
                         tenant,
                         session_id,

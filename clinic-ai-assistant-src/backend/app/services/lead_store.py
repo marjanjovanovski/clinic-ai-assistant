@@ -87,10 +87,11 @@ def init_leads_db():
         connection.commit()
 
 
-def save_lead_checkpoint(tenant: str, session_id: str, state: dict):
+def save_lead_checkpoint(tenant: str, session_id: str, state: dict, required_fields: list[str] | None = None):
     now = datetime.now(timezone.utc).isoformat()
     data = state.get("data", {})
     stage = state.get("stage")
+    required_fields = [field_name for field_name in (required_fields or []) if field_name in {"name", "phone", "email"}]
     expected_data = {
         "name": _normalize_saved_value(data.get("name")),
         "phone": _normalize_saved_value(data.get("phone")),
@@ -104,6 +105,7 @@ def save_lead_checkpoint(tenant: str, session_id: str, state: dict):
         action="attempt",
         stage=stage,
         data=data,
+        required_fields=required_fields,
     )
 
     try:
@@ -194,10 +196,15 @@ def save_lead_checkpoint(tenant: str, session_id: str, state: dict):
     mismatched_fields = [
         field_name
         for field_name, expected_value in expected_data.items()
-        if expected_value is not None and persisted_data.get(field_name) != expected_value
+        if field_name in required_fields and expected_value is not None and persisted_data.get(field_name) != expected_value
     ]
 
-    success = state_saved and not mismatched_fields
+    missing_required_fields = [
+        field_name for field_name in required_fields
+        if not persisted_data.get(field_name)
+    ]
+
+    success = state_saved and not mismatched_fields and not missing_required_fields
 
     trace_event(
         tenant,
@@ -215,7 +222,9 @@ def save_lead_checkpoint(tenant: str, session_id: str, state: dict):
         "LEAD_FINAL_SAVE" if stage == "completed" else "CHECKPOINT_SAVE",
         action="success" if success else "failure",
         stage=stage,
+        required_fields=required_fields,
         persisted_data=persisted_data,
+        missing_required_fields=missing_required_fields,
         mismatched_fields=mismatched_fields,
         state_saved=state_saved,
     )
@@ -223,9 +232,11 @@ def save_lead_checkpoint(tenant: str, session_id: str, state: dict):
     return {
         "success": success,
         "stage": stage,
+        "required_fields": required_fields,
         "persisted_data": persisted_data,
         "persisted_state": persisted_state,
         "state_saved": state_saved,
+        "missing_required_fields": missing_required_fields,
         "mismatched_fields": mismatched_fields,
     }
 
