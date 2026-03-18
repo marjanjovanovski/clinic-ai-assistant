@@ -383,6 +383,27 @@ def _contact_clarification_reply(profile: dict, field_name: str) -> str:
     return field_label
 
 
+def _has_contact_field_reference(message: str) -> bool:
+    normalized_message = _normalize_lookup_text(message)
+    if not normalized_message:
+        return False
+
+    contact_reference_tokens = (
+        "име",
+        "im",
+        "бро",
+        "bro",
+        "тел",
+        "tel",
+        "контакт",
+        "kontakt",
+        "пошт",
+        "mail",
+        "email",
+    )
+    return any(token in normalized_message for token in contact_reference_tokens)
+
+
 def _is_field_level_clarification(message: str, field_name: str | None) -> bool:
     if field_name is None:
         return False
@@ -406,6 +427,9 @@ def _is_field_level_clarification(message: str, field_name: str | None) -> bool:
 def _is_booking_scope_clarification(message: str, field_name: str | None) -> bool:
     normalized_message = _normalize_lookup_text(message)
     if not normalized_message:
+        return False
+
+    if _has_contact_field_reference(message):
         return False
 
     if "закаж" in normalized_message or "zakaz" in normalized_message:
@@ -477,6 +501,17 @@ def _is_plausible_contact_phone(message: str) -> bool:
     return len(digits_only) >= 6
 
 
+def _is_conversational_filler_input(message: str, profile: dict) -> bool:
+    if _is_acknowledgment_input(message, profile):
+        return True
+
+    normalized_message = _normalize_lookup_text(message)
+    if not normalized_message:
+        return False
+
+    return normalized_message in {"ajde", "ајде"}
+
+
 def _is_valid_contact_field_value(field_name: str | None, message: str, profile: dict) -> bool:
     if field_name is None:
         return False
@@ -487,6 +522,9 @@ def _is_valid_contact_field_value(field_name: str | None, message: str, profile:
         return False
 
     if _classify_booking_input(message, profile) != BOOKING_INPUT_FIELD_VALUE:
+        return False
+
+    if _is_conversational_filler_input(message, profile):
         return False
 
     if field_name == "name":
