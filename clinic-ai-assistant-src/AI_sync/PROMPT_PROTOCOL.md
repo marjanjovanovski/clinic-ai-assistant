@@ -188,34 +188,59 @@ Codex must execute only the current explicitly defined task.
 
 Codex must not combine the current task with follow-up work unless a separate task explicitly authorizes it.
 
+If a new task is introduced before completion of the current task:
+
+- STOP current flow.
+- Require explicit confirmation to abandon or pause the current task.
+
 ### 1.1.15 No Mid-Task Changes
 
-If the user changes direction while a task is in progress:
+A task must not change goal, scope, or constraints during execution.
 
-- The current task must stop.
-- The new direction must be treated as a new task.
+Any change in direction must be treated as a new task.
+
+The current task must be explicitly closed, paused, or rejected before switching.
 
 Codex must not merge mid-task direction changes into the active task.
 
 Codex must not reinterpret the active task to absorb the new request.
 
-### 1.1.16 No Emotional Prompting
+### 1.1.16 No Emotional or Non-Operational Prompting
+
+Prompts must remain operational and task-oriented.
 
 Task execution must be guided by explicit task definition, scope, and protocol rules.
 
+Emotional, vague, or conversational instructions must not trigger execution.
+
 Emotional language, urgency framing, praise, frustration, or persuasive wording must not expand, shrink, or redirect the active task.
+
+If a prompt lacks clear task structure:
+
+- Reject execution.
+- Request reformulation.
 
 Emotional tone may be acknowledged conversationally, but it must not be used as tasking authority.
 
-### 1.1.17 Session Discipline Rule
+### 1.1.17 Direction Change Rule
 
-If direction changes:
+If user intent shifts:
 
-- Open a new task.
+- Treat it as a new `TASK_ID`.
+- Do not merge it with the current task.
+- Do not partially reuse execution state.
 
 If the task scope changes:
 
 - Reject continuation under the current task.
+
+### 1.1.18 Enforcement Behavior
+
+If any session-discipline rule is violated:
+
+- STOP execution.
+- Report violation clearly.
+- Do not proceed.
 
 Session discipline must remain deterministic and must not be overridden by conversational flow alone.
 
