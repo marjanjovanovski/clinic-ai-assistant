@@ -362,6 +362,92 @@ Any information not included in these inputs must be treated as unavailable.
 
 Task isolation is required for reproducibility and hidden-context prevention.
 
+## Backend Configuration Separation Protocol
+
+### 1.1.31 Core Separation Rule
+
+Configuration content must not be added to Python files.
+
+Python files are reserved for:
+
+- logic
+- routing
+- state machine behavior
+- orchestration
+
+Configuration content must live only in tenant profile JSON under:
+
+- `clinic-ai-assistant-src/backend/app/config/profiles/`
+
+### 1.1.32 Configuration Content Definition
+
+Configuration content includes:
+
+- reply wording
+- trigger phrases
+- language patterns
+- business wording
+- booking confirmation words
+- fallback texts
+- conversation rules
+- booking/contact prompts
+- behavior instructions
+- assistant tone or style wording
+- stage or flow instruction text intended for model behavior
+
+### 1.1.33 Python Prohibition Rule
+
+Python files must not define, store, hardcode, or introduce configuration content.
+
+Python may load configuration from approved JSON sources.
+
+Python may format configured values for execution.
+
+Python must not become the source of conversational behavior wording.
+
+### 1.1.34 Approved Configuration Source
+
+Tenant profile JSON is the approved source for backend conversational and configuration content.
+
+Onboarding or behavior variation must be achievable through JSON changes, not Python wording changes.
+
+### 1.1.35 Prompting Enforcement
+
+Every backend development prompt must explicitly respect this rule.
+
+If a backend task attempts to place configuration content into Python:
+
+- STOP execution.
+- Report architecture violation.
+- Require the content to be moved to tenant profile JSON.
+
+### 1.1.36 Review Rule
+
+Before executing backend changes, prompts must require checking whether the requested change belongs in:
+
+- Python logic
+- tenant profile JSON
+
+If the change is configuration or content rather than logic or orchestration:
+
+- It must be implemented in JSON, not Python.
+
+### 1.1.37 Future Prompt Requirement
+
+Future backend prompts must include an architecture constraint equivalent in meaning to:
+
+- configuration content must not be added to Python files
+- tenant profile JSON is the only approved source for conversational and configuration content
+- Python may only load and orchestrate configuration
+
+### 1.1.38 Enforcement Behavior
+
+If this protocol is violated:
+
+- STOP execution.
+- Report the exact violation.
+- Do not continue the task under the invalid architecture approach.
+
 ### 1.2 Separate Verification vs Implementation
 
 Every task must declare exactly one mode:
