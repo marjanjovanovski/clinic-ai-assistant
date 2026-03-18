@@ -659,6 +659,40 @@ def _extract_contact_fields_from_message(
     return extracted
 
 
+def _should_attempt_contact_bundle_parse(
+    message: str,
+    missing_fields: list[str],
+    profile: dict,
+) -> bool:
+    if len(missing_fields) < 2:
+        return False
+
+    extracted = _extract_contact_fields_from_message(message, missing_fields, profile)
+    if len(extracted) < 2:
+        return False
+
+    normalized_message = _normalize_lookup_text(message)
+    has_labeled_contact_hint = any(
+        token in normalized_message
+        for token in (
+            "telefon",
+            "tel",
+            "broj",
+            "kontakt",
+            "email",
+            "mail",
+            "ime",
+            "phone",
+            "number",
+        )
+    )
+
+    explicit_email = "email" in extracted
+    explicit_phone = "phone" in extracted
+
+    return has_labeled_contact_hint or (explicit_email and explicit_phone)
+
+
 def _unknown_service_detail_reply(message: str, services: list[dict], profile: dict) -> str | None:
     normalized_message = _normalize_lookup_text(message)
     detail_triggers = _conversation_rule_list(profile, "service_detail_triggers")
@@ -1384,7 +1418,9 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             )
             return final_reply, session_id
 
-        extracted_fields = _extract_contact_fields_from_message(message, missing_fields, profile)
+        extracted_fields = {}
+        if _should_attempt_contact_bundle_parse(message, missing_fields, profile):
+            extracted_fields = _extract_contact_fields_from_message(message, missing_fields, profile)
         if extracted_fields:
             state["data"].update(extracted_fields)
 
