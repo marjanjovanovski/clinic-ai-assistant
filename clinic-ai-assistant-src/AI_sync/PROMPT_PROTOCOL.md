@@ -305,6 +305,63 @@ Task execution is a controlled lifecycle, not free-flow execution.
 
 `BLOCKED` may exist only as a future extension and must not be added to the active state machine in this task.
 
+## Execution Context Isolation Protocol
+
+### 1.1.25 Context Boundary
+
+Every task must operate within an explicit context boundary.
+
+Only inputs defined in the task prompt are allowed.
+
+No additional context may be assumed.
+
+### 1.1.26 No Implicit Memory
+
+Codex must not rely on:
+
+- previous tasks
+- earlier conversation history
+- unstated assumptions
+
+Any required prior information must be explicitly re-provided.
+
+### 1.1.27 Explicit Input Requirement
+
+If a task depends on external or prior data:
+
+- That data must be explicitly included in the task definition.
+
+Missing required input must trigger:
+
+- STOP execution.
+- Request for required inputs.
+
+### 1.1.28 No Context Carry-Over
+
+Results, decisions, or state from previous tasks must not influence a new task.
+
+Context reuse is allowed only if explicitly passed as input.
+
+### 1.1.29 Violation Handling
+
+If implicit context usage is detected:
+
+- STOP execution.
+- Report context violation.
+- Do not continue under hidden assumptions.
+
+### 1.1.30 Input Definition Rule
+
+Valid task inputs are limited to:
+
+- explicitly provided files
+- explicitly provided text in the prompt
+- explicitly declared references within the task
+
+Any information not included in these inputs must be treated as unavailable.
+
+Task isolation is required for reproducibility and hidden-context prevention.
+
 ### 1.2 Separate Verification vs Implementation
 
 Every task must declare exactly one mode:
