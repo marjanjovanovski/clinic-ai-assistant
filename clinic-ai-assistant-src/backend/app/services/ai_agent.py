@@ -417,6 +417,20 @@ def _has_contact_field_reference(message: str) -> bool:
     return any(token in normalized_message for token in contact_reference_tokens)
 
 
+def _has_contact_ownership_clarification(message: str) -> bool:
+    normalized_message = _normalize_lookup_text(message)
+    if not normalized_message:
+        return False
+
+    ownership_tokens = (
+        "moj", "moja", "moeto", "negov", "negova", "negovo",
+        "nejzin", "nejzina", "nejzino", "tug", "tugjo",
+        "мој", "моја", "моето", "негов", "негова", "негово",
+        "нејзин", "нејзина", "нејзино", "туѓ", "туѓо",
+    )
+    return any(token in normalized_message for token in ownership_tokens)
+
+
 def _is_field_level_clarification(message: str, field_name: str | None) -> bool:
     if field_name is None:
         return False
@@ -426,13 +440,16 @@ def _is_field_level_clarification(message: str, field_name: str | None) -> bool:
         return False
 
     if field_name == "name":
-        return any(token in normalized_message for token in ("име", "im"))
+        return any(token in normalized_message for token in ("име", "im")) or _has_contact_ownership_clarification(message)
 
     if field_name == "phone":
-        return any(token in normalized_message for token in ("бро", "bro", "тел", "tel", "контакт", "kontakt"))
+        return (
+            any(token in normalized_message for token in ("бро", "bro", "тел", "tel", "контакт", "kontakt"))
+            or _has_contact_ownership_clarification(message)
+        )
 
     if field_name == "email":
-        return any(token in normalized_message for token in ("пошт", "mail", "email"))
+        return any(token in normalized_message for token in ("пошт", "mail", "email")) or _has_contact_ownership_clarification(message)
 
     return False
 
