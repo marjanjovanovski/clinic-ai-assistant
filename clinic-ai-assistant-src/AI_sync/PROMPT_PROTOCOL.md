@@ -26,22 +26,30 @@ A task must modify exactly one logical area such as one file, one function, or o
 
 A task must be executable without requiring another task to complete its own goal.
 
+A task is atomic only if it leads to one bounded implementation outcome.
+
+A task may contain multiple words or sub-actions only if they serve the same single outcome and the same logical concern.
+
+Natural language coordination alone must not be treated as proof of a multi-goal task.
+
 If a task does not satisfy all three conditions:
 
 - The task is not atomic.
 - The task must be rejected.
 
-### 1.1.2 Multi-Goal Prompt Detection
+### 1.1.2 Refined Multi-Goal Detection
 
-A prompt must be treated as multi-goal if it contains coordination patterns such as:
+A prompt must be treated as multi-goal only when it requests more than one independent outcome.
 
-- `and`
-- `also`
-- `then`
+A prompt must be treated as multi-goal only when it requests changes to more than one independent concern.
 
-A prompt must be treated as multi-goal if it contains multiple verbs affecting different areas.
+A prompt must be treated as multi-goal only when it includes more than one execution path that could be completed separately.
 
-A prompt must be treated as multi-goal if it requests more than one expected output or outcome.
+Detection must be based on task intent and separability, not keyword presence alone.
+
+Words such as `and`, `also`, and `then` are signals for review, not automatic failure conditions.
+
+The protocol must not reject a task only because those words appear in natural language.
 
 ### 1.1.3 Split Rule
 
