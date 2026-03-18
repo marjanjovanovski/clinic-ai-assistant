@@ -383,6 +383,19 @@ def _contact_clarification_reply(profile: dict, field_name: str) -> str:
     return field_label
 
 
+def _field_clarification_with_resume(profile: dict, field_name: str) -> str:
+    clarification_reply = _contact_clarification_reply(profile, field_name)
+    field_prompt = _field_prompt(profile, field_name)
+
+    if field_name != "phone":
+        return clarification_reply
+
+    if clarification_reply == field_prompt:
+        return field_prompt
+
+    return f"{clarification_reply}\n{field_prompt}"
+
+
 def _has_contact_field_reference(message: str) -> bool:
     normalized_message = _normalize_lookup_text(message)
     if not normalized_message:
@@ -498,7 +511,7 @@ def _is_plausible_contact_name(message: str) -> bool:
 
 def _is_plausible_contact_phone(message: str) -> bool:
     digits_only = re.sub(r"\D+", "", message)
-    return len(digits_only) >= 6
+    return len(digits_only) >= 8
 
 
 def _is_conversational_filler_input(message: str, profile: dict) -> bool:
@@ -1220,7 +1233,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             if _is_booking_scope_clarification(message, next_field):
                 reply = _booking_scope_clarification_reply(state, services, profile)
             else:
-                reply = _contact_clarification_reply(profile, next_field)
+                reply = _field_clarification_with_resume(profile, next_field)
             final_reply = _finalize_reply(
                 tenant=tenant,
                 session_id=session_id,
