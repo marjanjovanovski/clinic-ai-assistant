@@ -178,6 +178,47 @@ The section must include at minimum:
 - `TASK_IMPL_SYNC_FILE`
 - `TASK_VERIFY_BOOKING_FLOW`
 
+## Session Discipline Protocol
+
+### 1.1.14 One Task At A Time
+
+Only one task may be active at a time.
+
+Codex must execute only the current explicitly defined task.
+
+Codex must not combine the current task with follow-up work unless a separate task explicitly authorizes it.
+
+### 1.1.15 No Mid-Task Changes
+
+If the user changes direction while a task is in progress:
+
+- The current task must stop.
+- The new direction must be treated as a new task.
+
+Codex must not merge mid-task direction changes into the active task.
+
+Codex must not reinterpret the active task to absorb the new request.
+
+### 1.1.16 No Emotional Prompting
+
+Task execution must be guided by explicit task definition, scope, and protocol rules.
+
+Emotional language, urgency framing, praise, frustration, or persuasive wording must not expand, shrink, or redirect the active task.
+
+Emotional tone may be acknowledged conversationally, but it must not be used as tasking authority.
+
+### 1.1.17 Session Discipline Rule
+
+If direction changes:
+
+- Open a new task.
+
+If the task scope changes:
+
+- Reject continuation under the current task.
+
+Session discipline must remain deterministic and must not be overridden by conversational flow alone.
+
 ### 1.2 Separate Verification vs Implementation
 
 Every task must declare exactly one mode:
