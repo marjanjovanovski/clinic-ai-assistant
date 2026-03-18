@@ -244,6 +244,67 @@ If any session-discipline rule is violated:
 
 Session discipline must remain deterministic and must not be overridden by conversational flow alone.
 
+## Task State Machine Protocol
+
+### 1.1.19 State Requirement
+
+Every task must have exactly one explicit state.
+
+Every task must begin in `PENDING`.
+
+The required task states are:
+
+- `PENDING`
+- `IMPLEMENT`
+- `VERIFY`
+- `DONE`
+
+### 1.1.20 Transition Rules
+
+`IMPLEMENT` can only start from `PENDING`.
+
+`VERIFY` can only start after `IMPLEMENT`.
+
+`DONE` can only be reached after successful `VERIFY`.
+
+If `VERIFY` fails:
+
+- The task must return to `IMPLEMENT`.
+
+### 1.1.21 No State Skipping
+
+No state may be skipped.
+
+Direct transition from `PENDING` to `VERIFY` is invalid.
+
+Direct transition from `PENDING` to `DONE` is invalid.
+
+Direct transition from `IMPLEMENT` to `DONE` is invalid.
+
+### 1.1.22 Explicit Transition Rule
+
+Each state transition must be explicit.
+
+Codex must not infer state transitions from context, timing, or conversational flow alone.
+
+### 1.1.23 Verification Gate
+
+No task may reach `DONE` without successful `VERIFY`.
+
+Failed verification must keep the task incomplete.
+
+### 1.1.24 Enforcement Behavior
+
+If state rules are violated:
+
+- STOP execution.
+- Report the invalid transition clearly.
+- Do not continue under the invalid state flow.
+
+Task execution is a controlled lifecycle, not free-flow execution.
+
+`BLOCKED` may exist only as a future extension and must not be added to the active state machine in this task.
+
 ### 1.2 Separate Verification vs Implementation
 
 Every task must declare exactly one mode:
