@@ -618,6 +618,27 @@ def _is_plausible_contact_phone(message: str) -> bool:
     return len(digits_only) >= 9
 
 
+def _is_plausible_contact_email(message: str) -> bool:
+    trimmed_message = message.strip()
+    if not trimmed_message or len(trimmed_message) > 254:
+        return False
+
+    if not re.fullmatch(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", trimmed_message):
+        return False
+
+    local_part, _, domain_part = trimmed_message.partition("@")
+    if not local_part or not domain_part:
+        return False
+
+    if local_part.startswith(".") or local_part.endswith(".") or ".." in local_part:
+        return False
+
+    if domain_part.startswith(".") or domain_part.endswith(".") or ".." in domain_part:
+        return False
+
+    return True
+
+
 def _is_conversational_filler_input(message: str, profile: dict) -> bool:
     if _is_acknowledgment_input(message, profile):
         return True
@@ -651,7 +672,7 @@ def _is_valid_contact_field_value(field_name: str | None, message: str, profile:
         return _is_plausible_contact_phone(trimmed_message)
 
     if field_name == "email":
-        if "@" not in trimmed_message:
+        if not _is_plausible_contact_email(trimmed_message):
             return False
 
         confirmation_words = {
@@ -663,6 +684,19 @@ def _is_valid_contact_field_value(field_name: str | None, message: str, profile:
     return True
 
 
+def _normalized_name_candidate(value: str) -> str | None:
+    cleaned_value = re.sub(r"[^\w\s\u0400-\u04FF-]", " ", value, flags=re.UNICODE)
+    candidate_tokens = re.findall(r"[A-Za-z\u0400-\u04FF]+", cleaned_value)
+    if not candidate_tokens:
+        return None
+
+    if len(candidate_tokens) > 3:
+        return None
+
+    candidate_name = " ".join(token.capitalize() for token in candidate_tokens)
+    return candidate_name if _is_plausible_contact_name(candidate_name) else None
+
+
 def _extract_name_from_contact_bundle(message: str) -> str | None:
     cleaned_message = re.sub(r"[^\w\s\u0400-\u04FF-]", " ", message, flags=re.UNICODE)
     normalized_message = _normalize_lookup_text(cleaned_message)
@@ -670,28 +704,43 @@ def _extract_name_from_contact_bundle(message: str) -> str | None:
         return None
 
     normalized_message = re.sub(
-        r"\b(moeto ime e|jas sum|ime e|moeto ime|моето име е|јас сум|името е|моето име)\b",
+        r"\b(moeto ime e|jas sum|ime e|moeto ime|ime mi e|моето име е|јас сум|името е|моето име|името ми е)\b",
         " ",
         normalized_message,
     )
-    candidate_tokens = re.findall(r"[A-Za-z\u0400-\u04FF]+", normalized_message)
-    if not candidate_tokens:
-        return None
-
     stopwords = {
         "moeto", "ime", "e", "jas", "sum", "moze", "ve", "kontakt", "email", "mail",
-        "zdravo", "zdravoo", "hello", "hi",
-        "моето", "име", "е", "јас", "сум", "може", "ве", "контакт", "пошта", "здраво",
+        "zdravo", "zdravoo", "hello", "hi", "mi",
+        "моето", "име", "е", "јас", "сум", "може", "ве", "контакт", "пошта", "здраво", "ми",
     }
-    filtered_tokens = [token for token in candidate_tokens if token not in stopwords]
-    if not filtered_tokens:
+    candidate_tokens = [
+        token
+        for token in re.findall(r"[A-Za-z\u0400-\u04FF]+", normalized_message)
+        if token not in stopwords
+    ]
+    return _normalized_name_candidate(" ".join(candidate_tokens))
+
+
+def _extract_explicit_contact_name(message: str) -> str | None:
+    normalized_message = _normalize_lookup_text(message)
+    if not normalized_message:
         return None
 
-    if len(filtered_tokens) > 3:
-        return None
-
-    candidate_name = " ".join(token.capitalize() for token in filtered_tokens)
-    return candidate_name if _is_plausible_contact_name(candidate_name) else None
+    explicit_name_patterns = (
+        r"\bjas sum\s+(.+)$",
+        r"\bmoeto ime e\s+(.+)$",
+        r"\bime mi e\s+(.+)$",
+        r"\bime e\s+(.+)$",
+        r"\bјас сум\s+(.+)$",
+        r"\bмоето име е\s+(.+)$",
+        r"\bимето ми е\s+(.+)$",
+        r"\bимето е\s+(.+)$",
+    )
+    for pattern in explicit_name_patterns:
+        match = re.search(pattern, normalized_message)
+        if match:
+            return _normalized_name_candidate(match.group(1))
+    return None
 
 
 def _recent_contact_name_hint(session_key: str) -> str | None:
@@ -699,7 +748,7 @@ def _recent_contact_name_hint(session_key: str) -> str | None:
         message = item.get("message")
         if not isinstance(message, str) or not message.strip():
             continue
-        candidate_name = _extract_name_from_contact_bundle(message)
+        candidate_name = _extract_explicit_contact_name(message)
         if candidate_name:
             return candidate_name
     return None
@@ -728,6 +777,13 @@ def _invalid_phone_reply(profile: dict, message: str) -> str:
     if invalid_reply:
         return invalid_reply
     return _field_prompt(profile, "phone")
+
+
+def _invalid_email_reply(profile: dict) -> str:
+    invalid_reply = _field_error_prompt(profile, "email")
+    if invalid_reply:
+        return invalid_reply
+    return _field_prompt(profile, "email")
 
 
 def _extract_contact_fields_from_message(
@@ -907,10 +963,6 @@ def _start_collecting_contact(
     known_name = _recent_contact_name_hint(session_key)
     initial_data = {}
     next_field = collect_fields[0]
-    if known_name and "name" in collect_fields:
-        initial_data["name"] = known_name
-        remaining_fields = [field for field in collect_fields if field not in initial_data]
-        next_field = remaining_fields[0] if remaining_fields else None
 
     SESSION_STATE[session_key] = {
         "stage": "collecting_contact",
@@ -918,6 +970,8 @@ def _start_collecting_contact(
         "next_field": next_field,
         "data": initial_data,
     }
+    if known_name and "name" in collect_fields:
+        SESSION_STATE[session_key]["pending_name_confirmation"] = known_name
     save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key], required_fields=[])
     return _booking_start_reply(profile, known_name), session_id
 
@@ -984,6 +1038,15 @@ def _is_booking_confirmation(message: str, profile: dict) -> bool:
         word.casefold()
         for word in _conversation_rule_list(profile, "booking_confirm_words")
     }
+
+
+def _is_booking_rejection(message: str) -> bool:
+    normalized_message = _normalize_lookup_text(message)
+    if not normalized_message:
+        return False
+
+    first_token = normalized_message.split(" ", 1)[0]
+    return first_token in {"ne", "не", "no", "нет"}
 
 
 def _normalize_intent(intent: str | None) -> str:
@@ -1563,6 +1626,32 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     if _has_active_booking_lock(state):
         next_field = state.get("next_field")
         missing_fields = [field for field in collect_fields if field not in state.get("data", {})]
+        pending_name_confirmation = state.get("pending_name_confirmation")
+
+        if next_field == "name" and isinstance(pending_name_confirmation, str) and pending_name_confirmation.strip():
+            explicit_name = _extract_explicit_contact_name(message)
+            if explicit_name:
+                state.pop("pending_name_confirmation", None)
+                message = explicit_name
+            elif _is_booking_confirmation(message, profile):
+                state.pop("pending_name_confirmation", None)
+                message = pending_name_confirmation
+            elif _is_booking_rejection(message):
+                state.pop("pending_name_confirmation", None)
+                save_lead_checkpoint(tenant, session_id, state, required_fields=[])
+                reply = _field_prompt(profile, "name")
+                final_reply = _finalize_reply(
+                    tenant=tenant,
+                    session_id=session_id,
+                    session_key=session_key,
+                    message=message,
+                    reply=reply,
+                    response_type="collect_contact",
+                    services=services,
+                    profile=profile,
+                    stage_after="collecting_contact",
+                )
+                return final_reply, session_id
 
         booking_input_type = _classify_booking_input(message, profile)
 
@@ -1755,6 +1844,8 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             ):
                 state["phone_length_guided"] = True
                 reply = _invalid_phone_reply(profile, message)
+            elif next_field == "email" and "@" in message:
+                reply = _invalid_email_reply(profile)
             else:
                 reply = _field_prompt(profile, next_field)
             final_reply = _finalize_reply(
@@ -1773,6 +1864,8 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         state["data"][next_field] = message
         if next_field == "phone":
             state.pop("phone_length_guided", None)
+        if next_field == "name":
+            state.pop("pending_name_confirmation", None)
 
         remaining = [field for field in collect_fields if field not in state["data"]]
 
