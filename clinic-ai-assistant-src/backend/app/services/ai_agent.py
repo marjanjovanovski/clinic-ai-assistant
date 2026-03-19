@@ -769,10 +769,12 @@ def _booking_start_reply(profile: dict, known_name: str | None = None) -> str:
 def _invalid_phone_reply(profile: dict, message: str) -> str:
     digits_only = re.sub(r"\D+", "", message)
     missing_digits = max(0, 9 - len(digits_only))
+    missing_digits_label = "цифра" if missing_digits == 1 else "цифри"
     invalid_reply = _field_error_prompt(
         profile,
         "phone",
         missing_digits=missing_digits,
+        missing_digits_label=missing_digits_label,
     )
     if invalid_reply:
         return invalid_reply
@@ -1419,15 +1421,25 @@ def get_booking_progress(tenant: str, session_id: str | None) -> dict | None:
             {
                 "field": field_name,
                 "label": _field_prompt(profile, field_name),
+                "value": raw_value.strip() if is_done else None,
                 "done": bool(is_done),
             }
         )
+
+    progress_percent = 0
+    if completed_count == 1:
+        progress_percent = 30
+    elif completed_count == 2:
+        progress_percent = 60
+    elif completed_count >= 3:
+        progress_percent = 100
 
     return {
         "visible": True,
         "booking_stage": stage,
         "collection_status": completed_count,
         "collection_total": len(collect_fields),
+        "progress_percent": progress_percent,
         "reservation_status": "complete" if stage == "completed" else "pending",
         "next_field": state.get("next_field"),
         "fields": field_progress,
