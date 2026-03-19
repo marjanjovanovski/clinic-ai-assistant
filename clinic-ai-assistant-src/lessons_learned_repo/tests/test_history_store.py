@@ -98,6 +98,7 @@ def test_multiple_execution_rows_are_preserved_in_order(isolated_history_db):
     assert executions[0]["execution_summary"] == "Created the first artifact."
     assert executions[1]["execution_impact"] == "Artifact became more operational."
     assert all(item["created_at"] for item in executions)
+    assert executions[0]["git_commit_hash"] is None
 
 
 def test_create_lesson_links_multiple_execution_rows(isolated_history_db):
@@ -135,3 +136,24 @@ def test_create_lesson_links_multiple_execution_rows(isolated_history_db):
     assert lessons[0]["requirement_code"] == "REQ-LESSON-001"
     assert lessons[0]["category_code"] == "lessons_learned_repo"
     assert lessons[0]["source_execution_ids"] == f"{first['id']}, {second['id']}"
+
+
+def test_execution_history_with_labels_includes_git_commit_hash(isolated_history_db):
+    isolated_history_db.create_project_requirement(
+        req_code="REQ-HASH-001",
+        title="Git hash tracking",
+        category_code="lessons_learned_repo",
+        description="Store repo commit hash alongside execution records.",
+        status="active",
+    )
+    isolated_history_db.create_requirement_execution(
+        req_code="REQ-HASH-001",
+        prompt_text="Apply booking flow fix",
+        execution_summary="Recorded execution with commit hash.",
+        execution_impact="Repo mapping is now explicit in execution history.",
+        git_commit_hash="abc123hash",
+    )
+
+    history = isolated_history_db.list_execution_history_with_labels(req_code="REQ-HASH-001")
+
+    assert history[0]["git_commit_hash"] == "abc123hash"

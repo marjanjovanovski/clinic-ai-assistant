@@ -238,6 +238,19 @@ def _message_tokens(value: str) -> set[str]:
     }
 
 
+def _transliterate_macedonian_text(value: str) -> str:
+    transliteration_map = {
+        "а": "a", "б": "b", "в": "v", "г": "g", "д": "d",
+        "ѓ": "gj", "е": "e", "ж": "zh", "з": "z", "ѕ": "dz",
+        "и": "i", "ј": "j", "к": "k", "л": "l", "љ": "lj",
+        "м": "m", "н": "n", "њ": "nj", "о": "o", "п": "p",
+        "р": "r", "с": "s", "т": "t", "ќ": "kj", "у": "u",
+        "ф": "f", "х": "h", "ц": "c", "ч": "ch", "џ": "dj",
+        "ш": "sh",
+    }
+    return "".join(transliteration_map.get(char, char) for char in value.casefold())
+
+
 def _messages_are_similar(left: str, right: str) -> bool:
     left_normalized = _normalize_lookup_text(left)
     right_normalized = _normalize_lookup_text(right)
@@ -416,6 +429,16 @@ def _field_clarification_with_resume(profile: dict, field_name: str) -> str:
     return f"{clarification_reply}\n{field_prompt}"
 
 
+def _contact_collection_redirect_reply(profile: dict, field_name: str | None) -> str:
+    field_prompt = _field_prompt(profile, field_name or "name")
+    redirect_reply = _render_profile_text(
+        profile,
+        ("reply_texts", "booking_interruption_redirect"),
+        field_prompt=field_prompt,
+    )
+    return redirect_reply or field_prompt
+
+
 def _has_contact_field_reference(message: str) -> bool:
     normalized_message = _normalize_lookup_text(message)
     if not normalized_message:
@@ -486,6 +509,42 @@ def _is_booking_scope_clarification(message: str, field_name: str | None) -> boo
         return True
 
     return "?" in message and not _is_field_level_clarification(message, field_name)
+
+
+def _is_catalog_reference_during_contact_collection(message: str, services: list[dict], profile: dict) -> bool:
+    if _match_service_for_message(message, services):
+        return True
+
+    normalized_message = _normalize_lookup_text(message)
+    if not normalized_message:
+        return False
+
+    if _is_service_list_request(message, profile):
+        return True
+
+    transliterated_message = _normalize_lookup_text(_transliterate_macedonian_text(normalized_message))
+
+    for category in _ordered_categories(profile, services):
+        category_name = category.get("име") or category.get("name")
+        if isinstance(category_name, str) and category_name.strip():
+            normalized_category_name = _normalize_lookup_text(category_name)
+            transliterated_category_name = _normalize_lookup_text(_transliterate_macedonian_text(category_name))
+            if normalized_category_name == normalized_message or transliterated_category_name == transliterated_message:
+                return True
+
+        category_services = category.get("услуги") or category.get("services") or []
+        for service in category_services:
+            if not isinstance(service, dict):
+                continue
+            service_name = _service_display_name(service)
+            if not service_name:
+                continue
+            normalized_service_name = _normalize_lookup_text(service_name)
+            transliterated_service_name = _normalize_lookup_text(_transliterate_macedonian_text(service_name))
+            if normalized_service_name == normalized_message or transliterated_service_name == transliterated_message:
+                return True
+
+    return False
 
 
 def _classify_booking_input(message: str, profile: dict) -> str:
@@ -803,7 +862,7 @@ def _start_collecting_contact(
         "next_field": collect_fields[0],
         "data": {}
     }
-    save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key], required_fields=collect_fields)
+    save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key], required_fields=[])
     return _field_prompt(profile, collect_fields[0]), session_id
 
 
@@ -1209,6 +1268,53 @@ def get_session_status(tenant: str, session_id: str | None) -> str:
     return "active"
 
 
+def get_booking_progress(tenant: str, session_id: str | None) -> dict | None:
+    if not session_id:
+        return None
+
+    profile = load_profile_config(tenant)
+    collect_fields = _profile_list(profile, "actions", "collect_contact_fields")
+    if not collect_fields:
+        collect_fields = ["name", "phone", "email"]
+
+    state = _load_session_state(tenant, session_id)
+    if not isinstance(state, dict):
+        return None
+
+    stage = _stage_name(state)
+    if stage not in {"collecting_contact", "completed"}:
+        return None
+
+    data = state.get("data")
+    if not isinstance(data, dict):
+        data = {}
+
+    field_progress = []
+    completed_count = 0
+    for field_name in collect_fields:
+        raw_value = data.get(field_name)
+        is_done = isinstance(raw_value, str) and raw_value.strip()
+        if is_done:
+            completed_count += 1
+        field_progress.append(
+            {
+                "field": field_name,
+                "label": _field_prompt(profile, field_name),
+                "done": bool(is_done),
+            }
+        )
+
+    return {
+        "visible": True,
+        "booking_stage": stage,
+        "collection_status": completed_count,
+        "collection_total": len(collect_fields),
+        "reservation_status": "complete" if stage == "completed" else "pending",
+        "next_field": state.get("next_field"),
+        "fields": field_progress,
+    }
+
+
 def generate_reply(tenant: str, message: str, session_id: str | None = None) -> tuple[str, str]:
     original_session_id = session_id
     profile = load_profile_config(tenant)
@@ -1344,10 +1450,10 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     if state and state.get("stage") == "collecting_contact":
         state, missing_fields, state_changed = _normalize_collecting_contact_state(state, collect_fields)
         if state_changed:
-            save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
+            save_lead_checkpoint(tenant, session_id, state, required_fields=[])
         if state.get("next_field") is None and missing_fields:
             state["next_field"] = missing_fields[0]
-            save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
+            save_lead_checkpoint(tenant, session_id, state, required_fields=[])
 
     # Booking state 1: waiting for the user to confirm a suggested service.
     if (
@@ -1399,10 +1505,25 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         booking_input_type = _classify_booking_input(message, profile)
 
         if booking_input_type == BOOKING_INPUT_CLARIFICATION:
-            if _is_booking_scope_clarification(message, next_field):
-                reply = _booking_scope_clarification_reply(state, services, profile)
-            else:
+            if _is_field_level_clarification(message, next_field):
                 reply = _field_clarification_with_resume(profile, next_field)
+            else:
+                reply = _contact_collection_redirect_reply(profile, next_field)
+            final_reply = _finalize_reply(
+                tenant=tenant,
+                session_id=session_id,
+                session_key=session_key,
+                message=message,
+                reply=reply,
+                response_type="collect_contact",
+                services=services,
+                profile=profile,
+                stage_after="collecting_contact",
+            )
+            return final_reply, session_id
+
+        if next_field == "name" and _is_catalog_reference_during_contact_collection(message, services, profile):
+            reply = _contact_collection_redirect_reply(profile, next_field)
             final_reply = _finalize_reply(
                 tenant=tenant,
                 session_id=session_id,

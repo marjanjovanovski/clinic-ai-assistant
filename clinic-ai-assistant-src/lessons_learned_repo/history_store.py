@@ -75,7 +75,7 @@ def _execution_rows_by_ids(connection: sqlite3.Connection, execution_ids: list[i
     placeholders = ",".join("?" for _ in execution_ids)
     rows = connection.execute(
         f"""
-        SELECT id, requirement_id, prompt_text, execution_summary, execution_impact, created_at
+        SELECT id, requirement_id, prompt_text, execution_summary, execution_impact, git_commit_hash, created_at
         FROM requirement_execution
         WHERE id IN ({placeholders})
         ORDER BY id ASC
@@ -125,11 +125,23 @@ def init_history_db() -> None:
                 prompt_text TEXT NOT NULL,
                 execution_summary TEXT NOT NULL,
                 execution_impact TEXT NOT NULL,
+                git_commit_hash TEXT,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (requirement_id) REFERENCES project_requirements(id)
             )
             """
         )
+        execution_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(requirement_execution)").fetchall()
+        }
+        if "git_commit_hash" not in execution_columns:
+            connection.execute(
+                """
+                ALTER TABLE requirement_execution
+                ADD COLUMN git_commit_hash TEXT
+                """
+            )
         connection.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_project_requirements_category_id
@@ -319,10 +331,12 @@ def create_requirement_execution(
     prompt_text: str,
     execution_summary: str,
     execution_impact: str,
+    git_commit_hash: str | None = None,
 ) -> dict:
     normalized_prompt_text = _normalize_required_text(prompt_text, "prompt_text")
     normalized_summary = _normalize_required_text(execution_summary, "execution_summary")
     normalized_impact = _normalize_required_text(execution_impact, "execution_impact")
+    normalized_commit_hash = git_commit_hash.strip() if isinstance(git_commit_hash, str) and git_commit_hash.strip() else None
 
     with _connect() as connection:
         requirement_row = _requirement_row_by_code(connection, req_code)
@@ -337,15 +351,17 @@ def create_requirement_execution(
                     prompt_text,
                     execution_summary,
                     execution_impact,
+                    git_commit_hash,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
                     requirement_row["id"],
                     normalized_prompt_text,
                     normalized_summary,
                     normalized_impact,
+                    normalized_commit_hash,
                     _utc_now(),
                 ),
             )
@@ -355,7 +371,7 @@ def create_requirement_execution(
 
         row = connection.execute(
             """
-            SELECT id, requirement_id, prompt_text, execution_summary, execution_impact, created_at
+            SELECT id, requirement_id, prompt_text, execution_summary, execution_impact, git_commit_hash, created_at
             FROM requirement_execution
             WHERE id = ?
             """,
@@ -429,7 +445,7 @@ def list_requirement_execution(req_code: str) -> list[dict]:
 
         rows = connection.execute(
             """
-            SELECT id, requirement_id, prompt_text, execution_summary, execution_impact, created_at
+            SELECT id, requirement_id, prompt_text, execution_summary, execution_impact, git_commit_hash, created_at
             FROM requirement_execution
             WHERE requirement_id = ?
             ORDER BY id ASC, created_at ASC
@@ -450,6 +466,7 @@ def list_execution_history_with_labels(*, req_code: str | None = None) -> list[d
             re.execution_summary,
             re.execution_impact,
             re.prompt_text,
+            re.git_commit_hash,
             re.created_at
         FROM requirement_execution re
         INNER JOIN project_requirements pr ON pr.id = re.requirement_id
@@ -656,6 +673,7 @@ def commit_requirement_execution(
         prompt_text=prompt_text,
         execution_summary=execution_summary,
         execution_impact=execution_impact,
+        git_commit_hash=commit_hash,
     )
 
     return {

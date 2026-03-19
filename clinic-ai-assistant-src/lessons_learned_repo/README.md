@@ -10,6 +10,7 @@ It is separate from the live clinic runtime. It does not run through `backend/ap
 - stores canonical project requirements
 - stores execution history records tied to requirements
 - stores curated lessons learned linked back to execution evidence
+- stores git commit hashes for commit-triggered execution records
 - provides a CLI trigger entry for logging repo-changing executions
 
 ## Trigger Entry
