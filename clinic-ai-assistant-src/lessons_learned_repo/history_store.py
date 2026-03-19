@@ -14,7 +14,7 @@ INITIAL_CATEGORY_SEEDS = (
     ("business_logic", "Business Logic", "Core business rules and backend behavior."),
     ("infrastructure", "Infrastructure", "Platform, environment, and operational infrastructure."),
     ("documentation", "Documentation", "Documentation and sync artifact requirements."),
-    ("data", "Data", "Data modeling and persistence requirements."),
+    ("lessons_learned_repo", "Lessons Learned", "Lessons learned repository and project memory requirements."),
     ("integration", "Integration", "Integration requirements across systems or workflows."),
     ("performance", "Performance", "Performance and efficiency requirements."),
 )
@@ -131,6 +131,20 @@ def init_history_db() -> None:
                 (code, name, description, created_at)
                 for code, name, description in INITIAL_CATEGORY_SEEDS
             ],
+        )
+
+        # Migrate the previous category in place instead of duplicating it.
+        connection.execute(
+            """
+            UPDATE requirement_categories
+            SET code = ?, name = ?, description = ?
+            WHERE code = 'data'
+            """,
+            (
+                "lessons_learned_repo",
+                "Lessons Learned",
+                "Lessons learned repository and project memory requirements.",
+            ),
         )
         connection.commit()
 

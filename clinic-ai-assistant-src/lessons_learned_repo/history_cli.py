@@ -2,7 +2,7 @@ import argparse
 import json
 from pathlib import Path
 
-from project_ops.history_store import (
+from lessons_learned_repo.history_store import (
     commit_requirement_execution,
     create_project_requirement,
     create_requirement_category,
@@ -27,7 +27,7 @@ def _print_json(payload) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Project history trigger entrypoint for requirement-linked execution records."
+        description="Lessons learned repository trigger entrypoint for requirement-linked execution records."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 

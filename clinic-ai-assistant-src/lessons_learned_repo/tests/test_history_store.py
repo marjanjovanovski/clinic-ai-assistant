@@ -1,6 +1,6 @@
 import pytest
 
-from project_ops import history_store
+from lessons_learned_repo import history_store
 
 
 @pytest.fixture()
@@ -21,7 +21,7 @@ def test_init_history_db_seeds_required_categories(isolated_history_db):
         "business_logic",
         "infrastructure",
         "documentation",
-        "data",
+        "lessons_learned_repo",
         "integration",
         "performance",
     }.issubset(category_codes)
@@ -41,7 +41,7 @@ def test_create_and_query_requirements_by_category(isolated_history_db):
     isolated_history_db.create_project_requirement(
         req_code="REQ-PROJ-HISTORY-001",
         title="Project requirements and execution history tracking",
-        category_code="data",
+        category_code="lessons_learned_repo",
         description="Create a lightweight SQLite-based project history layer.",
         status="active",
     )
@@ -53,10 +53,10 @@ def test_create_and_query_requirements_by_category(isolated_history_db):
         status="proposed",
     )
 
-    data_requirements = isolated_history_db.list_requirements_by_category("data")
+    llr_requirements = isolated_history_db.list_requirements_by_category("lessons_learned_repo")
     gui_requirements = isolated_history_db.list_requirements_by_category("gui")
 
-    assert [item["req_code"] for item in data_requirements] == ["REQ-PROJ-HISTORY-001"]
+    assert [item["req_code"] for item in llr_requirements] == ["REQ-PROJ-HISTORY-001"]
     assert [item["req_code"] for item in gui_requirements] == ["REQ-GUI-001"]
 
 
