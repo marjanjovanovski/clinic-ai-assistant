@@ -9,6 +9,7 @@ It is separate from the live clinic runtime. It does not run through `backend/ap
 - stores controlled requirement categories
 - stores canonical project requirements
 - stores execution history records tied to requirements
+- stores curated lessons learned linked back to execution evidence
 - provides a CLI trigger entry for logging repo-changing executions
 
 ## Trigger Entry
@@ -53,4 +54,16 @@ Commit and log in one step:
 
 ```bash
 python -m lessons_learned_repo.history_cli commit-with-history --req-code REQ-PROJ-HISTORY-001 --category-code lessons_learned_repo --commit-message "Add lessons learned repo history layer" --prompt-file path/to/prompt.txt --summary "Committed the lessons learned repo history layer." --impact "Successful repo changes were linked to the requirement history."
+```
+
+Create a lesson from one or more execution ids:
+
+```bash
+python -m lessons_learned_repo.history_cli create-lesson --lesson-code LESSON-REQ-001 --title "Separate project memory from product runtime" --statement "Project memory and collaboration logging should live outside the patient-facing runtime." --why-it-matters "This keeps operational learning infrastructure from bleeding into live clinic behavior." --execution-ids 1 2 --status validated
+```
+
+List lessons with requirement, category, and source execution ids:
+
+```bash
+python -m lessons_learned_repo.history_cli list-lessons
 ```

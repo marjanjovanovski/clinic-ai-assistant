@@ -98,3 +98,40 @@ def test_multiple_execution_rows_are_preserved_in_order(isolated_history_db):
     assert executions[0]["execution_summary"] == "Created the first artifact."
     assert executions[1]["execution_impact"] == "Artifact became more operational."
     assert all(item["created_at"] for item in executions)
+
+
+def test_create_lesson_links_multiple_execution_rows(isolated_history_db):
+    isolated_history_db.create_project_requirement(
+        req_code="REQ-LESSON-001",
+        title="Lesson creation",
+        category_code="lessons_learned_repo",
+        description="Create a lesson from execution evidence.",
+        status="active",
+    )
+    first = isolated_history_db.create_requirement_execution(
+        req_code="REQ-LESSON-001",
+        prompt_text="Execution A",
+        execution_summary="Created the first execution.",
+        execution_impact="Initial implementation evidence exists.",
+    )
+    second = isolated_history_db.create_requirement_execution(
+        req_code="REQ-LESSON-001",
+        prompt_text="Execution B",
+        execution_summary="Created the second execution.",
+        execution_impact="Refinement evidence exists.",
+    )
+
+    lesson = isolated_history_db.create_lesson_learned(
+        lesson_code="LESSON-REQ-001",
+        title="Keep lessons curated",
+        statement="Lessons should be derived from meaningful execution evidence rather than every log row.",
+        why_it_matters="A curated layer preserves signal over noise.",
+        source_execution_ids=[first["id"], second["id"]],
+        status="validated",
+    )
+    lessons = isolated_history_db.list_lessons_with_labels(lesson_code="LESSON-REQ-001")
+
+    assert lesson["lesson_code"] == "LESSON-REQ-001"
+    assert lessons[0]["requirement_code"] == "REQ-LESSON-001"
+    assert lessons[0]["category_code"] == "lessons_learned_repo"
+    assert lessons[0]["source_execution_ids"] == f"{first['id']}, {second['id']}"

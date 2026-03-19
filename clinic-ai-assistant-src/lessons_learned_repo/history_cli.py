@@ -4,11 +4,13 @@ from pathlib import Path
 
 from lessons_learned_repo.history_store import (
     commit_requirement_execution,
+    create_lesson_learned,
     create_project_requirement,
     create_requirement_category,
     create_requirement_execution,
     init_history_db,
     list_execution_history_with_labels,
+    list_lessons_with_labels,
     list_requirement_categories,
     list_requirement_execution,
     list_requirements_by_category,
@@ -134,6 +136,36 @@ def build_parser() -> argparse.ArgumentParser:
     list_labeled_history.add_argument("--req-code")
     list_labeled_history.set_defaults(
         handler=lambda args: list_execution_history_with_labels(req_code=args.req_code)
+    )
+
+    create_lesson = subparsers.add_parser(
+        "create-lesson",
+        help="Create a curated lesson linked to one or more execution ids.",
+    )
+    create_lesson.add_argument("--lesson-code", required=True)
+    create_lesson.add_argument("--title", required=True)
+    create_lesson.add_argument("--statement", required=True)
+    create_lesson.add_argument("--why-it-matters", required=True)
+    create_lesson.add_argument("--execution-ids", nargs="+", required=True)
+    create_lesson.add_argument("--status", default="validated")
+    create_lesson.set_defaults(
+        handler=lambda args: create_lesson_learned(
+            lesson_code=args.lesson_code,
+            title=args.title,
+            statement=args.statement,
+            why_it_matters=args.why_it_matters,
+            source_execution_ids=args.execution_ids,
+            status=args.status,
+        )
+    )
+
+    list_lessons = subparsers.add_parser(
+        "list-lessons",
+        help="List curated lessons with requirement/category labels and source execution ids.",
+    )
+    list_lessons.add_argument("--lesson-code")
+    list_lessons.set_defaults(
+        handler=lambda args: list_lessons_with_labels(lesson_code=args.lesson_code)
     )
 
     return parser

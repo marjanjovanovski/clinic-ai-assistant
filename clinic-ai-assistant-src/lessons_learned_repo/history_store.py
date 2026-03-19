@@ -8,6 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "project_history.db"
 REPO_ROOT = BASE_DIR.parent
 ALLOWED_REQUIREMENT_STATUSES = {"proposed", "active", "completed", "dropped"}
+ALLOWED_LESSON_STATUSES = {"proposed", "validated", "obsolete"}
 INITIAL_CATEGORY_SEEDS = (
     ("security", "Security", "Security-related project requirements."),
     ("gui", "GUI", "User interface and presentation requirements."),
@@ -67,6 +68,27 @@ def _requirement_row_by_code(connection: sqlite3.Connection, req_code: str):
     ).fetchone()
 
 
+def _execution_rows_by_ids(connection: sqlite3.Connection, execution_ids: list[int]):
+    if not execution_ids:
+        raise ValueError("At least one execution_id is required.")
+
+    placeholders = ",".join("?" for _ in execution_ids)
+    rows = connection.execute(
+        f"""
+        SELECT id, requirement_id, prompt_text, execution_summary, execution_impact, created_at
+        FROM requirement_execution
+        WHERE id IN ({placeholders})
+        ORDER BY id ASC
+        """,
+        tuple(execution_ids),
+    ).fetchall()
+    if len(rows) != len(set(execution_ids)):
+        found_ids = {row["id"] for row in rows}
+        missing_ids = [execution_id for execution_id in execution_ids if execution_id not in found_ids]
+        raise ValueError(f"Unknown execution ids: {missing_ids}")
+    return rows
+
+
 def init_history_db() -> None:
     with _connect() as connection:
         connection.execute(
@@ -118,6 +140,46 @@ def init_history_db() -> None:
             """
             CREATE INDEX IF NOT EXISTS idx_requirement_execution_requirement_id
             ON requirement_execution(requirement_id)
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS lessons_learned (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                lesson_code TEXT NOT NULL UNIQUE,
+                requirement_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                statement TEXT NOT NULL,
+                why_it_matters TEXT NOT NULL,
+                status TEXT NOT NULL CHECK (status IN ('proposed', 'validated', 'obsolete')),
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (requirement_id) REFERENCES project_requirements(id)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS lesson_execution_links (
+                lesson_id INTEGER NOT NULL,
+                execution_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (lesson_id, execution_id),
+                FOREIGN KEY (lesson_id) REFERENCES lessons_learned(id),
+                FOREIGN KEY (execution_id) REFERENCES requirement_execution(id)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_lessons_learned_requirement_id
+            ON lessons_learned(requirement_id)
+            """
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_lesson_execution_links_execution_id
+            ON lesson_execution_links(execution_id)
             """
         )
 
@@ -399,6 +461,142 @@ def list_execution_history_with_labels(*, req_code: str | None = None) -> list[d
         params = (_normalize_required_text(req_code, "req_code"),)
     query += " ORDER BY re.id ASC, re.created_at ASC"
 
+    with _connect() as connection:
+        rows = connection.execute(query, params).fetchall()
+    return [_row_to_dict(row) for row in rows]
+
+
+def create_lesson_learned(
+    *,
+    lesson_code: str,
+    title: str,
+    statement: str,
+    why_it_matters: str,
+    source_execution_ids: list[int],
+    status: str = "validated",
+) -> dict:
+    normalized_lesson_code = _normalize_required_text(lesson_code, "lesson_code")
+    normalized_title = _normalize_required_text(title, "title")
+    normalized_statement = _normalize_required_text(statement, "statement")
+    normalized_why = _normalize_required_text(why_it_matters, "why_it_matters")
+    normalized_status = _normalize_required_text(status, "status")
+
+    if normalized_status not in ALLOWED_LESSON_STATUSES:
+        raise ValueError("status must be one of: proposed, validated, obsolete.")
+
+    normalized_execution_ids = []
+    for execution_id in source_execution_ids:
+        try:
+            normalized_execution_ids.append(int(execution_id))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid execution id: {execution_id}") from exc
+
+    with _connect() as connection:
+        execution_rows = _execution_rows_by_ids(connection, normalized_execution_ids)
+        requirement_ids = {row["requirement_id"] for row in execution_rows}
+        if len(requirement_ids) != 1:
+            raise ValueError("All source execution ids must belong to the same requirement.")
+
+        existing_row = connection.execute(
+            """
+            SELECT id FROM lessons_learned WHERE lesson_code = ?
+            """,
+            (normalized_lesson_code,),
+        ).fetchone()
+        if existing_row:
+            raise ValueError(f"Lesson code already exists: {normalized_lesson_code}")
+
+        now = _utc_now()
+        cursor = connection.execute(
+            """
+            INSERT INTO lessons_learned (
+                lesson_code,
+                requirement_id,
+                title,
+                statement,
+                why_it_matters,
+                status,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                normalized_lesson_code,
+                next(iter(requirement_ids)),
+                normalized_title,
+                normalized_statement,
+                normalized_why,
+                normalized_status,
+                now,
+                now,
+            ),
+        )
+        lesson_id = cursor.lastrowid
+        connection.executemany(
+            """
+            INSERT INTO lesson_execution_links (lesson_id, execution_id, created_at)
+            VALUES (?, ?, ?)
+            """,
+            [
+                (lesson_id, row["id"], now)
+                for row in execution_rows
+            ],
+        )
+        connection.commit()
+
+        lesson_row = connection.execute(
+            """
+            SELECT id, lesson_code, requirement_id, title, statement, why_it_matters, status, created_at, updated_at
+            FROM lessons_learned
+            WHERE id = ?
+            """,
+            (lesson_id,),
+        ).fetchone()
+    return _row_to_dict(lesson_row)
+
+
+def list_lessons_with_labels(*, lesson_code: str | None = None) -> list[dict]:
+    query = """
+        SELECT
+            ll.id AS lesson_id,
+            ll.lesson_code,
+            ll.title AS lesson_title,
+            ll.statement,
+            ll.why_it_matters,
+            ll.status AS lesson_status,
+            pr.req_code AS requirement_code,
+            pr.title AS requirement_title,
+            rc.code AS category_code,
+            rc.name AS category_name,
+            GROUP_CONCAT(lel.execution_id, ', ') AS source_execution_ids,
+            ll.created_at,
+            ll.updated_at
+        FROM lessons_learned ll
+        INNER JOIN project_requirements pr ON pr.id = ll.requirement_id
+        INNER JOIN requirement_categories rc ON rc.id = pr.category_id
+        INNER JOIN lesson_execution_links lel ON lel.lesson_id = ll.id
+    """
+    params: tuple = ()
+    if lesson_code:
+        query += " WHERE ll.lesson_code = ?"
+        params = (_normalize_required_text(lesson_code, "lesson_code"),)
+    query += """
+        GROUP BY
+            ll.id,
+            ll.lesson_code,
+            ll.title,
+            ll.statement,
+            ll.why_it_matters,
+            ll.status,
+            pr.req_code,
+            pr.title,
+            rc.code,
+            rc.name,
+            ll.created_at,
+            ll.updated_at
+        ORDER BY ll.id ASC
+    """
     with _connect() as connection:
         rows = connection.execute(query, params).fetchall()
     return [_row_to_dict(row) for row in rows]
