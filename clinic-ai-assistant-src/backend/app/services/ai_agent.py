@@ -410,7 +410,7 @@ def _is_contact_clarification(message: str, profile: dict) -> bool:
         return True
 
     phrases = _conversation_rule_list(profile, "contact_clarification_phrases")
-    return any(phrase in normalized_message for phrase in phrases)
+    return any(_contains_lookup_phrase(normalized_message, phrase) for phrase in phrases)
 
 
 def _contact_clarification_reply(profile: dict, field_name: str) -> str:
@@ -425,6 +425,14 @@ def _contact_clarification_reply(profile: dict, field_name: str) -> str:
                 return " ".join(static_text.split())
         return normalized_template.format(field_prompt=field_label)
     return field_label
+
+
+def _contains_lookup_phrase(normalized_message: str, phrase: str) -> bool:
+    normalized_phrase = _normalize_lookup_text(phrase)
+    if not normalized_message or not normalized_phrase:
+        return False
+
+    return f" {normalized_phrase} " in f" {normalized_message} "
 
 
 def _field_clarification_with_resume(profile: dict, field_name: str) -> str:
@@ -713,6 +721,7 @@ def _extract_name_from_contact_bundle(message: str) -> str | None:
     )
     stopwords = {
         "moeto", "ime", "e", "jas", "sum", "moze", "ve", "kontakt", "email", "mail",
+        "telefon", "phone", "number", "broj", "tel",
         "zdravo", "zdravoo", "hello", "hi", "mi",
         "моето", "име", "е", "јас", "сум", "може", "ве", "контакт", "пошта", "здраво", "ми",
     }
