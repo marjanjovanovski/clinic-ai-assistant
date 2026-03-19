@@ -134,16 +134,59 @@
 
     .booking-progress-steps {
       display: flex;
-      gap: 8px;
+      gap: 12px;
       flex-wrap: wrap;
     }
 
     .booking-step {
+      display: inline-flex;
+      align-items: center;
       border-radius: 999px;
       padding: 8px 12px;
       font-size: 13px;
       background: #e2e8f0;
       color: #475569;
+      white-space: nowrap;
+    }
+
+    .booking-step.editable {
+      position: relative;
+      cursor: pointer;
+      transform-origin: left center;
+      padding-right: 14px;
+      transition: box-shadow 0.22s ease, padding-right 0.22s ease;
+    }
+
+    .booking-step.editable::after {
+      content: "✎";
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #166534;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(22, 101, 52, 0.28);
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(22, 101, 52, 0.12);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+    }
+
+    .booking-step.editable:hover {
+      padding-right: 40px;
+      box-shadow: 0 0 0 1px rgba(22, 101, 52, 0.14);
+    }
+
+    .booking-step.editable:hover::after {
+      opacity: 1;
     }
 
     .booking-step.done {
@@ -352,6 +395,73 @@
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
+    async function performSend(userMessage, options = {}) {
+      const { showUserMessage = true } = options;
+
+      if (isSending) {
+        return;
+      }
+
+      const trimmedMessage = String(userMessage || "").trim();
+      if (!trimmedMessage) {
+        return;
+      }
+
+      isSending = true;
+      if (showUserMessage) {
+        addMessage(trimmedMessage, "user");
+      }
+      messageInput.value = "";
+      sendButton.disabled = true;
+      messageInput.disabled = true;
+      statusText.textContent = "Се испраќа...";
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            message: trimmedMessage,
+            session_id: sessionId
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.session_id) {
+          sessionId = data.session_id;
+          window.localStorage.setItem(sessionStorageKey, sessionId);
+        }
+        updateBookingProgress(data.booking_progress);
+        addMessage(data.reply || "Нема одговор од серверот.", "bot");
+        statusText.textContent = data.session_status === "completed"
+          ? "Барањето е завршено."
+          : data.session_status === "collecting_contact"
+            ? "Се собираат контакт податоци."
+            : "Подготвено";
+      } catch (error) {
+        addMessage("Настана грешка при поврзување со системот.", "bot");
+        statusText.textContent = `Грешка: ${error.message}`;
+      } finally {
+        isSending = false;
+        sendButton.disabled = false;
+        messageInput.disabled = false;
+        messageInput.focus();
+      }
+    }
+
+    function beginBookingFieldEdit(fieldName) {
+      if (!sessionId || !fieldName) {
+        return;
+      }
+      performSend(`__booking_edit__:${fieldName}`, { showUserMessage: false });
+    }
+
     function labelForField(fieldName) {
       if (fieldName === "name") return "Име";
       if (fieldName === "phone") return "Телефон";
@@ -392,6 +502,8 @@
         stepEl.className = "booking-step";
         if (item.done) {
           stepEl.classList.add("done");
+          stepEl.classList.add("editable");
+          stepEl.addEventListener("click", () => beginBookingFieldEdit(item.field));
         } else if (progress.next_field === item.field && progress.reservation_status !== "complete") {
           stepEl.classList.add("active");
         }
@@ -427,60 +539,8 @@
     }
 
     async function sendMessage() {
-      if (isSending) {
-        return;
-      }
-
       const userMessage = messageInput.value.trim();
-
-      if (!userMessage) {
-        return;
-      }
-
-      isSending = true;
-      addMessage(userMessage, "user");
-      messageInput.value = "";
-      sendButton.disabled = true;
-      messageInput.disabled = true;
-      statusText.textContent = "Се испраќа...";
-
-      try {
-        const response = await fetch(API_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            message: userMessage,
-            session_id: sessionId
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (data.session_id) {
-          sessionId = data.session_id;
-          window.localStorage.setItem(sessionStorageKey, sessionId);
-        }
-        updateBookingProgress(data.booking_progress);
-        addMessage(data.reply || "Нема одговор од серверот.", "bot");
-        statusText.textContent = data.session_status === "completed"
-          ? "Барањето е завршено."
-          : data.session_status === "collecting_contact"
-            ? "Се собираат контакт податоци."
-            : "Подготвено";
-      } catch (error) {
-        addMessage("Настана грешка при поврзување со системот.", "bot");
-        statusText.textContent = `Грешка: ${error.message}`;
-      } finally {
-        isSending = false;
-        sendButton.disabled = false;
-        messageInput.disabled = false;
-        messageInput.focus();
-      }
+      await performSend(userMessage, { showUserMessage: true });
     }
 
     sendButton.addEventListener("click", sendMessage);

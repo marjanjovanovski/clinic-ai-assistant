@@ -788,6 +788,22 @@ def _invalid_email_reply(profile: dict) -> str:
     return _field_prompt(profile, "email")
 
 
+def _edit_record_confirmation_reply() -> str:
+    return "Дали сакате да направите промена на записот?"
+
+
+def _edit_record_value_reply() -> str:
+    return "Внесете ја промената"
+
+
+def _edit_record_saved_reply() -> str:
+    return "Промената е зачувана."
+
+
+def _edit_record_cancelled_reply() -> str:
+    return "Во ред, записот останува ист."
+
+
 def _extract_contact_fields_from_message(
     message: str,
     missing_fields: list[str],
@@ -1049,6 +1065,21 @@ def _is_booking_rejection(message: str) -> bool:
 
     first_token = normalized_message.split(" ", 1)[0]
     return first_token in {"ne", "не", "no", "нет"}
+
+
+def _booking_edit_requested_field(message: str, allowed_fields: list[str]) -> str | None:
+    normalized_message = message.strip()
+    prefix = "__booking_edit__:"
+    if not normalized_message.startswith(prefix):
+        return None
+
+    requested_field = normalized_message[len(prefix):].strip()
+    return requested_field if requested_field in allowed_fields else None
+
+
+def _clear_edit_state(state: dict) -> None:
+    for key in ("edit_phase", "edit_field", "edit_return_stage", "edit_return_next_field"):
+        state.pop(key, None)
 
 
 def _normalize_intent(intent: str | None) -> str:
@@ -1546,6 +1577,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     session_key = _session_key(tenant, session_id)
     state = _load_session_state(tenant, session_id)
     stage_before = _stage_name(state)
+    requested_edit_field = _booking_edit_requested_field(message, collect_fields)
 
     trace_event(
         tenant,
@@ -1555,7 +1587,12 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         state=state,
     )
 
-    if state and state.get("stage") == "completed":
+    if (
+        state
+        and state.get("stage") == "completed"
+        and not requested_edit_field
+        and not state.get("edit_phase")
+    ):
         old_session_id = session_id
         SESSION_STATE.pop(session_key, None)
         INTERACTION_HISTORY.pop(session_key, None)
@@ -1585,6 +1622,138 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         if state.get("next_field") is None and missing_fields:
             state["next_field"] = missing_fields[0]
             save_lead_checkpoint(tenant, session_id, state, required_fields=[])
+
+    if state and state.get("stage") in {"collecting_contact", "completed"} and requested_edit_field:
+        existing_value = state.get("data", {}).get(requested_edit_field)
+        if isinstance(existing_value, str) and existing_value.strip():
+            state["edit_phase"] = "confirm"
+            state["edit_field"] = requested_edit_field
+            state["edit_return_stage"] = state.get("stage")
+            state["edit_return_next_field"] = state.get("next_field")
+            save_lead_checkpoint(tenant, session_id, state, required_fields=[])
+            final_reply = _finalize_reply(
+                tenant=tenant,
+                session_id=session_id,
+                session_key=session_key,
+                message=message,
+                reply=_edit_record_confirmation_reply(),
+                response_type="collect_contact",
+                services=services,
+                profile=profile,
+                stage_after=state.get("stage"),
+            )
+            return final_reply, session_id
+
+    if state and state.get("stage") in {"collecting_contact", "completed"}:
+        edit_phase = state.get("edit_phase")
+        edit_field = state.get("edit_field")
+
+        if edit_phase == "confirm" and edit_field in collect_fields:
+            if _is_booking_confirmation(message, profile):
+                state["edit_phase"] = "value"
+                save_lead_checkpoint(tenant, session_id, state, required_fields=[])
+                final_reply = _finalize_reply(
+                    tenant=tenant,
+                    session_id=session_id,
+                    session_key=session_key,
+                    message=message,
+                    reply=_edit_record_value_reply(),
+                    response_type="collect_contact",
+                    services=services,
+                    profile=profile,
+                    stage_after=state.get("stage"),
+                )
+                return final_reply, session_id
+            if _is_booking_rejection(message):
+                _clear_edit_state(state)
+                save_lead_checkpoint(tenant, session_id, state, required_fields=[])
+                final_reply = _finalize_reply(
+                    tenant=tenant,
+                    session_id=session_id,
+                    session_key=session_key,
+                    message=message,
+                    reply=_edit_record_cancelled_reply(),
+                    response_type="collect_contact",
+                    services=services,
+                    profile=profile,
+                    stage_after=state.get("stage"),
+                )
+                return final_reply, session_id
+            final_reply = _finalize_reply(
+                tenant=tenant,
+                session_id=session_id,
+                session_key=session_key,
+                message=message,
+                reply=_edit_record_confirmation_reply(),
+                response_type="collect_contact",
+                services=services,
+                profile=profile,
+                stage_after=state.get("stage"),
+            )
+            return final_reply, session_id
+
+        if edit_phase == "value" and edit_field in collect_fields:
+            if not _is_valid_contact_field_value(edit_field, message, profile):
+                if (
+                    edit_field == "phone"
+                    and re.sub(r"\D+", "", message)
+                    and not state.get("phone_length_guided")
+                ):
+                    state["phone_length_guided"] = True
+                    reply = _invalid_phone_reply(profile, message)
+                elif edit_field == "email" and "@" in message:
+                    reply = _invalid_email_reply(profile)
+                else:
+                    reply = _edit_record_value_reply()
+                final_reply = _finalize_reply(
+                    tenant=tenant,
+                    session_id=session_id,
+                    session_key=session_key,
+                    message=message,
+                    reply=reply,
+                    response_type="collect_contact",
+                    services=services,
+                    profile=profile,
+                    stage_after=state.get("stage"),
+                )
+                return final_reply, session_id
+
+            state.setdefault("data", {})[edit_field] = message
+            if edit_field == "phone":
+                state.pop("phone_length_guided", None)
+
+            state["stage"] = state.get("edit_return_stage") or state.get("stage")
+            state["next_field"] = state.get("edit_return_next_field")
+            _clear_edit_state(state)
+            required_fields = collect_fields if state.get("stage") == "completed" else [edit_field]
+            save_result = save_lead_checkpoint(tenant, session_id, state, required_fields=required_fields)
+            if not _persisted_fields_match(save_result, required_fields):
+                final_reply = _finalize_reply(
+                    tenant=tenant,
+                    session_id=session_id,
+                    session_key=session_key,
+                    message=message,
+                    reply=_edit_record_value_reply(),
+                    response_type="collect_contact",
+                    services=services,
+                    profile=profile,
+                    stage_after=state.get("stage"),
+                )
+                return final_reply, session_id
+
+            stage_after = state.get("stage")
+            final_reply = _finalize_reply(
+                tenant=tenant,
+                session_id=session_id,
+                session_key=session_key,
+                message=message,
+                reply=_edit_record_saved_reply(),
+                response_type="collect_contact",
+                services=services,
+                profile=profile,
+                stage_after=stage_after,
+            )
+            return final_reply, session_id
 
     # Booking state 1: waiting for the user to confirm a suggested service.
     if state and state.get("stage") == "awaiting_booking_confirmation" and allow_booking:
