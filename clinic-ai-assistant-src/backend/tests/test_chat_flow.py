@@ -29,10 +29,10 @@ class FakeOpenAI:
         self.responses = FakeResponses()
 
 
-def test_booking_transition_and_contact_collection(monkeypatch):
+def _build_client(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
-    from app.services import ai_agent, lead_store
+    from app.services import ai_agent
 
     ai_agent.SESSION_STATE.clear()
     monkeypatch.setattr(ai_agent, "OpenAI", FakeOpenAI)
@@ -40,7 +40,13 @@ def test_booking_transition_and_contact_collection(monkeypatch):
     import app.main as main_module
 
     importlib.reload(main_module)
-    client = TestClient(main_module.app)
+    return TestClient(main_module.app)
+
+
+def test_booking_transition_and_contact_collection(monkeypatch):
+    from app.services import lead_store
+
+    client = _build_client(monkeypatch)
 
     first = client.post("/chat?tenant=milena_dental", json={"message": "болка и пломба"}).json()
     session_id = first["session_id"]
@@ -72,6 +78,60 @@ def test_booking_transition_and_contact_collection(monkeypatch):
     stored = lead_store.load_lead_checkpoint("milena_dental", session_id)
     assert stored["stage"] == "completed"
     assert stored["data"]["name"] == "Марјан"
+
+
+def test_unknown_name_confirmation_can_store_user_value(monkeypatch):
+    from app.services import ai_agent, lead_store
+
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(ai_agent.random, "choice", lambda options: ai_agent.UNKNOWN_NAME_CONFIRM_MODE)
+
+    first = client.post("/chat?tenant=milena_dental", json={"message": "болка и пломба"}).json()
+    session_id = first["session_id"]
+
+    client.post("/chat?tenant=milena_dental", json={"message": "да", "session_id": session_id})
+    third = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "V.", "session_id": session_id},
+    ).json()
+    fourth = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "може", "session_id": session_id},
+    ).json()
+
+    assert "V." in third["reply"]
+    assert fourth["session_status"] == "collecting_contact"
+    assert "телефон" in fourth["reply"]
+
+    stored = lead_store.load_lead_checkpoint("milena_dental", session_id)
+    assert stored["data"]["name"] == "V."
+
+
+def test_unknown_name_retry_accepts_second_attempt(monkeypatch):
+    from app.services import ai_agent, lead_store
+
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(ai_agent.random, "choice", lambda options: ai_agent.UNKNOWN_NAME_REPEAT_MODE)
+
+    first = client.post("/chat?tenant=milena_dental", json={"message": "болка и пломба"}).json()
+    session_id = first["session_id"]
+
+    client.post("/chat?tenant=milena_dental", json={"message": "да", "session_id": session_id})
+    third = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "V.", "session_id": session_id},
+    ).json()
+    fourth = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "Vasilie", "session_id": session_id},
+    ).json()
+
+    assert "повторно" in third["reply"]
+    assert fourth["session_status"] == "collecting_contact"
+    assert "телефон" in fourth["reply"]
+
+    stored = lead_store.load_lead_checkpoint("milena_dental", session_id)
+    assert stored["data"]["name"] == "Vasilie"
 
 
 def test_request_validation(monkeypatch):

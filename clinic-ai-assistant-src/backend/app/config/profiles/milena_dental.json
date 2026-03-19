@@ -105,6 +105,8 @@
       "email": "Кажете ми е-пошта на која да ви испратиме потврда за закажаната консултација или третман.",
       "default": "{field_prompt}"
     },
+    "unknown_name_confirmation": "Дали „{candidate_name}“ е вашето име?",
+    "unknown_name_retry": "Ве молам дали може повторно да го внесете вашето име.",
     "booking_known_name_confirmation": "Дали можеме да го резервираме вашиот термин на име: {known_name}?",
     "booking_interruption_redirect": "Ќе продолжиме со закажувањето чекор по чекор. {field_prompt}",
     "booking_completed": "Ви благодарам. Вашето барање за термин е примено. Клиниката ќе ве контактира."

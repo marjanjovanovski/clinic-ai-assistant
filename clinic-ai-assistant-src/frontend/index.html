@@ -100,7 +100,15 @@
       justify-content: space-between;
       align-items: center;
       gap: 12px;
-      flex-wrap: wrap;
+    }
+
+    .booking-progress-controls {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 0 0 54px;
+      padding-bottom: 0;
     }
 
     .booking-progress-title {
@@ -130,6 +138,71 @@
       background: #dbeafe;
       border-radius: 999px;
       padding: 5px 10px;
+    }
+
+    .booking-reset-button {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: 32px;
+      height: 32px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.92);
+      color: #1e3a8a;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    }
+
+    .booking-reset-button[hidden] {
+      display: none;
+    }
+
+    .booking-reset-button:hover {
+      border-color: #93c5fd;
+      background: #eff6ff;
+      color: #1d4ed8;
+      transform: translateX(-50%) translateY(-1px);
+    }
+
+    .booking-reset-button:focus-visible {
+      outline: 2px solid #93c5fd;
+      outline-offset: 2px;
+    }
+
+    .booking-reset-button::before {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: 50%;
+      top: calc(100% + 8px);
+      transform: translateX(-50%) translateY(-2px);
+      padding: 6px 9px;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.94);
+      color: #f8fafc;
+      font-size: 12px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.16s ease, transform 0.16s ease;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18);
+      z-index: 3;
+    }
+
+    .booking-reset-button:hover::before,
+    .booking-reset-button:focus-visible::before {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .booking-reset-icon {
+      font-size: 16px;
+      line-height: 1;
+      font-weight: 700;
     }
 
     .booking-progress-steps {
@@ -274,7 +347,19 @@
     <div class="booking-progress" id="bookingProgress">
       <div class="booking-progress-header">
         <div class="booking-progress-title" id="bookingProgressTitle">Закажување во тек</div>
-        <div class="booking-progress-status" id="bookingProgressStatus">0 / 3</div>
+        <div class="booking-progress-controls">
+          <div class="booking-progress-status" id="bookingProgressStatus">0 / 3</div>
+          <button
+            type="button"
+            class="booking-reset-button"
+            id="bookingResetButton"
+            data-tooltip="Почни од почеток"
+            aria-label="Почни од почеток"
+            hidden
+          >
+            <span class="booking-reset-icon" aria-hidden="true">&#8634;</span>
+          </button>
+        </div>
       </div>
       <div class="booking-progress-steps" id="bookingProgressSteps"></div>
     </div>
@@ -304,6 +389,7 @@
     const bookingProgressTitle = document.getElementById("bookingProgressTitle");
     const bookingProgressStatus = document.getElementById("bookingProgressStatus");
     const bookingProgressSteps = document.getElementById("bookingProgressSteps");
+    const bookingResetButton = document.getElementById("bookingResetButton");
 
     const pathParts = window.location.pathname.split("/").filter(Boolean);
     const tenant = pathParts[0] === "agent" && pathParts[1] ? pathParts[1] : "generic";
@@ -462,6 +548,20 @@
       performSend(`__booking_edit__:${fieldName}`, { showUserMessage: false });
     }
 
+    async function resetConversation() {
+      if (isSending) {
+        return;
+      }
+
+      sessionId = null;
+      window.localStorage.removeItem(sessionStorageKey);
+      updateBookingProgress(null);
+      statusText.textContent = "Подготвено";
+      messageInput.value = "";
+      await loadTenantConfig();
+      messageInput.focus();
+    }
+
     function labelForField(fieldName) {
       if (fieldName === "name") return "Име";
       if (fieldName === "phone") return "Телефон";
@@ -489,12 +589,14 @@
         bookingProgressSteps.innerHTML = "";
         bookingProgressTitle.textContent = progressTitleForPercent(0);
         bookingProgressStatus.textContent = "0 / 3";
+        bookingResetButton.hidden = true;
         return;
       }
 
       bookingProgress.classList.add("visible");
       bookingProgressTitle.textContent = progressTitleForPercent(progress.progress_percent || 0);
       bookingProgressStatus.textContent = `${progress.collection_status} / ${progress.collection_total}`;
+      bookingResetButton.hidden = false;
       bookingProgressSteps.innerHTML = "";
 
       for (const item of progress.fields || []) {
@@ -544,6 +646,7 @@
     }
 
     sendButton.addEventListener("click", sendMessage);
+    bookingResetButton.addEventListener("click", resetConversation);
 
     messageInput.addEventListener("keydown", function (event) {
       if (event.key === "Enter") {

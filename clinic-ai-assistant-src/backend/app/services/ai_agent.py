@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import random
 import re
 import uuid
 
@@ -21,6 +22,8 @@ CANONICAL_INTENTS = {"greeting", "suggest_service", "confirm_booking", "collect_
 BOOKING_INPUT_FIELD_VALUE = "FIELD_VALUE"
 BOOKING_INPUT_CLARIFICATION = "CLARIFICATION_QUESTION"
 BOOKING_INPUT_FEEDBACK = "FEEDBACK_OR_META"
+UNKNOWN_NAME_CONFIRM_MODE = "confirm_candidate"
+UNKNOWN_NAME_REPEAT_MODE = "repeat_request"
 INTENT_ALIASES = {
     "greeting": "greeting",
     "hello": "greeting",
@@ -764,6 +767,61 @@ def _booking_start_reply(profile: dict, known_name: str | None = None) -> str:
         if known_name_reply:
             return known_name_reply
     return _field_prompt(profile, "name")
+
+
+def _normalize_freeform_name_value(value: str) -> str:
+    cleaned_value = re.sub(r"\s+", " ", value.strip())
+    return cleaned_value.strip("\"'„”")
+
+
+def _clear_unknown_name_state(state: dict) -> None:
+    for key in ("unknown_name_mode", "unknown_name_candidate"):
+        state.pop(key, None)
+
+
+def _should_offer_unknown_name_recovery(message: str, profile: dict) -> bool:
+    trimmed_message = message.strip()
+    if not trimmed_message:
+        return False
+
+    if _classify_booking_input(message, profile) != BOOKING_INPUT_FIELD_VALUE:
+        return False
+
+    if _is_conversational_filler_input(message, profile):
+        return False
+
+    if any(char.isdigit() for char in trimmed_message):
+        return False
+
+    token_count = len(re.findall(r"\S+", trimmed_message))
+    return token_count <= 4 and len(trimmed_message) <= 60
+
+
+def _unknown_name_confirmation_reply(profile: dict, candidate: str) -> str:
+    template = _profile_text(profile, "reply_texts", "unknown_name_confirmation")
+    if template:
+        return template.format(candidate_name=candidate)
+    return f'Дали „{candidate}“ е вашето име?'
+
+
+def _unknown_name_retry_reply(profile: dict) -> str:
+    template = _profile_text(profile, "reply_texts", "unknown_name_retry")
+    if template:
+        return template
+    return "Ве молам дали може повторно да го внесете вашето име."
+
+
+def _start_unknown_name_recovery(state: dict, message: str, profile: dict) -> str:
+    candidate = _normalize_freeform_name_value(message)
+    recovery_mode = random.choice((UNKNOWN_NAME_CONFIRM_MODE, UNKNOWN_NAME_REPEAT_MODE))
+    state["unknown_name_mode"] = recovery_mode
+
+    if recovery_mode == UNKNOWN_NAME_CONFIRM_MODE:
+        state["unknown_name_candidate"] = candidate
+        return _unknown_name_confirmation_reply(profile, candidate)
+
+    state.pop("unknown_name_candidate", None)
+    return _unknown_name_retry_reply(profile)
 
 
 def _invalid_phone_reply(profile: dict, message: str) -> str:
@@ -1808,6 +1866,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         next_field = state.get("next_field")
         missing_fields = [field for field in collect_fields if field not in state.get("data", {})]
         pending_name_confirmation = state.get("pending_name_confirmation")
+        force_accept_name = False
 
         if next_field == "name" and isinstance(pending_name_confirmation, str) and pending_name_confirmation.strip():
             explicit_name = _extract_explicit_contact_name(message)
@@ -1833,6 +1892,66 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                     stage_after="collecting_contact",
                 )
                 return final_reply, session_id
+
+        if next_field == "name":
+            unknown_name_mode = state.get("unknown_name_mode")
+            unknown_name_candidate = state.get("unknown_name_candidate")
+
+            if unknown_name_mode == UNKNOWN_NAME_CONFIRM_MODE and isinstance(unknown_name_candidate, str) and unknown_name_candidate.strip():
+                if _is_booking_confirmation(message, profile):
+                    message = unknown_name_candidate
+                    force_accept_name = True
+                    _clear_unknown_name_state(state)
+                elif _is_booking_rejection(message):
+                    state["unknown_name_mode"] = UNKNOWN_NAME_REPEAT_MODE
+                    state.pop("unknown_name_candidate", None)
+                    save_lead_checkpoint(tenant, session_id, state, required_fields=[])
+                    final_reply = _finalize_reply(
+                        tenant=tenant,
+                        session_id=session_id,
+                        session_key=session_key,
+                        message=message,
+                        reply=_unknown_name_retry_reply(profile),
+                        response_type="collect_contact",
+                        services=services,
+                        profile=profile,
+                        stage_after="collecting_contact",
+                    )
+                    return final_reply, session_id
+                else:
+                    save_lead_checkpoint(tenant, session_id, state, required_fields=[])
+                    final_reply = _finalize_reply(
+                        tenant=tenant,
+                        session_id=session_id,
+                        session_key=session_key,
+                        message=message,
+                        reply=_unknown_name_confirmation_reply(profile, unknown_name_candidate),
+                        response_type="collect_contact",
+                        services=services,
+                        profile=profile,
+                        stage_after="collecting_contact",
+                    )
+                    return final_reply, session_id
+
+            elif unknown_name_mode == UNKNOWN_NAME_REPEAT_MODE:
+                if _classify_booking_input(message, profile) != BOOKING_INPUT_FIELD_VALUE or _is_conversational_filler_input(message, profile):
+                    save_lead_checkpoint(tenant, session_id, state, required_fields=[])
+                    final_reply = _finalize_reply(
+                        tenant=tenant,
+                        session_id=session_id,
+                        session_key=session_key,
+                        message=message,
+                        reply=_unknown_name_retry_reply(profile),
+                        response_type="collect_contact",
+                        services=services,
+                        profile=profile,
+                        stage_after="collecting_contact",
+                    )
+                    return final_reply, session_id
+
+                message = _normalize_freeform_name_value(message)
+                force_accept_name = bool(message)
+                _clear_unknown_name_state(state)
 
         booking_input_type = _classify_booking_input(message, profile)
 
@@ -2017,7 +2136,26 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             )
             return final_reply, session_id
 
-        if not _is_valid_contact_field_value(next_field, message, profile):
+        if next_field == "name" and not force_accept_name and not _is_valid_contact_field_value(next_field, message, profile):
+            if _should_offer_unknown_name_recovery(message, profile):
+                reply = _start_unknown_name_recovery(state, message, profile)
+                save_lead_checkpoint(tenant, session_id, state, required_fields=[])
+            else:
+                reply = _field_prompt(profile, next_field)
+            final_reply = _finalize_reply(
+                tenant=tenant,
+                session_id=session_id,
+                session_key=session_key,
+                message=message,
+                reply=reply,
+                response_type="collect_contact",
+                services=services,
+                profile=profile,
+                stage_after="collecting_contact",
+            )
+            return final_reply, session_id
+
+        if not force_accept_name and not _is_valid_contact_field_value(next_field, message, profile):
             if (
                 next_field == "phone"
                 and re.sub(r"\D+", "", message)
