@@ -195,6 +195,14 @@ def _field_prompt(profile: dict, field_name: str) -> str:
     return field_name
 
 
+def _field_error_prompt(profile: dict, field_name: str, **values) -> str | None:
+    error_prompts = _profile_text_map(profile, "reply_texts", "field_error_prompts")
+    template = error_prompts.get(field_name)
+    if isinstance(template, str) and template.strip():
+        return template.strip().format(**values)
+    return None
+
+
 def _conversation_rule_list(profile: dict, rule_name: str) -> list[str]:
     return _profile_list(profile, "conversation_rules", rule_name)
 
@@ -607,7 +615,7 @@ def _is_plausible_contact_name(message: str) -> bool:
 
 def _is_plausible_contact_phone(message: str) -> bool:
     digits_only = re.sub(r"\D+", "", message)
-    return len(digits_only) >= 8
+    return len(digits_only) >= 9
 
 
 def _is_conversational_filler_input(message: str, profile: dict) -> bool:
@@ -672,7 +680,8 @@ def _extract_name_from_contact_bundle(message: str) -> str | None:
 
     stopwords = {
         "moeto", "ime", "e", "jas", "sum", "moze", "ve", "kontakt", "email", "mail",
-        "моето", "име", "е", "јас", "сум", "може", "ве", "контакт", "пошта",
+        "zdravo", "zdravoo", "hello", "hi",
+        "моето", "име", "е", "јас", "сум", "може", "ве", "контакт", "пошта", "здраво",
     }
     filtered_tokens = [token for token in candidate_tokens if token not in stopwords]
     if not filtered_tokens:
@@ -683,6 +692,42 @@ def _extract_name_from_contact_bundle(message: str) -> str | None:
 
     candidate_name = " ".join(token.capitalize() for token in filtered_tokens)
     return candidate_name if _is_plausible_contact_name(candidate_name) else None
+
+
+def _recent_contact_name_hint(session_key: str) -> str | None:
+    for item in reversed(_recent_interactions(session_key)):
+        message = item.get("message")
+        if not isinstance(message, str) or not message.strip():
+            continue
+        candidate_name = _extract_name_from_contact_bundle(message)
+        if candidate_name:
+            return candidate_name
+    return None
+
+
+def _booking_start_reply(profile: dict, known_name: str | None = None) -> str:
+    if known_name:
+        known_name_reply = _render_profile_text(
+            profile,
+            ("reply_texts", "booking_known_name_confirmation"),
+            known_name=known_name,
+        )
+        if known_name_reply:
+            return known_name_reply
+    return _field_prompt(profile, "name")
+
+
+def _invalid_phone_reply(profile: dict, message: str) -> str:
+    digits_only = re.sub(r"\D+", "", message)
+    missing_digits = max(0, 9 - len(digits_only))
+    invalid_reply = _field_error_prompt(
+        profile,
+        "phone",
+        missing_digits=missing_digits,
+    )
+    if invalid_reply:
+        return invalid_reply
+    return _field_prompt(profile, "phone")
 
 
 def _extract_contact_fields_from_message(
@@ -702,10 +747,13 @@ def _extract_contact_fields_from_message(
                 remaining_text = remaining_text.replace(candidate_email, " ")
 
     if "phone" in missing_fields:
-        candidate_phone = re.sub(r"\D+", "", remaining_text)
-        if _is_plausible_contact_phone(candidate_phone):
-            extracted["phone"] = candidate_phone
-            remaining_text = re.sub(r"\D+", " ", remaining_text)
+        phone_match = re.search(r"\+?\d[\d\s()./-]{6,}\d", remaining_text)
+        if phone_match:
+            raw_phone = phone_match.group(0).strip()
+            candidate_phone = re.sub(r"\D+", "", raw_phone)
+            if _is_plausible_contact_phone(candidate_phone):
+                extracted["phone"] = candidate_phone
+                remaining_text = remaining_text.replace(raw_phone, " ", 1)
 
     if "name" in missing_fields:
         candidate_name = _extract_name_from_contact_bundle(remaining_text)
@@ -856,14 +904,22 @@ def _start_collecting_contact(
     collect_fields: list[str],
     profile: dict,
 ) -> tuple[str, str]:
+    known_name = _recent_contact_name_hint(session_key)
+    initial_data = {}
+    next_field = collect_fields[0]
+    if known_name and "name" in collect_fields:
+        initial_data["name"] = known_name
+        remaining_fields = [field for field in collect_fields if field not in initial_data]
+        next_field = remaining_fields[0] if remaining_fields else None
+
     SESSION_STATE[session_key] = {
         "stage": "collecting_contact",
         "service_id": service_id,
-        "next_field": collect_fields[0],
-        "data": {}
+        "next_field": next_field,
+        "data": initial_data,
     }
     save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key], required_fields=[])
-    return _field_prompt(profile, collect_fields[0]), session_id
+    return _booking_start_reply(profile, known_name), session_id
 
 
 def _normalize_collecting_contact_state(state: dict, collect_fields: list[str]) -> tuple[dict, list[str], bool]:
@@ -1456,46 +1512,52 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             save_lead_checkpoint(tenant, session_id, state, required_fields=[])
 
     # Booking state 1: waiting for the user to confirm a suggested service.
-    if (
-        state
-        and state.get("stage") == "awaiting_booking_confirmation"
-        and allow_booking
-        and _is_booking_confirmation(message, profile)
-    ):
-        reply, session_id = _start_collecting_contact(
-            tenant,
-            session_id,
-            session_key,
-            state.get("service_id"),
-            collect_fields,
-            profile,
+    if state and state.get("stage") == "awaiting_booking_confirmation" and allow_booking:
+        contact_payload_detected = any(
+            (
+                _should_attempt_contact_bundle_parse(message, collect_fields, profile),
+                _is_valid_contact_field_value("name", message, profile),
+                _is_valid_contact_field_value("phone", message, profile),
+                _is_valid_contact_field_value("email", message, profile),
+            )
         )
-        _trace_stage_transition(
-            tenant,
-            session_id,
-            stage_before,
-            "collecting_contact",
-            reason="backend_confirmation_word",
-        )
-        _log_chat_state(
-            message=message,
-            session_id=session_id,
-            intent="confirm_booking",
-            stage_before=stage_before,
-            stage_after="collecting_contact",
-        )
-        final_reply = _finalize_reply(
-            tenant=tenant,
-            session_id=session_id,
-            session_key=session_key,
-            message=message,
-            reply=reply,
-            response_type="confirm_booking",
-            services=services,
-            profile=profile,
-            stage_after="collecting_contact",
-        )
-        return final_reply, session_id
+        if _is_booking_confirmation(message, profile) or contact_payload_detected:
+            reply, session_id = _start_collecting_contact(
+                tenant,
+                session_id,
+                session_key,
+                state.get("service_id"),
+                collect_fields,
+                profile,
+            )
+            _trace_stage_transition(
+                tenant,
+                session_id,
+                stage_before,
+                "collecting_contact",
+                reason="backend_confirmation_word" if _is_booking_confirmation(message, profile) else "backend_contact_payload_start",
+            )
+            _log_chat_state(
+                message=message,
+                session_id=session_id,
+                intent="confirm_booking",
+                stage_before=stage_before,
+                stage_after="collecting_contact",
+            )
+            if not contact_payload_detected:
+                final_reply = _finalize_reply(
+                    tenant=tenant,
+                    session_id=session_id,
+                    session_key=session_key,
+                    message=message,
+                    reply=reply,
+                    response_type="confirm_booking",
+                    services=services,
+                    profile=profile,
+                    stage_after="collecting_contact",
+                )
+                return final_reply, session_id
+            state = SESSION_STATE.get(session_key)
 
     # Booking state 2: backend owns the contact collection prompts until completion.
     if _has_active_booking_lock(state):
@@ -1686,7 +1748,15 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             return final_reply, session_id
 
         if not _is_valid_contact_field_value(next_field, message, profile):
-            reply = _field_prompt(profile, next_field)
+            if (
+                next_field == "phone"
+                and re.sub(r"\D+", "", message)
+                and not state.get("phone_length_guided")
+            ):
+                state["phone_length_guided"] = True
+                reply = _invalid_phone_reply(profile, message)
+            else:
+                reply = _field_prompt(profile, next_field)
             final_reply = _finalize_reply(
                 tenant=tenant,
                 session_id=session_id,
@@ -1701,6 +1771,8 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             return final_reply, session_id
 
         state["data"][next_field] = message
+        if next_field == "phone":
+            state.pop("phone_length_guided", None)
 
         remaining = [field for field in collect_fields if field not in state["data"]]
 
@@ -2090,12 +2162,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 service_id=service_id,
             )
 
-            if (
-                intent == "confirm_booking"
-                and allow_booking
-                and booking_input_type == BOOKING_INPUT_FIELD_VALUE
-                and _is_booking_confirmation(message, profile)
-            ):
+            if intent == "confirm_booking" and allow_booking:
                 reply, session_id = _start_collecting_contact(
                     tenant,
                     session_id,
