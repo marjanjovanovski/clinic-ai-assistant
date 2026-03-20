@@ -101,3 +101,14 @@ def test_recover_from_persistence_failure_retries_first_missing_field_and_clears
     assert state["stage"] == "collecting_contact"
     assert state["next_field"] == "email"
     assert "email" not in state["data"]
+
+
+def test_invalid_phone_reply_uses_human_singular_and_plural_wording():
+    profile = _profile()
+
+    singular = ai_agent._invalid_phone_reply(profile, "07000000")
+    plural = ai_agent._invalid_phone_reply(profile, "0700000")
+
+    assert "недостига уште 1 цифра" in singular.casefold()
+    assert "го напишете бројот повторно" in singular.casefold()
+    assert "недостигаат уште 2 цифри" in plural.casefold()

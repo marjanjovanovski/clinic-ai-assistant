@@ -18,7 +18,7 @@ SESSION_STATE = {}
 INTERACTION_HISTORY = {}
 MAX_INTERACTION_HISTORY = 6
 MAX_CONTEXT_INTERACTIONS = 1
-CANONICAL_INTENTS = {"greeting", "suggest_service", "list_services", "quote_price", "confirm_booking", "collect_contact", "fallback"}
+CANONICAL_INTENTS = {"greeting", "suggest_service", "business_overview", "list_services", "quote_price", "confirm_booking", "collect_contact", "fallback"}
 BOOKING_INPUT_FIELD_VALUE = "FIELD_VALUE"
 BOOKING_INPUT_CLARIFICATION = "CLARIFICATION_QUESTION"
 BOOKING_INPUT_FEEDBACK = "FEEDBACK_OR_META"
@@ -32,6 +32,9 @@ INTENT_ALIASES = {
     "book_service": "suggest_service",
     "booking_inquiry": "suggest_service",
     "booking_request": "suggest_service",
+    "business_overview": "business_overview",
+    "ask_business": "business_overview",
+    "what_do_you_do": "business_overview",
     "list_services": "list_services",
     "quote_price": "quote_price",
     "price_quote": "quote_price",
@@ -840,11 +843,13 @@ def _invalid_phone_reply(profile: dict, message: str) -> str:
     digits_only = re.sub(r"\D+", "", message)
     missing_digits = max(0, 9 - len(digits_only))
     missing_digits_label = "цифра" if missing_digits == 1 else "цифри"
+    missing_digits_verb = "недостига" if missing_digits == 1 else "недостигаат"
     invalid_reply = _field_error_prompt(
         profile,
         "phone",
         missing_digits=missing_digits,
         missing_digits_label=missing_digits_label,
+        missing_digits_verb=missing_digits_verb,
     )
     if invalid_reply:
         return invalid_reply
@@ -1362,6 +1367,39 @@ def _service_display_description(service: dict) -> str | None:
     return None
 
 
+def _join_natural_list(items: list[str]) -> str:
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return f"{items[0]} и {items[1]}"
+    return f"{', '.join(items[:-1])} и {items[-1]}"
+
+
+def _business_overview_reply(profile: dict, services: list[dict]) -> str:
+    business = profile.get("business", {})
+    business_name = business.get("name", "Ординацијата")
+    category_names: list[str] = []
+    for category in _ordered_categories(profile, services):
+        category_name = category.get("име") or category.get("name")
+        if isinstance(category_name, str) and category_name.strip():
+            category_names.append(category_name.strip().lower())
+
+    category_summary = _join_natural_list(category_names)
+    summary = _render_profile_text(
+        profile,
+        ("reply_texts", "business_overview_summary"),
+        business_name=business_name,
+        category_summary=category_summary,
+    )
+    if not summary:
+        summary = f"{business_name} е стоматолошка ординација со услуги од областа на {category_summary}."
+
+    catalog = _service_list_reply(profile, services)
+    return f"{summary}\n\n{catalog}" if catalog else summary
+
+
 def _service_list_reply(profile: dict, services: list[dict]) -> str:
     lines: list[str] = []
 
@@ -1642,8 +1680,9 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     if allow_booking:
         system_prompt += (
             "\n\nBooking capability: enabled."
-            "\nCanonical intents: greeting, suggest_service, list_services, quote_price, confirm_booking, fallback."
+            "\nCanonical intents: greeting, suggest_service, business_overview, list_services, quote_price, confirm_booking, fallback."
             "\nIf the user confirms booking, return confirm_booking."
+            "\nIf the user asks what the clinic does or asks about the business in general, return business_overview."
             "\nIf the user asks what services are available or asks generally what the clinic offers, return list_services."
             "\nIf the user asks for the price of a specific catalog service, return quote_price and set service_id to that service."
             "\nDo not volunteer prices in general descriptive answers."
@@ -2670,6 +2709,28 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                     message=message,
                     reply=reply,
                     response_type="service_list",
+                    services=services,
+                    profile=profile,
+                    stage_after=_stage_name(SESSION_STATE.get(session_key)),
+                )
+                return final_reply, session_id
+
+            if intent == "business_overview":
+                reply = _business_overview_reply(profile, services)
+                _log_chat_state(
+                    message=message,
+                    session_id=session_id,
+                    intent=intent,
+                    stage_before=stage_before,
+                    stage_after=_stage_name(SESSION_STATE.get(session_key)),
+                )
+                final_reply = _finalize_reply(
+                    tenant=tenant,
+                    session_id=session_id,
+                    session_key=session_key,
+                    message=message,
+                    reply=reply,
+                    response_type="business_overview",
                     services=services,
                     profile=profile,
                     stage_after=_stage_name(SESSION_STATE.get(session_key)),

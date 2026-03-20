@@ -42,6 +42,7 @@
       "Do not return explanation outside JSON.",
       "Use greeting for opening or social messages.",
       "Use suggest_service when the request clearly maps to one catalog service or to the consultation entry.",
+      "Use business_overview when the user asks what the clinic does, asks about the business activity, or wants a general human explanation before the service list.",
       "Use list_services when the user asks what the clinic offers, asks for the catalog, or wants the available services in general.",
       "Use quote_price when the user asks for the price of a specific catalog service and the catalog contains pricing guidance for it.",
       "Use confirm_booking when the patient clearly confirms scheduling.",
@@ -90,6 +91,7 @@
       "range": "Ориентацискиот ценовен опсег за {service_name_lower} е {price_range}."
     },
     "price_followup": "За точна проценка најдобро е да се направи кратка консултација.",
+    "business_overview_summary": "{business_name} е стоматолошка ординација каде што можете да добиете услуги од областа на {category_summary}. Еве краток преглед на каталогот:",
     "service_description_template": "{article_name} е {description}\n\n{followup}",
     "service_description_followup": "Ако сакате, можеме кратко да провериме дали тоа е соодветната опција за вас.",
     "field_prompts": {
@@ -98,7 +100,7 @@
       "email": "На која е-пошта да ви испратиме потврда за закажаниот термин?"
     },
     "field_error_prompts": {
-      "phone": "Извинете, бројот што го испративте изгледа краток. Недостигаат уште {missing_digits} {missing_digits_label}. Можете ли да ми го напишете бројот со 9 или повеќе цифри?",
+      "phone": "Ми изгледа дека {missing_digits_verb} уште {missing_digits} {missing_digits_label}. Можете ли да го напишете бројот повторно?",
       "email": "Ве молиме внесете точен емаил, таму ќе ја добиете потврдата за резервираниот термин."
     },
     "contact_clarification_replies": {
