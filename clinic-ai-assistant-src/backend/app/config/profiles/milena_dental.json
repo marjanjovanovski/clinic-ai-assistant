@@ -42,6 +42,7 @@
       "Do not return explanation outside JSON.",
       "Use greeting for opening or social messages.",
       "Use suggest_service when the request clearly maps to one catalog service or to the consultation entry.",
+      "Use list_services when the user asks what the clinic offers, asks for the catalog, or wants the available services in general.",
       "Use confirm_booking when the patient clearly confirms scheduling.",
       "Prefer the consultation service when the patient wants an appointment, a checkup, an opinion, or when the correct procedure is uncertain.",
       "Use fallback when the request is unclear, outside scope, or no safe catalog match can be made.",

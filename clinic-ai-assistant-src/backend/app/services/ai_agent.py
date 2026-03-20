@@ -18,7 +18,7 @@ SESSION_STATE = {}
 INTERACTION_HISTORY = {}
 MAX_INTERACTION_HISTORY = 6
 MAX_CONTEXT_INTERACTIONS = 1
-CANONICAL_INTENTS = {"greeting", "suggest_service", "confirm_booking", "collect_contact", "fallback"}
+CANONICAL_INTENTS = {"greeting", "suggest_service", "list_services", "confirm_booking", "collect_contact", "fallback"}
 BOOKING_INPUT_FIELD_VALUE = "FIELD_VALUE"
 BOOKING_INPUT_CLARIFICATION = "CLARIFICATION_QUESTION"
 BOOKING_INPUT_FEEDBACK = "FEEDBACK_OR_META"
@@ -32,7 +32,7 @@ INTENT_ALIASES = {
     "book_service": "suggest_service",
     "booking_inquiry": "suggest_service",
     "booking_request": "suggest_service",
-    "list_services": "fallback",
+    "list_services": "list_services",
     "confirm_booking": "confirm_booking",
     "booking_initiated": "confirm_booking",
     "booking_initiate": "confirm_booking",
@@ -41,7 +41,7 @@ INTENT_ALIASES = {
     "clarify": "fallback",
     "clarification": "fallback",
     "out_of_scope": "fallback",
-    "ask_services": "fallback",
+    "ask_services": "list_services",
     "fallback": "fallback",
 }
 
@@ -1628,9 +1628,9 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     if allow_booking:
         system_prompt += (
             "\n\nBooking capability: enabled."
-            "\nCanonical intents: greeting, suggest_service, confirm_booking, fallback."
+            "\nCanonical intents: greeting, suggest_service, list_services, confirm_booking, fallback."
             "\nIf the user confirms booking, return confirm_booking."
-            "\nIf the user asks what services are available, present them grouped by category."
+            "\nIf the user asks what services are available or asks generally what the clinic offers, return list_services."
             "\nDo not volunteer prices in general descriptive answers."
             f"\nCollect these fields in order: {collect_fields}"
         )
@@ -2638,6 +2638,28 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                         "awaiting_booking_confirmation",
                         reason="model_suggest_service",
                     )
+
+            if intent == "list_services":
+                reply = _service_list_reply(profile, services)
+                _log_chat_state(
+                    message=message,
+                    session_id=session_id,
+                    intent=intent,
+                    stage_before=stage_before,
+                    stage_after=_stage_name(SESSION_STATE.get(session_key)),
+                )
+                final_reply = _finalize_reply(
+                    tenant=tenant,
+                    session_id=session_id,
+                    session_key=session_key,
+                    message=message,
+                    reply=reply,
+                    response_type="service_list",
+                    services=services,
+                    profile=profile,
+                    stage_after=_stage_name(SESSION_STATE.get(session_key)),
+                )
+                return final_reply, session_id
 
             if intent not in {"greeting", "suggest_service", "fallback"}:
                 intent = "fallback"
