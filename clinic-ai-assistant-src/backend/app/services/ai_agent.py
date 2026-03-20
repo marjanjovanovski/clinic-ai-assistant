@@ -18,7 +18,7 @@ SESSION_STATE = {}
 INTERACTION_HISTORY = {}
 MAX_INTERACTION_HISTORY = 6
 MAX_CONTEXT_INTERACTIONS = 1
-CANONICAL_INTENTS = {"greeting", "suggest_service", "list_services", "confirm_booking", "collect_contact", "fallback"}
+CANONICAL_INTENTS = {"greeting", "suggest_service", "list_services", "quote_price", "confirm_booking", "collect_contact", "fallback"}
 BOOKING_INPUT_FIELD_VALUE = "FIELD_VALUE"
 BOOKING_INPUT_CLARIFICATION = "CLARIFICATION_QUESTION"
 BOOKING_INPUT_FEEDBACK = "FEEDBACK_OR_META"
@@ -33,6 +33,9 @@ INTENT_ALIASES = {
     "booking_inquiry": "suggest_service",
     "booking_request": "suggest_service",
     "list_services": "list_services",
+    "quote_price": "quote_price",
+    "price_quote": "quote_price",
+    "ask_price": "quote_price",
     "confirm_booking": "confirm_booking",
     "booking_initiated": "confirm_booking",
     "booking_initiate": "confirm_booking",
@@ -1185,6 +1188,17 @@ def _service_variants(service: dict) -> set[str]:
     return variants
 
 
+def _service_by_id(services: list[dict], service_id: str | None) -> dict | None:
+    if not isinstance(service_id, str) or not service_id.strip():
+        return None
+
+    normalized_service_id = service_id.strip()
+    return next(
+        (service for service in services if service.get("id") == normalized_service_id),
+        None,
+    )
+
+
 def _match_service_for_message(message: str, services: list[dict]) -> dict | None:
     normalized_message = _normalize_lookup_text(message)
     best_match = None
@@ -1628,9 +1642,10 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     if allow_booking:
         system_prompt += (
             "\n\nBooking capability: enabled."
-            "\nCanonical intents: greeting, suggest_service, list_services, confirm_booking, fallback."
+            "\nCanonical intents: greeting, suggest_service, list_services, quote_price, confirm_booking, fallback."
             "\nIf the user confirms booking, return confirm_booking."
             "\nIf the user asks what services are available or asks generally what the clinic offers, return list_services."
+            "\nIf the user asks for the price of a specific catalog service, return quote_price and set service_id to that service."
             "\nDo not volunteer prices in general descriptive answers."
             f"\nCollect these fields in order: {collect_fields}"
         )
@@ -2660,6 +2675,30 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                     stage_after=_stage_name(SESSION_STATE.get(session_key)),
                 )
                 return final_reply, session_id
+
+            if intent == "quote_price":
+                priced_service = _service_by_id(services, service_id) or _match_service_for_message(message, services)
+                price_reply = _orientation_price_text(priced_service, profile) if priced_service else None
+                if price_reply:
+                    _log_chat_state(
+                        message=message,
+                        session_id=session_id,
+                        intent=intent,
+                        stage_before=stage_before,
+                        stage_after=_stage_name(SESSION_STATE.get(session_key)),
+                    )
+                    final_reply = _finalize_reply(
+                        tenant=tenant,
+                        session_id=session_id,
+                        session_key=session_key,
+                        message=message,
+                        reply=price_reply,
+                        response_type="explicit_price",
+                        services=services,
+                        profile=profile,
+                        stage_after=_stage_name(SESSION_STATE.get(session_key)),
+                    )
+                    return final_reply, session_id
 
             if intent not in {"greeting", "suggest_service", "fallback"}:
                 intent = "fallback"
