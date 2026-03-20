@@ -20,6 +20,21 @@ class FakeResponse:
 class FakeResponses:
     def create(self, *args, **kwargs):
         message = kwargs["input"][-1]["content"]
+        if isinstance(message, str) and message.startswith("BOOKING_GUIDANCE\n"):
+            payload = json.loads(message.split("\n", 1)[1])
+            kind = payload["kind"]
+            field_prompt = payload["field_prompt"]
+            missing_digits = payload.get("missing_digits")
+            if kind == "field_clarification":
+                return FakeResponse(f"Imeto na pacientot sto treba da dojde. {field_prompt}")
+            if kind == "phone_retry":
+                label = "cifra" if missing_digits == 1 else "cifri"
+                verb = "nedostiga" if missing_digits == 1 else "nedostigaat"
+                return FakeResponse(
+                    f"Mi izgleda deka {verb} uste {missing_digits} {label}. {field_prompt}"
+                )
+            if kind == "catalog_redirect":
+                return FakeResponse(f"Ke prodolzime so zakazuvanjeto. {field_prompt}")
         if message == BOOKING_REQUEST:
             return FakeResponse(
                 json.dumps(
@@ -235,6 +250,22 @@ def test_name_field_rejects_conversational_filler(booking_ctx):
     assert "name" not in stored.get("data", {})
 
 
+def test_repeated_short_phone_inputs_keep_guided_missing_digits_reply(booking_ctx):
+    session_id, _ = _start_booking(booking_ctx)
+    _confirm_booking(booking_ctx, session_id)
+    _send(booking_ctx.client, "Marjan", session_id)
+
+    first = _send(booking_ctx.client, "123", session_id)
+    second = _send(booking_ctx.client, "12", session_id)
+
+    assert first["session_status"] == "collecting_contact"
+    assert second["session_status"] == "collecting_contact"
+    assert first["booking_progress"]["next_field"] == "phone"
+    assert second["booking_progress"]["next_field"] == "phone"
+    assert "6 cifri" in first["reply"]
+    assert "7 cifri" in second["reply"]
+
+
 def test_field_level_clarification_stays_inside_booking_flow(booking_ctx):
     session_id, _ = _start_booking(booking_ctx)
     _confirm_booking(booking_ctx, session_id)
@@ -245,6 +276,22 @@ def test_field_level_clarification_stays_inside_booking_flow(booking_ctx):
     assert clarification["session_status"] == "collecting_contact"
     assert clarification["booking_progress"]["next_field"] == "name"
     assert resumed["booking_progress"]["next_field"] == "phone"
+
+
+def test_name_clarification_uses_guided_answer_and_returns_to_name_prompt(booking_ctx):
+    session_id, _ = _start_booking(booking_ctx)
+    _confirm_booking(booking_ctx, session_id)
+
+    clarification = _send(
+        booking_ctx.client,
+        "dali moeto ili imeto na pacientot shto treba da dojde?",
+        session_id,
+    )
+
+    assert clarification["session_status"] == "collecting_contact"
+    assert clarification["booking_progress"]["next_field"] == "name"
+    assert "pacientot" in clarification["reply"]
+    assert "ime" in clarification["reply"].lower()
 
 
 def test_booking_scope_clarification_resumes_current_field(booking_ctx):

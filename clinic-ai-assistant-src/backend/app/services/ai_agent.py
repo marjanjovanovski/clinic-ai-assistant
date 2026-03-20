@@ -863,6 +863,107 @@ def _invalid_email_reply(profile: dict) -> str:
     return _field_prompt(profile, "email")
 
 
+def _booking_guidance_fallback(
+    *,
+    profile: dict,
+    field_name: str | None,
+    guidance_kind: str,
+    user_message: str,
+    services: list[dict],
+    state: dict | None = None,
+    missing_digits: int | None = None,
+) -> str:
+    if guidance_kind == "field_clarification":
+        if _is_field_level_clarification(user_message, field_name):
+            return _field_clarification_with_resume(profile, field_name)
+        return _contact_collection_redirect_reply(profile, field_name)
+
+    if guidance_kind == "phone_retry":
+        return _invalid_phone_reply(profile, user_message)
+
+    if guidance_kind == "catalog_redirect":
+        return _contact_collection_redirect_reply(profile, field_name)
+
+    if guidance_kind == "scope_clarification":
+        if isinstance(state, dict):
+            return _booking_scope_clarification_reply(state, services, profile)
+        return _contact_collection_redirect_reply(profile, field_name)
+
+    return _field_prompt(profile, field_name or "name")
+
+
+def _booking_guidance_reply(
+    *,
+    api_key: str | None,
+    tenant: str,
+    session_id: str,
+    profile: dict,
+    field_name: str | None,
+    guidance_kind: str,
+    user_message: str,
+    services: list[dict],
+    state: dict | None = None,
+    missing_digits: int | None = None,
+) -> str:
+    fallback_reply = _booking_guidance_fallback(
+        profile=profile,
+        field_name=field_name,
+        guidance_kind=guidance_kind,
+        user_message=user_message,
+        services=services,
+        state=state,
+        missing_digits=missing_digits,
+    )
+
+    if not api_key:
+        return fallback_reply
+
+    field_prompt = _field_prompt(profile, field_name or "name")
+    business_name = profile.get("business", {}).get("name", "Ординацијата")
+    guidance_payload = {
+        "kind": guidance_kind,
+        "field_name": field_name,
+        "field_prompt": field_prompt,
+        "user_message": user_message,
+        "missing_digits": missing_digits,
+        "service_id": state.get("service_id") if isinstance(state, dict) else None,
+    }
+    system_prompt = (
+        f"You are writing a short booking-guidance reply for {business_name}. "
+        "Always reply in Macedonian Cyrillic. "
+        "The backend already knows which contact field is being collected; do not change the field. "
+        "Answer the user's clarification or guide the retry naturally in 1-2 sentences. "
+        "Keep the tone warm and direct, avoid diagnosis, avoid markdown, and end by guiding the user back to the same field."
+    )
+
+    try:
+        client = OpenAI(api_key=api_key)
+        response = client.responses.create(
+            model="gpt-4.1-mini",
+            input=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": "BOOKING_GUIDANCE\n" + json.dumps(guidance_payload, ensure_ascii=False),
+                },
+            ],
+        )
+        reply = (response.output_text or "").strip()
+        if reply:
+            trace_event(
+                tenant,
+                session_id,
+                "BOOKING_GUIDANCE_USED",
+                guidance_kind=guidance_kind,
+                field_name=field_name,
+            )
+            return reply
+    except (OpenAIError, RateLimitError, json.JSONDecodeError):
+        pass
+
+    return fallback_reply
+
+
 def _edit_record_confirmation_reply() -> str:
     return "Дали сакате да направите промена на записот?"
 
@@ -2019,10 +2120,17 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         booking_input_type = _classify_booking_input(message, profile)
 
         if booking_input_type == BOOKING_INPUT_CLARIFICATION:
-            if _is_field_level_clarification(message, next_field):
-                reply = _field_clarification_with_resume(profile, next_field)
-            else:
-                reply = _contact_collection_redirect_reply(profile, next_field)
+            reply = _booking_guidance_reply(
+                api_key=api_key,
+                tenant=tenant,
+                session_id=session_id,
+                profile=profile,
+                field_name=next_field,
+                guidance_kind="field_clarification",
+                user_message=message,
+                services=services,
+                state=state,
+            )
             final_reply = _finalize_reply(
                 tenant=tenant,
                 session_id=session_id,
@@ -2037,7 +2145,17 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             return final_reply, session_id
 
         if next_field == "name" and _is_catalog_reference_during_contact_collection(message, services, profile):
-            reply = _contact_collection_redirect_reply(profile, next_field)
+            reply = _booking_guidance_reply(
+                api_key=api_key,
+                tenant=tenant,
+                session_id=session_id,
+                profile=profile,
+                field_name=next_field,
+                guidance_kind="catalog_redirect",
+                user_message=message,
+                services=services,
+                state=state,
+            )
             final_reply = _finalize_reply(
                 tenant=tenant,
                 session_id=session_id,
@@ -2219,13 +2337,19 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             return final_reply, session_id
 
         if not force_accept_name and not _is_valid_contact_field_value(next_field, message, profile):
-            if (
-                next_field == "phone"
-                and re.sub(r"\D+", "", message)
-                and not state.get("phone_length_guided")
-            ):
-                state["phone_length_guided"] = True
-                reply = _invalid_phone_reply(profile, message)
+            if next_field == "phone" and re.sub(r"\D+", "", message):
+                reply = _booking_guidance_reply(
+                    api_key=api_key,
+                    tenant=tenant,
+                    session_id=session_id,
+                    profile=profile,
+                    field_name=next_field,
+                    guidance_kind="phone_retry",
+                    user_message=message,
+                    services=services,
+                    state=state,
+                    missing_digits=max(0, 9 - len(re.sub(r"\D+", "", message))),
+                )
             elif next_field == "email" and "@" in message:
                 reply = _invalid_email_reply(profile)
             else:
@@ -2244,8 +2368,6 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             return final_reply, session_id
 
         state["data"][next_field] = message
-        if next_field == "phone":
-            state.pop("phone_length_guided", None)
         if next_field == "name":
             state.pop("pending_name_confirmation", None)
 
