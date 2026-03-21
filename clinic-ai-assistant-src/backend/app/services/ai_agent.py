@@ -246,6 +246,37 @@ def _status_for_stage(stage: str | None) -> str:
     return "active"
 
 
+def _booking_summary_payload(profile: dict, state: dict, collect_fields: list[str], data: dict, services: list[dict]) -> dict | None:
+    if state.get("stage") != "completed":
+        return None
+
+    service_id = state.get("service_id")
+    service = _service_by_id(services, service_id) or _consultation_service(services)
+    service_name = _service_display_name(service) if isinstance(service, dict) else "Стоматолошка консултација"
+
+    summary_fields = []
+    for field_name in collect_fields:
+        raw_value = data.get(field_name)
+        if isinstance(raw_value, str) and raw_value.strip():
+            summary_fields.append(
+                {
+                    "field": field_name,
+                    "label": _field_prompt(profile, field_name),
+                    "value": raw_value.strip(),
+                }
+            )
+
+    return {
+        "title": "Резиме на барањето",
+        "subtitle": "Подготвено за идно поврзување со календар и реален термин.",
+        "service_name": service_name,
+        "appointment_display": "21 MAR 2026 at 14:00",
+        "appointment_status": "Привремен термин",
+        "appointment_source": "placeholder",
+        "fields": summary_fields,
+    }
+
+
 def _message_tokens(value: str) -> set[str]:
     normalized = _normalize_lookup_text(value)
     return {
@@ -1695,6 +1726,7 @@ def get_booking_progress(tenant: str, session_id: str | None) -> dict | None:
         return None
 
     profile = load_profile_config(tenant)
+    services = profile.get("services", [])
     collect_fields = _profile_list(profile, "actions", "collect_contact_fields")
     if not collect_fields:
         collect_fields = ["name", "phone", "email"]
@@ -1735,6 +1767,8 @@ def get_booking_progress(tenant: str, session_id: str | None) -> dict | None:
     elif completed_count >= 3:
         progress_percent = 100
 
+    booking_summary = _booking_summary_payload(profile, state, collect_fields, data, services)
+
     return {
         "visible": True,
         "booking_stage": stage,
@@ -1744,6 +1778,7 @@ def get_booking_progress(tenant: str, session_id: str | None) -> dict | None:
         "reservation_status": "complete" if stage == "completed" else "pending",
         "next_field": state.get("next_field"),
         "fields": field_progress,
+        "summary": booking_summary,
     }
 
 

@@ -211,6 +211,101 @@
       flex-wrap: wrap;
     }
 
+    .booking-summary {
+      display: none;
+      margin: 0 16px 12px 16px;
+      padding: 16px;
+      border: 1px solid #d7e4f5;
+      border-radius: 16px;
+      background:
+        radial-gradient(circle at top right, rgba(96, 165, 250, 0.18), transparent 34%),
+        linear-gradient(135deg, #f8fbff 0%, #eef6ff 58%, #f7fafc 100%);
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+      gap: 14px;
+      flex-direction: column;
+    }
+
+    .booking-summary.visible {
+      display: flex;
+    }
+
+    .booking-summary-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .booking-summary-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .booking-summary-subtitle {
+      margin-top: 4px;
+      font-size: 13px;
+      color: #475569;
+    }
+
+    .booking-summary-badge {
+      flex: 0 0 auto;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #dcfce7;
+      color: #166534;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .booking-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .booking-summary-card {
+      padding: 12px 13px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(191, 219, 254, 0.8);
+    }
+
+    .booking-summary-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #64748b;
+    }
+
+    .booking-summary-value {
+      margin-top: 6px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.35;
+    }
+
+    .booking-summary-fields {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .booking-summary-field {
+      padding: 11px 12px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.84);
+      border: 1px solid rgba(203, 213, 225, 0.9);
+    }
+
+    @media (max-width: 640px) {
+      .booking-summary-grid,
+      .booking-summary-fields {
+        grid-template-columns: 1fr;
+      }
+    }
+
     .booking-step {
       display: inline-flex;
       align-items: center;
@@ -364,6 +459,27 @@
       <div class="booking-progress-steps" id="bookingProgressSteps"></div>
     </div>
 
+    <div class="booking-summary" id="bookingSummary">
+      <div class="booking-summary-header">
+        <div>
+          <div class="booking-summary-title" id="bookingSummaryTitle">Резиме на барањето</div>
+          <div class="booking-summary-subtitle" id="bookingSummarySubtitle"></div>
+        </div>
+        <div class="booking-summary-badge" id="bookingSummaryBadge">Привремен термин</div>
+      </div>
+      <div class="booking-summary-grid">
+        <div class="booking-summary-card">
+          <div class="booking-summary-label">Услуга</div>
+          <div class="booking-summary-value" id="bookingSummaryService"></div>
+        </div>
+        <div class="booking-summary-card">
+          <div class="booking-summary-label">Термин</div>
+          <div class="booking-summary-value" id="bookingSummaryAppointment"></div>
+        </div>
+      </div>
+      <div class="booking-summary-fields" id="bookingSummaryFields"></div>
+    </div>
+
     <div class="chat-messages" id="chatMessages"></div>
 
     <div class="chat-input-area">
@@ -390,6 +506,13 @@
     const bookingProgressStatus = document.getElementById("bookingProgressStatus");
     const bookingProgressSteps = document.getElementById("bookingProgressSteps");
     const bookingResetButton = document.getElementById("bookingResetButton");
+    const bookingSummary = document.getElementById("bookingSummary");
+    const bookingSummaryTitle = document.getElementById("bookingSummaryTitle");
+    const bookingSummarySubtitle = document.getElementById("bookingSummarySubtitle");
+    const bookingSummaryBadge = document.getElementById("bookingSummaryBadge");
+    const bookingSummaryService = document.getElementById("bookingSummaryService");
+    const bookingSummaryAppointment = document.getElementById("bookingSummaryAppointment");
+    const bookingSummaryFields = document.getElementById("bookingSummaryFields");
 
     const pathParts = window.location.pathname.split("/").filter(Boolean);
     const tenant = pathParts[0] === "agent" && pathParts[1] ? pathParts[1] : "generic";
@@ -583,6 +706,44 @@
       return item.value;
     }
 
+    function updateBookingSummary(summary) {
+      if (!summary) {
+        bookingSummary.classList.remove("visible");
+        bookingSummaryFields.innerHTML = "";
+        bookingSummaryTitle.textContent = "Резиме на барањето";
+        bookingSummarySubtitle.textContent = "";
+        bookingSummaryBadge.textContent = "Привремен термин";
+        bookingSummaryService.textContent = "";
+        bookingSummaryAppointment.textContent = "";
+        return;
+      }
+
+      bookingSummary.classList.add("visible");
+      bookingSummaryTitle.textContent = summary.title || "Резиме на барањето";
+      bookingSummarySubtitle.textContent = summary.subtitle || "";
+      bookingSummaryBadge.textContent = summary.appointment_status || "Привремен термин";
+      bookingSummaryService.textContent = summary.service_name || "Стоматолошка консултација";
+      bookingSummaryAppointment.textContent = summary.appointment_display || "21 MAR 2026 at 14:00";
+      bookingSummaryFields.innerHTML = "";
+
+      for (const item of summary.fields || []) {
+        const fieldEl = document.createElement("div");
+        fieldEl.className = "booking-summary-field";
+
+        const labelEl = document.createElement("div");
+        labelEl.className = "booking-summary-label";
+        labelEl.textContent = item.label || labelForField(item.field);
+
+        const valueEl = document.createElement("div");
+        valueEl.className = "booking-summary-value";
+        valueEl.textContent = item.value || "";
+
+        fieldEl.appendChild(labelEl);
+        fieldEl.appendChild(valueEl);
+        bookingSummaryFields.appendChild(fieldEl);
+      }
+    }
+
     function updateBookingProgress(progress) {
       if (!progress || !progress.visible) {
         bookingProgress.classList.remove("visible");
@@ -590,6 +751,7 @@
         bookingProgressTitle.textContent = progressTitleForPercent(0);
         bookingProgressStatus.textContent = "0 / 3";
         bookingResetButton.hidden = true;
+        updateBookingSummary(null);
         return;
       }
 
@@ -598,6 +760,7 @@
       bookingProgressStatus.textContent = `${progress.collection_status} / ${progress.collection_total}`;
       bookingResetButton.hidden = false;
       bookingProgressSteps.innerHTML = "";
+      updateBookingSummary(progress.reservation_status === "complete" ? progress.summary : null);
 
       for (const item of progress.fields || []) {
         const stepEl = document.createElement("div");

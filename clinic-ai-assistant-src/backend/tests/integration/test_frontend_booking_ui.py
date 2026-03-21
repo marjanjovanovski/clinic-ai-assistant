@@ -29,6 +29,8 @@ def test_agent_page_includes_booking_progress_shell(monkeypatch, tmp_path):
     assert 'id="bookingProgress"' in response.text
     assert 'id="bookingResetButton"' in response.text
     assert 'id="bookingProgressSteps"' in response.text
+    assert 'id="bookingSummary"' in response.text
+    assert 'id="bookingSummaryFields"' in response.text
 
 
 def test_booking_progress_script_wires_active_and_editable_states(monkeypatch, tmp_path):
@@ -39,6 +41,18 @@ def test_booking_progress_script_wires_active_and_editable_states(monkeypatch, t
     assert 'stepEl.classList.add("editable")' in response.text
     assert 'stepEl.classList.add("active")' in response.text
     assert 'progress.next_field === item.field' in response.text
+    assert 'updateBookingSummary(progress.reservation_status === "complete" ? progress.summary : null);' in response.text
+
+
+def test_completed_booking_summary_shell_is_calendar_ready(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+
+    response = client.get("/agent/milena_dental")
+
+    assert 'function updateBookingSummary(summary)' in response.text
+    assert 'bookingSummary.classList.add("visible")' in response.text
+    assert 'summary.appointment_display || "21 MAR 2026 at 14:00"' in response.text
+    assert 'summary.service_name || "Стоматолошка консултација"' in response.text
 
 
 def test_frontend_uses_internal_booking_edit_message(monkeypatch, tmp_path):
