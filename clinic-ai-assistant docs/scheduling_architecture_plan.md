@@ -45,8 +45,11 @@ This is better than a single long plan because it gives us:
 - Booking-flow integration status: `designed_not_implemented`
 - Current provider target: `google_calendar`
 - Future provider target: `calendly`
-- Current implementation phase: `phase_5_design_closeout`
+- Current implementation phase: `phase_5_design_closeout_validated_in_isolated_sandbox`
 - Tasks completed: `14 / 14`
+- Isolated Google availability status: `validated_live`
+- Isolated Google booking status: `validated_live`
+- Active Milena provider in repo: `google_calendar`
 
 ## Execution Log
 
@@ -67,6 +70,37 @@ Add one short line here whenever a task changes state in a meaningful way.
 - `2026-03-21`: Task 12 completed. Added Google Calendar booking event creation, normalized booking results, and focused unit coverage for booking payload creation.
 - `2026-03-21`: Task 13 completed. Hardened scheduling validation, disabled-provider behavior, provider/config error mapping, and added focused tests for these edge cases.
 - `2026-03-21`: Task 14 completed. Added the future booking-flow integration design so the scheduling subsystem can be hooked into chat later without breaking provider separation.
+- `2026-03-21`: Verified isolated Google Calendar availability end to end in `frontend/cal.html` using a real service account, enabled Calendar API, and shared calendar access.
+- `2026-03-21`: Verified isolated Google Calendar booking end to end in `frontend/cal.html` after switching Milena tenant scheduling provider to `google_calendar`.
+- `2026-03-21`: Updated Google service-account booking behavior to create events without attendee invites or Google email updates so personal/non-domain-delegated setups can book successfully.
+- `2026-03-21`: Updated scheduling docs and tests to reflect live Google validation while keeping booking-flow integration intentionally untouched.
+
+## Current Operational Reality
+
+- The isolated scheduling subsystem is implemented and working independently from the main booking flow.
+- `clinic-ai-assistant-src/frontend/cal.html` is the active sandbox for testing config loading, availability lookup, and slot booking behavior.
+- `clinic-ai-assistant-src/backend/app/config/profiles/milena_dental.json` currently points to `google_calendar` as the active scheduling provider for live isolated testing.
+- The Google Calendar provider currently uses service-account auth only.
+- For this service-account path, booking now creates the event on the clinic calendar without adding the patient as a Google Calendar attendee.
+- This avoids the Google restriction that blocks attendee invites for service accounts without Domain-Wide Delegation.
+- Automatic Google Calendar invitation emails are therefore intentionally not part of the current isolated runtime.
+
+## Live Validation Checklist
+
+- Verified backend startup with tenant config loaded from repo truth.
+- Verified `GET /scheduling/config/{tenant}` returns safe public scheduling metadata for the sandbox.
+- Verified `POST /scheduling/availability?tenant=milena_dental` returns live Google Calendar slots.
+- Verified `POST /scheduling/book?tenant=milena_dental` creates a real Google Calendar event from a selected sandbox slot.
+- Verified scheduling-focused unit and integration tests after the final Google booking adjustments.
+
+## Google Setup Notes From Real Validation
+
+- The backend virtual environment must have `google-api-python-client` and `google-auth` installed.
+- The Google Calendar API must be enabled in the Google Cloud project used by the service account.
+- The service account key file is expected at `clinic-ai-assistant-src/backend/app/config/secrets/google-service-account.json`.
+- The target Google Calendar must be shared with the service account email using at least `Make changes to events`.
+- Using `calendar_id: "primary"` works only when that target calendar context is accessible to the service account.
+- If a different calendar is intended later, using the explicit calendar ID/email is safer than assuming `primary`.
 
 ## Goal
 
@@ -351,6 +385,12 @@ The `mock_provider.py` file is important because it lets us stabilize:
 
 before real provider integration is complete.
 
+Current status:
+
+- mock remains available for deterministic local testing
+- live Google availability and booking have now both been validated in the isolated sandbox
+- provider switching is still JSON-driven at the tenant profile layer
+
 ### Layer 3: Standalone Scheduling API and Test UI
 
 Add a separate route file:
@@ -438,6 +478,12 @@ Best practical pattern:
 - secret values come from env vars or secret files
 
 That still satisfies the separation you want, while avoiding fragile hardcoded Python values.
+
+Current repo reality:
+
+- Google credentials are referenced by secret file path in tenant JSON
+- the backend resolves that relative file path safely for the Google provider
+- the scheduling public config intentionally excludes provider secret material
 
 ## Stable Internal Contract
 
@@ -528,6 +574,11 @@ Deliverables:
 - booking tests
 
 Still separate from the current booking flow.
+
+Validation outcome:
+
+- completed and live-validated in `cal.html`
+- booking currently omits Google attendee invites for service-account compatibility
 
 ### Phase 4: Runtime Hardening
 
@@ -878,6 +929,8 @@ Suggested behavior:
 - double booking/race conditions
 - config validation gaps
 - exposing secrets to the frontend
+- service-account attendee invite restrictions without Domain-Wide Delegation
+- assuming `primary` is always the correct long-term calendar identifier
 
 ## First Implementation Prompt
 
@@ -950,7 +1003,7 @@ These prompts are meant to be reused across sessions. They should also carry sta
 ### Prompt P1
 
 - Title: Build isolated scheduling scaffold and mock runtime
-- Status: `not_started`
+- Status: `completed`
 - Use when:
   - we are starting the implementation
   - no scheduling subsystem exists yet
@@ -980,7 +1033,7 @@ Return:
 ### Prompt P2
 
 - Title: Replace mock availability with Google Calendar retrieval
-- Status: `not_started`
+- Status: `completed`
 - Use when:
   - Phase 1 is complete
   - mock scheduling runtime is stable
@@ -1007,7 +1060,7 @@ Return:
 ### Prompt P3
 
 - Title: Add Google Calendar booking action
-- Status: `not_started`
+- Status: `completed`
 - Use when:
   - Google availability retrieval is stable
 - Prompt:
@@ -1033,7 +1086,7 @@ Return:
 ### Prompt P4
 
 - Title: Harden scheduling runtime for pre-integration stability
-- Status: `not_started`
+- Status: `completed`
 - Use when:
   - booking action exists
   - runtime needs hardening before integration planning closes

@@ -3,7 +3,7 @@
 ## 1. Repository Identity
 
 - repository name: clinic-ai-assistant
-- primary purpose: multi-tenant clinic chat assistant with deterministic routing, tenant-driven configuration, booking/contact collection, and control-layer sync artifacts
+- primary purpose: multi-tenant clinic chat assistant with deterministic routing, tenant-driven configuration, booking/contact collection, an isolated scheduling subsystem, and control-layer sync artifacts
 - primary stack: FastAPI, OpenAI Responses API, Python, SQLite, static HTML/CSS/JS, JSON tenant profiles, dotenv
 - current sync status: deterministic task execution framework active in `clinic-ai-assistant-src/AI_sync/`
 - current control-layer identity: AI Execution Protocol Layer complete for task atomicity, identity, session discipline, lifecycle control, context isolation, and backend configuration separation
@@ -46,28 +46,49 @@
     |-- backend/
     |   |-- app/
     |   |   |-- config/
-    |   |   |   `-- profiles/
-    |   |   |       |-- generic.json
-    |   |   |       |-- milena_dental.json
-    |   |   |       `-- risto.json
+    |   |   |   |-- profiles/
+    |   |   |   |   |-- generic.json
+    |   |   |   |   |-- milena_dental.json
+    |   |   |   |   `-- risto.json
+    |   |   |   `-- secrets/
+    |   |   |       `-- google-service-account.json
     |   |   |-- main.py
     |   |   |-- routes/
-    |   |   |   `-- chat.py
+    |   |   |   |-- chat.py
+    |   |   |   `-- scheduling.py
     |   |   `-- services/
     |   |       |-- ai_agent.py
     |   |       |-- config_loader.py
     |   |       |-- lead_store.py
-    |   |       `-- session_trace_logger.py
+    |   |       |-- session_trace_logger.py
+    |   |       `-- scheduling/
+    |   |           |-- __init__.py
+    |   |           |-- base.py
+    |   |           |-- factory.py
+    |   |           |-- models.py
+    |   |           |-- service.py
+    |   |           `-- providers/
+    |   |               |-- __init__.py
+    |   |               |-- google_calendar.py
+    |   |               `-- mock_provider.py
     |   |-- requirements.txt
     |   `-- tests/
-    |       |-- test_chat_flow.py
-    |       `-- test_config_loader.py
+    |       |-- integration/
+    |       |   |-- test_cal_html.py
+    |       |   |-- test_frontend_booking_ui.py
+    |       |   |-- test_req_booking_flow.py
+    |       |   `-- test_scheduling_api.py
+    |       `-- unit/
+    |           |-- test_google_calendar_provider.py
+    |           |-- test_scheduling_factory.py
+    |           `-- test_scheduling_models.py
     |-- configs/
     |   `-- settings.env
     `-- frontend/
         |-- favicon-16x16.png
         |-- favicon-32x32.png
         |-- favicon.ico
+        |-- cal.html
         `-- index.html
 ```
 
@@ -120,11 +141,15 @@
 - path: clinic-ai-assistant-src/backend/app/main.py
   - file type: python
   - layer classification: other included infrastructure
-  - role/purpose: application bootstrap, environment loading, CORS setup, route registration, frontend serving, and config endpoints
+  - role/purpose: application bootstrap, environment loading, CORS setup, route registration, frontend serving, config endpoints, and isolated scheduling route wiring
 - path: clinic-ai-assistant-src/backend/app/routes/chat.py
   - file type: python
   - layer classification: route
   - role/purpose: chat HTTP endpoint, request validation, and response envelope assembly
+- path: clinic-ai-assistant-src/backend/app/routes/scheduling.py
+  - file type: python
+  - layer classification: route
+  - role/purpose: isolated scheduling config, availability, and booking HTTP endpoints with scheduling-specific error mapping
 - path: clinic-ai-assistant-src/backend/app/services/ai_agent.py
   - file type: python
   - layer classification: service
@@ -141,18 +166,62 @@
   - file type: python
   - layer classification: service
   - role/purpose: optional session trace writing controlled by settings flags
+- path: clinic-ai-assistant-src/backend/app/services/scheduling/models.py
+  - file type: python
+  - layer classification: service
+  - role/purpose: normalized internal scheduling request/response models for availability, slots, booking results, and public scheduling config
+- path: clinic-ai-assistant-src/backend/app/services/scheduling/base.py
+  - file type: python
+  - layer classification: service
+  - role/purpose: abstract scheduling provider contract for availability, booking, and health checks
+- path: clinic-ai-assistant-src/backend/app/services/scheduling/factory.py
+  - file type: python
+  - layer classification: service
+  - role/purpose: provider selection and construction for mock and Google Calendar scheduling adapters
+- path: clinic-ai-assistant-src/backend/app/services/scheduling/service.py
+  - file type: python
+  - layer classification: service
+  - role/purpose: scheduling entry points, tenant/provider config merge behavior, request validation, and runtime error normalization
+- path: clinic-ai-assistant-src/backend/app/services/scheduling/providers/mock_provider.py
+  - file type: python
+  - layer classification: service
+  - role/purpose: deterministic mock slot generation and booking confirmation for isolated scheduling testing
+- path: clinic-ai-assistant-src/backend/app/services/scheduling/providers/google_calendar.py
+  - file type: python
+  - layer classification: service
+  - role/purpose: Google Calendar availability lookup and booking event creation through service-account credentials, using service-account-safe booking without attendee invites
 - path: clinic-ai-assistant-src/backend/requirements.txt
   - file type: text
   - layer classification: other included infrastructure
-  - role/purpose: backend runtime and test dependency list
-- path: clinic-ai-assistant-src/backend/tests/test_chat_flow.py
+  - role/purpose: backend runtime and test dependency list, including Google Calendar client dependencies
+- path: clinic-ai-assistant-src/backend/tests/integration/test_scheduling_api.py
   - file type: python
   - layer classification: test
-  - role/purpose: integration-style tests for chat validation, booking transitions, and contact collection flow
-- path: clinic-ai-assistant-src/backend/tests/test_config_loader.py
+  - role/purpose: integration coverage for isolated scheduling config, availability, booking, and scheduling error mapping
+- path: clinic-ai-assistant-src/backend/tests/integration/test_cal_html.py
   - file type: python
   - layer classification: test
-  - role/purpose: tests for tenant config loading and public config exposure boundaries
+  - role/purpose: integration coverage for the isolated scheduling sandbox frontend wiring
+- path: clinic-ai-assistant-src/backend/tests/integration/test_req_booking_flow.py
+  - file type: python
+  - layer classification: test
+  - role/purpose: integration-style tests for the main booking request flow
+- path: clinic-ai-assistant-src/backend/tests/integration/test_frontend_booking_ui.py
+  - file type: python
+  - layer classification: test
+  - role/purpose: frontend booking UI integration checks for the main chat flow
+- path: clinic-ai-assistant-src/backend/tests/unit/test_google_calendar_provider.py
+  - file type: python
+  - layer classification: test
+  - role/purpose: focused unit coverage for Google Calendar availability, booking normalization, slot validation, and credential-path handling
+- path: clinic-ai-assistant-src/backend/tests/unit/test_scheduling_factory.py
+  - file type: python
+  - layer classification: test
+  - role/purpose: focused unit coverage for scheduling provider selection and service-level validation behavior
+- path: clinic-ai-assistant-src/backend/tests/unit/test_scheduling_models.py
+  - file type: python
+  - layer classification: test
+  - role/purpose: focused unit coverage for normalized scheduling model serialization
 - path: clinic-ai-assistant-src/configs/settings.env
   - file type: env
   - layer classification: config
@@ -169,6 +238,10 @@
   - file type: image
   - layer classification: frontend
   - role/purpose: default favicon asset served with the frontend
+- path: clinic-ai-assistant-src/frontend/cal.html
+  - file type: html
+  - layer classification: frontend
+  - role/purpose: isolated scheduling sandbox UI for loading scheduling config, listing available slots, and triggering isolated bookings
 - path: clinic-ai-assistant-src/frontend/index.html
   - file type: html
   - layer classification: frontend
@@ -178,11 +251,18 @@
 
 - route:
   - clinic-ai-assistant-src/backend/app/routes/chat.py
+  - clinic-ai-assistant-src/backend/app/routes/scheduling.py
 - service:
   - clinic-ai-assistant-src/backend/app/services/ai_agent.py
   - clinic-ai-assistant-src/backend/app/services/config_loader.py
   - clinic-ai-assistant-src/backend/app/services/lead_store.py
   - clinic-ai-assistant-src/backend/app/services/session_trace_logger.py
+  - clinic-ai-assistant-src/backend/app/services/scheduling/models.py
+  - clinic-ai-assistant-src/backend/app/services/scheduling/base.py
+  - clinic-ai-assistant-src/backend/app/services/scheduling/factory.py
+  - clinic-ai-assistant-src/backend/app/services/scheduling/service.py
+  - clinic-ai-assistant-src/backend/app/services/scheduling/providers/mock_provider.py
+  - clinic-ai-assistant-src/backend/app/services/scheduling/providers/google_calendar.py
 - config:
   - clinic-ai-assistant-src/backend/app/config/profiles/generic.json
   - clinic-ai-assistant-src/backend/app/config/profiles/milena_dental.json
@@ -192,10 +272,16 @@
   - clinic-ai-assistant-src/frontend/favicon-16x16.png
   - clinic-ai-assistant-src/frontend/favicon-32x32.png
   - clinic-ai-assistant-src/frontend/favicon.ico
+  - clinic-ai-assistant-src/frontend/cal.html
   - clinic-ai-assistant-src/frontend/index.html
 - test:
-  - clinic-ai-assistant-src/backend/tests/test_chat_flow.py
-  - clinic-ai-assistant-src/backend/tests/test_config_loader.py
+  - clinic-ai-assistant-src/backend/tests/integration/test_scheduling_api.py
+  - clinic-ai-assistant-src/backend/tests/integration/test_cal_html.py
+  - clinic-ai-assistant-src/backend/tests/integration/test_req_booking_flow.py
+  - clinic-ai-assistant-src/backend/tests/integration/test_frontend_booking_ui.py
+  - clinic-ai-assistant-src/backend/tests/unit/test_google_calendar_provider.py
+  - clinic-ai-assistant-src/backend/tests/unit/test_scheduling_factory.py
+  - clinic-ai-assistant-src/backend/tests/unit/test_scheduling_models.py
 - sync artifact:
   - clinic-ai-assistant-src/AI_sync/ARTIFACT_RULES.md
   - clinic-ai-assistant-src/AI_sync/FAILURE_PROTOCOL.md
@@ -278,9 +364,28 @@
   - stepwise booking contact intro wording
   - natural Macedonian field prompts and clarification replies
   - current live receptionist-style behavior for the main tenant
+  - isolated scheduling configuration with Google Calendar as the active provider for sandbox validation
 - `milena_dental.json` is the most actively refined tenant profile and should be treated as the primary live reference for current Macedonian behavior
 
-## 10. Recent Completed Development
+## 10. Scheduling Subsystem Snapshot
+
+- the repository now contains an isolated scheduling subsystem that is intentionally separate from the current booking/chat flow
+- the scheduling subsystem currently includes:
+  - normalized scheduling models
+  - a provider interface and factory
+  - a deterministic mock provider
+  - a Google Calendar provider
+  - standalone `/scheduling/*` endpoints
+  - a dedicated `frontend/cal.html` sandbox
+- live validation completed in the isolated sandbox shows:
+  - Google availability lookup works with service-account auth
+  - Google booking works by creating an event directly on the target calendar
+  - service-account booking intentionally skips attendee invites and Google email updates
+- practical implication:
+  - the isolated scheduling runtime is functional now
+  - booking-flow integration remains intentionally not implemented
+
+## 11. Recent Completed Development
 
 - completed the deterministic AI Execution Protocol Layer in `AI_sync`
 - formalized backend configuration separation so config content stays in tenant JSON instead of Python
@@ -298,8 +403,12 @@
 - enforced verified persistence before booking confirmation
 - limited combined contact parsing to explicit bundled input as a secondary convenience path
 - hardened persistence authority so only required fields determine save success and persisted DB truth is authoritative during recovery
+- added the isolated scheduling subsystem with standalone scheduling routes and `cal.html`
+- added Google Calendar availability and booking support behind the scheduling provider boundary
+- validated live Google Calendar availability and booking through the isolated sandbox
+- updated the Google service-account booking path to omit attendee invites for compatibility without Domain-Wide Delegation
 
-## 11. Current Stability / Likely Next Testing Focus
+## 12. Current Stability / Likely Next Testing Focus
 
 - currently stable areas:
   - booking confirmation requires explicit booking confirmation input
@@ -308,12 +417,15 @@
   - combined input is convenience-only and no longer the primary path
   - booking completion depends on verified persistence, not only in-memory state
   - recovery prefers persisted checkpoint/database truth for saved contact fields
+  - isolated scheduling availability works in both mock and Google modes
+  - isolated scheduling booking works in mock mode and live Google service-account mode
 - likely future testing focus:
   - full end-to-end booking verification against real DB rows during live chat
   - repeated interruption/resume behavior across the same `session_id`
   - tenant-by-tenant behavior parity outside `milena_dental.json`
+  - eventual safe integration of scheduling into the main booking flow
 
-## 12. Sync Note For Collaborators
+## 13. Sync Note For Collaborators
 
 - if a collaborator drifted before these updates, they may still think AI_sync is only a prompt-rules folder
 - that is no longer accurate
@@ -323,3 +435,4 @@
   - tenant profile JSON = approved home for conversational/configuration content
   - `ai_agent.py` = logic/orchestration, validation, flow control, and persistence-gating layer only
   - `lead_store.py` = verified persistence and checkpoint recovery layer
+  - scheduling runtime = separate subsystem under `app/services/scheduling/` and `/scheduling/*`
