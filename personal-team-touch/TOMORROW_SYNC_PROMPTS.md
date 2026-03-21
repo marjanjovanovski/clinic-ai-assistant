@@ -29,22 +29,31 @@ Constraints:
 - Use the following current state as the authoritative update context:
   - AI_sync is now an active deterministic execution framework, not only a prompt aid
   - PROMPT_PROTOCOL.md is the active execution contract
-  - ai_agent.py currently owns deterministic conversation orchestration, booking-state handling, active booking lock during collecting_contact, bounded context carry, clarification recovery, field-level contact validation, explicit booking confirmation gating, persistence-gated completion, and recovery that prefers persisted truth over stale in-memory contact state
+  - ai_agent.py currently owns deterministic conversation orchestration, booking-state handling, active booking lock during collecting_contact, bounded context carry, clarification recovery, field-level contact validation, unknown-name recovery, explicit booking confirmation gating, persistence-gated completion, completed-field edit flows, and recovery that prefers persisted truth over stale in-memory contact state
   - lead_store.py currently owns SQLite checkpoint save/load, exact-row verification after commit, required-field-aware persistence success evaluation, persisted-state hydration, and authoritative persisted contact recovery
-  - milena_dental.json currently owns receptionist-style Macedonian behavior, booking/contact wording, clarification replies, and stepwise booking contact collection wording starting from the name field
-  - Recent stabilization trail to reflect:
-    - 6b32392 refactor(profile): align booking intro with stepwise collection
-    - 29b5245 fix(backend): harden persistence authority rules
-    - 71e2345 refactor(profile): refine booking contact intro wording
-    - 5751fb0 fix(backend): limit combined contact parsing to explicit bundles
-    - caaac77 fix(backend): verify booking persistence before confirmation
-    - 55f7262 fix(backend): lock active booking flow
-    - 4f704de fix(backend): keep ownership clarifications inside booking flow
-    - 908da86 fix(backend): stabilize booking checkpoint continuity
-    - 976a0a1 fix(backend): harden phone field handling
-    - 88f2b7d fix(backend): harden contact input gating
-    - 71d743d docs(sync): update repo overview and progress tracker
+  - milena_dental.json currently owns receptionist-style Macedonian behavior, booking/contact wording, clarification replies, unknown-name recovery wording, and stepwise booking contact collection wording starting from the name field
+  - frontend/index.html currently owns the booking progress shell, active-step highlighting, completed-field edit triggers, and local-only session reset control
+  - REQ-BOOKING-FLOW-001 verification landed in `7c3bfd3`, but the current booking runtime also includes post-verification changes and the sync snapshot must reflect the newer repo truth rather than stopping at the verification commit
+  - Recent booking stabilization and follow-on trail to reflect:
     - 6fc20be fix(backend): recover booking clarification replies
+    - 88f2b7d fix(backend): harden contact input gating
+    - 976a0a1 fix(backend): harden phone field handling
+    - 908da86 fix(backend): stabilize booking checkpoint continuity
+    - 4f704de fix(backend): keep ownership clarifications inside booking flow
+    - 55f7262 fix(backend): lock active booking flow
+    - caaac77 fix(backend): verify booking persistence before confirmation
+    - 5751fb0 fix(backend): limit combined contact parsing to explicit bundles
+    - 29b5245 fix(backend): harden persistence authority rules
+    - 6b32392 refactor(profile): align booking intro with stepwise collection
+    - 1274340 Harden booking collection lock and add progress UI state
+    - 56fe50c Fix booking confirmation handoff and contact validation
+    - edb2f48 Fix booking name confirmation and email validation
+    - b5ead65 Refine booking progress copy and patient data display
+    - 4de0b0f Add editable booking chips and stabilize hover affordance
+    - b096aa0 fix(booking): recover unknown names and add reset control
+    - 7c3bfd3 test(booking): verify REQ-BOOKING-FLOW-001 end to end
+    - 3617b0d fix(backend): soften phone validation wording
+    - b82a045 feat(backend): add llm-guided booking field recovery
 
 Return:
 1. Exact file path
@@ -155,20 +164,28 @@ Verify:
 - What ai_agent.py is responsible for
 - What lead_store.py is responsible for
 - What milena_dental.json is responsible for
-- How booking confirmation, contact collection, persistence verification, and recovery currently work
-- Summarize the stabilization trail represented by these commits:
-  - 6b32392 refactor(profile): align booking intro with stepwise collection
-  - 29b5245 fix(backend): harden persistence authority rules
-  - 71e2345 refactor(profile): refine booking contact intro wording
-  - 5751fb0 fix(backend): limit combined contact parsing to explicit bundles
-  - caaac77 fix(backend): verify booking persistence before confirmation
-  - 55f7262 fix(backend): lock active booking flow
-  - 4f704de fix(backend): keep ownership clarifications inside booking flow
-  - 908da86 fix(backend): stabilize booking checkpoint continuity
-  - 976a0a1 fix(backend): harden phone field handling
-  - 88f2b7d fix(backend): harden contact input gating
-  - 71d743d docs(sync): update repo overview and progress tracker
+- What frontend/index.html is responsible for in the booking UI contract
+- How booking confirmation, contact collection, persistence verification, unknown-name recovery, edit-after-completion, and reset behavior currently work
+- Summarize the stabilization and follow-on trail represented by these commits:
   - 6fc20be fix(backend): recover booking clarification replies
+  - 88f2b7d fix(backend): harden contact input gating
+  - 976a0a1 fix(backend): harden phone field handling
+  - 908da86 fix(backend): stabilize booking checkpoint continuity
+  - 4f704de fix(backend): keep ownership clarifications inside booking flow
+  - 55f7262 fix(backend): lock active booking flow
+  - caaac77 fix(backend): verify booking persistence before confirmation
+  - 5751fb0 fix(backend): limit combined contact parsing to explicit bundles
+  - 29b5245 fix(backend): harden persistence authority rules
+  - 6b32392 refactor(profile): align booking intro with stepwise collection
+  - 1274340 Harden booking collection lock and add progress UI state
+  - 56fe50c Fix booking confirmation handoff and contact validation
+  - edb2f48 Fix booking name confirmation and email validation
+  - b5ead65 Refine booking progress copy and patient data display
+  - 4de0b0f Add editable booking chips and stabilize hover affordance
+  - b096aa0 fix(booking): recover unknown names and add reset control
+  - 7c3bfd3 test(booking): verify REQ-BOOKING-FLOW-001 end to end
+  - 3617b0d fix(backend): soften phone validation wording
+  - b82a045 feat(backend): add llm-guided booking field recovery
 
 Constraints:
 - read-only operation
@@ -178,6 +195,7 @@ Constraints:
   - clinic-ai-assistant-src/backend/app/services/ai_agent.py
   - clinic-ai-assistant-src/backend/app/services/lead_store.py
   - clinic-ai-assistant-src/backend/app/config/profiles/milena_dental.json
+  - clinic-ai-assistant-src/frontend/index.html
 - keep the output concise and evidence-based
 - do not invent risks without code evidence
 
