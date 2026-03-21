@@ -18,7 +18,7 @@ def test_factory_builds_mock_provider():
 
 def test_factory_rejects_unknown_provider():
     try:
-        build_provider("google_calendar", {})
+        build_provider("unsupported_provider", {})
     except ValueError as exc:
         assert "Unsupported scheduling provider" in str(exc)
     else:

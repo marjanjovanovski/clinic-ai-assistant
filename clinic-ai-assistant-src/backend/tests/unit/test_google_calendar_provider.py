@@ -159,3 +159,11 @@ def test_google_provider_rejects_slot_from_other_calendar():
         assert "does not match configured calendar_id" in str(exc)
     else:
         raise AssertionError("Expected ValueError for mismatched calendar id")
+
+
+def test_google_provider_resolves_backend_prefixed_relative_credentials_path():
+    resolved = GoogleCalendarSchedulingProvider._service_account_path(
+        "backend/app/config/secrets/google-service-account.json"
+    )
+
+    assert resolved.as_posix().endswith("backend/app/config/secrets/google-service-account.json")

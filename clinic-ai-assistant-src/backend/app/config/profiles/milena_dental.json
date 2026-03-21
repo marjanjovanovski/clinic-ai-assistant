@@ -718,7 +718,7 @@
   },
   "scheduling": {
     "enabled": true,
-    "provider": "mock",
+    "provider": "google_calendar",
     "timezone": "Europe/Skopje",
     "slot_duration_minutes": 30,
     "slot_interval_minutes": 30,

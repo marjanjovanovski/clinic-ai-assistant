@@ -67,6 +67,14 @@ def _provider_for_tenant(tenant: str):
         raise SchedulingConfigError(str(exc)) from exc
 
 
+def _booking_enabled_for_tenant(tenant: str) -> bool:
+    profile = load_profile_config(tenant)
+    scheduling = _scheduling_config_for_tenant(tenant)
+    return bool(
+        scheduling.get("enabled", False) and profile.get("actions", {}).get("allow_booking", False)
+    )
+
+
 def get_scheduling_public_config(tenant: str) -> SchedulingPublicConfig:
     scheduling = _scheduling_config_for_tenant(tenant)
     profile = load_profile_config(tenant)
@@ -121,6 +129,8 @@ def get_availability(request: AvailabilityRequest) -> AvailabilityResult:
 
 def book_slot(request: BookingRequest) -> BookingResult:
     _validate_booking_request(request)
+    if not _booking_enabled_for_tenant(request.tenant):
+        raise SchedulingDisabledError(f"Scheduling booking is disabled for tenant '{request.tenant}'")
     provider = _provider_for_tenant(request.tenant)
     try:
         return provider.book_slot(request)

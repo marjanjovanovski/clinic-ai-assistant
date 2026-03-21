@@ -3,6 +3,19 @@ import importlib
 from fastapi.testclient import TestClient
 
 
+def _mock_profile_loader(real_loader):
+    def _load_profile(tenant: str):
+        profile = real_loader(tenant)
+        if tenant == "milena_dental":
+            profile = dict(profile)
+            scheduling = dict(profile.get("scheduling") or {})
+            scheduling["provider"] = "mock"
+            profile["scheduling"] = scheduling
+        return profile
+
+    return _load_profile
+
+
 def _build_client(monkeypatch, tmp_path):
     tmp_path.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
@@ -13,6 +26,13 @@ def _build_client(monkeypatch, tmp_path):
     monkeypatch.setattr(session_trace_logger, "TRACE_DIR", tmp_path / "runtime_traces")
     monkeypatch.setattr(session_trace_logger, "SETTINGS_PATH", tmp_path / "settings.env")
     monkeypatch.setattr(session_trace_logger, "is_session_trace_enabled", lambda: False)
+
+    import app.services.config_loader as config_loader_module
+    import app.services.scheduling.service as scheduling_service_module
+
+    mocked_loader = _mock_profile_loader(config_loader_module.load_profile_config)
+    monkeypatch.setattr(config_loader_module, "load_profile_config", mocked_loader)
+    monkeypatch.setattr(scheduling_service_module, "load_profile_config", mocked_loader)
 
     import app.main as main_module
 
@@ -128,6 +148,7 @@ def test_scheduling_endpoints_return_conflict_when_scheduling_is_disabled(monkey
     assert availability.status_code == 409
     assert booking.status_code == 409
     assert "Scheduling is disabled" in availability.json()["detail"]
+    assert "Scheduling booking is disabled" in booking.json()["detail"]
 
 
 def test_scheduling_availability_returns_provider_failure_as_service_unavailable(monkeypatch, tmp_path):

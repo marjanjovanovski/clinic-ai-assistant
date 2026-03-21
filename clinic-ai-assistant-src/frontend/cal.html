@@ -369,10 +369,13 @@
           throw new Error(`HTTP ${response.status}`);
         }
         const config = await response.json();
-        const scheduling = config.scheduling || {};
+        const scheduling = config.scheduling || config || {};
         sandboxSubtitle.textContent = `Tenant: ${tenant} | Provider: ${scheduling.provider || "n/a"} | Timezone: ${scheduling.timezone || "n/a"}`;
         addMessage("Сандбоксот е подготвен за изолирано scheduling тестирање.", "system");
         addMessage(formatJson({ tenant, scheduling }), "bot", true);
+        if (scheduling.booking_enabled === false) {
+          addMessage("Booking is disabled for this tenant. Live slot booking is not available from this sandbox.", "system");
+        }
       } catch (error) {
         sandboxSubtitle.textContent = `Неуспешно вчитување за tenant: ${tenant}`;
         sandboxStatus.textContent = `Грешка: ${error.message}`;

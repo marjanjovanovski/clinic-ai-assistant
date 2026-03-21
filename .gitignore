@@ -11,3 +11,4 @@ _pytest_tmp_backend/
 **/.pytest_runtime_tmp/
 **/runtime_traces/
 FollowUpWithAris.txt
+google-service-account.json

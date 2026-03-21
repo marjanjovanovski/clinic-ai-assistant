@@ -79,11 +79,11 @@ class GoogleCalendarSchedulingProvider(SchedulingProvider):
         return AvailabilityResult(provider=self.provider_name, slots=slots)
 
     def book_slot(self, request: BookingRequest) -> BookingResult:
-        calendar_service = self._calendar_service()
         calendar_id = self._calendar_id()
         start_at, end_at, slot_calendar_id = self._parse_slot_id(request.slot_id)
         if slot_calendar_id != calendar_id:
             raise ValueError("Selected Google Calendar slot does not match configured calendar_id")
+        calendar_service = self._calendar_service()
 
         event_payload = self._booking_event_payload(
             request=request,
@@ -96,7 +96,7 @@ class GoogleCalendarSchedulingProvider(SchedulingProvider):
             .insert(
                 calendarId=calendar_id,
                 body=event_payload,
-                sendUpdates="all" if request.patient_email else "none",
+                sendUpdates="none",
             )
             .execute()
         )
@@ -152,9 +152,7 @@ class GoogleCalendarSchedulingProvider(SchedulingProvider):
         if not isinstance(service_account_file, str) or not service_account_file.strip():
             raise ValueError("Google Calendar service_account_file is required")
 
-        secrets_path = Path(service_account_file)
-        if not secrets_path.is_absolute():
-            secrets_path = Path(__file__).resolve().parents[4] / service_account_file
+        secrets_path = self._service_account_path(service_account_file)
         if not secrets_path.exists():
             raise ValueError(f"Google Calendar service account file was not found: {secrets_path}")
 
@@ -169,6 +167,25 @@ class GoogleCalendarSchedulingProvider(SchedulingProvider):
             str(secrets_path),
             scopes=[self._CALENDAR_SCOPE],
         )
+
+    @classmethod
+    def _service_account_path(cls, service_account_file: str) -> Path:
+        raw_path = Path(service_account_file)
+        if raw_path.is_absolute():
+            return raw_path
+
+        backend_root = Path(__file__).resolve().parents[4]
+        project_root = backend_root.parent
+        candidates = [backend_root / raw_path, project_root / raw_path]
+
+        if raw_path.parts and raw_path.parts[0] == "backend":
+            candidates.append(backend_root / Path(*raw_path.parts[1:]))
+
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+
+        return candidates[-1]
 
     def _busy_ranges(self, *, calendar_service, calendar_id: str, time_min: datetime, time_max: datetime, timezone_name: str):
         response = (
@@ -250,16 +267,6 @@ class GoogleCalendarSchedulingProvider(SchedulingProvider):
                 "timeZone": timezone_name,
             },
         }
-        attendees = []
-        if request.patient_email:
-            attendees.append(
-                {
-                    "email": request.patient_email,
-                    "displayName": request.patient_name,
-                }
-            )
-        if attendees:
-            event_payload["attendees"] = attendees
         return event_payload
 
     @staticmethod
