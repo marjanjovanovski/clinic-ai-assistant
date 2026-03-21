@@ -175,7 +175,7 @@ def test_main_booking_path_requires_explicit_confirmation_and_persisted_completi
     assert fifth["booking_progress"]["reservation_status"] == "complete"
     assert fifth["booking_progress"]["collection_status"] == 3
     assert fifth["booking_progress"]["summary"]["service_name"] == "Стоматолошка консултација"
-    assert fifth["booking_progress"]["summary"]["appointment_display"] == "21 MAR 2026 at 14:00"
+    assert fifth["booking_progress"]["summary"]["appointment_display"] == "21 MAR 2026 во 14:00"
     assert len(fifth["booking_progress"]["summary"]["fields"]) == 3
 
     stored = booking_ctx.lead_store.load_lead_checkpoint("milena_dental", session_id)
