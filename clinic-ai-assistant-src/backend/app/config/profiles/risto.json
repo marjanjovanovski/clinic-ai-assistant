@@ -103,6 +103,41 @@
     "handoff_enabled": false,
     "order_flow_enabled": false
   },
+  "scheduling": {
+    "enabled": false,
+    "provider": "mock",
+    "timezone": "Europe/Skopje",
+    "slot_duration_minutes": 30,
+    "slot_interval_minutes": 30,
+    "minimum_notice_minutes": 120,
+    "lookahead_days": 14,
+    "business_hours": {
+      "monday": [["09:00", "17:00"]],
+      "tuesday": [["09:00", "17:00"]],
+      "wednesday": [["09:00", "17:00"]],
+      "thursday": [["09:00", "17:00"]],
+      "friday": [["09:00", "17:00"]]
+    },
+    "providers": {
+      "mock": {
+        "seed": "risto-mock"
+      },
+      "google_calendar": {
+        "calendar_id": "primary",
+        "credentials": {
+          "auth_type": "service_account",
+          "service_account_file": "backend/app/config/secrets/google-service-account.json"
+        }
+      },
+      "calendly": {
+        "organization_uri": "",
+        "event_type_uri": "",
+        "credentials": {
+          "access_token_env": "CALENDLY_ACCESS_TOKEN"
+        }
+      }
+    }
+  },
   "output_contract": {
     "unknown_service_id": "unknown",
     "response_format": {

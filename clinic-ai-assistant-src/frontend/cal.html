@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/frontend/favicon.ico">
+  <title>Scheduling Sandbox</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(125, 211, 252, 0.35), transparent 28%),
+        linear-gradient(180deg, #f8fbff 0%, #edf5ff 48%, #f8fafc 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 24px;
+      color: #0f172a;
+    }
+
+    .sandbox-app {
+      width: 100%;
+      max-width: 880px;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid #dbe4f0;
+      border-radius: 18px;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sandbox-header {
+      padding: 18px 20px 14px 20px;
+      border-bottom: 1px solid #e2e8f0;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    }
+
+    .sandbox-title {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .sandbox-subtitle {
+      margin-top: 6px;
+      font-size: 13px;
+      color: #475569;
+    }
+
+    .sandbox-controls {
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-group label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+    }
+
+    .control-group input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 14px;
+      background: #ffffff;
+    }
+
+    .control-group input:focus {
+      outline: 2px solid #bfdbfe;
+      outline-offset: 1px;
+      border-color: #93c5fd;
+    }
+
+    .control-actions {
+      display: flex;
+      align-items: end;
+    }
+
+    .primary-button {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
+      padding: 11px 14px;
+      background: #0f172a;
+      color: #ffffff;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .primary-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+
+    .sandbox-messages {
+      min-height: 420px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      background: linear-gradient(180deg, #fdfefe 0%, #f8fbff 100%);
+    }
+
+    .message {
+      max-width: 86%;
+      border-radius: 16px;
+      padding: 13px 14px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .message.system {
+      align-self: center;
+      max-width: 100%;
+      background: #eef2ff;
+      color: #3730a3;
+      font-size: 13px;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: #dbeafe;
+    }
+
+    .message.bot {
+      align-self: flex-start;
+      background: #f1f5f9;
+    }
+
+    .message pre {
+      margin: 0;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+
+    .message-title {
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .slot-button-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .slot-button {
+      border: 1px solid #bfdbfe;
+      border-radius: 999px;
+      padding: 9px 12px;
+      background: #ffffff;
+      color: #1d4ed8;
+      font-size: 13px;
+      cursor: pointer;
+      transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+    }
+
+    .slot-button:hover {
+      border-color: #60a5fa;
+      background: #eff6ff;
+      transform: translateY(-1px);
+    }
+
+    .slot-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+      transform: none;
+    }
+
+    .sandbox-status {
+      padding: 0 20px 18px 20px;
+      font-size: 13px;
+      color: #475569;
+    }
+
+    @media (max-width: 760px) {
+      .sandbox-controls {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="sandbox-app">
+    <div class="sandbox-header">
+      <div class="sandbox-title">Scheduling Sandbox</div>
+      <div class="sandbox-subtitle" id="sandboxSubtitle">Се вчитува конфигурација...</div>
+    </div>
+
+    <div class="sandbox-controls">
+      <div class="control-group">
+        <label for="serviceIdInput">Service ID</label>
+        <input id="serviceIdInput" type="text" value="consultation" />
+      </div>
+      <div class="control-group">
+        <label for="dateFromInput">Date From</label>
+        <input id="dateFromInput" type="date" />
+      </div>
+      <div class="control-group">
+        <label for="dateToInput">Date To</label>
+        <input id="dateToInput" type="date" />
+      </div>
+      <div class="control-group">
+        <label for="patientNameInput">Patient Name</label>
+        <input id="patientNameInput" type="text" value="Marjan" />
+      </div>
+      <div class="control-group">
+        <label for="patientPhoneInput">Phone</label>
+        <input id="patientPhoneInput" type="text" value="070000000" />
+      </div>
+      <div class="control-group">
+        <label for="patientEmailInput">Email</label>
+        <input id="patientEmailInput" type="email" value="mail@test.mk" />
+      </div>
+      <div class="control-actions">
+        <button class="primary-button" id="loadSlotsButton">Load Slots</button>
+      </div>
+    </div>
+
+    <div class="sandbox-messages" id="sandboxMessages"></div>
+    <div class="sandbox-status" id="sandboxStatus">Подготвено</div>
+  </div>
+
+  <script>
+    const sandboxSubtitle = document.getElementById("sandboxSubtitle");
+    const sandboxMessages = document.getElementById("sandboxMessages");
+    const sandboxStatus = document.getElementById("sandboxStatus");
+    const serviceIdInput = document.getElementById("serviceIdInput");
+    const dateFromInput = document.getElementById("dateFromInput");
+    const dateToInput = document.getElementById("dateToInput");
+    const patientNameInput = document.getElementById("patientNameInput");
+    const patientPhoneInput = document.getElementById("patientPhoneInput");
+    const patientEmailInput = document.getElementById("patientEmailInput");
+    const loadSlotsButton = document.getElementById("loadSlotsButton");
+
+    const pathParts = window.location.pathname.split("/").filter(Boolean);
+    const tenant = pathParts[0] === "agent" && pathParts[1] ? pathParts[1] : "milena_dental";
+
+    const configUrl = `/scheduling/config/${encodeURIComponent(tenant)}`;
+    const availabilityUrl = `/scheduling/availability?tenant=${encodeURIComponent(tenant)}`;
+    const bookingUrl = `/scheduling/book?tenant=${encodeURIComponent(tenant)}`;
+
+    function addMessage(text, sender, usePre = false) {
+      const messageEl = document.createElement("div");
+      messageEl.className = `message ${sender}`;
+      if (usePre) {
+        const pre = document.createElement("pre");
+        pre.textContent = text;
+        messageEl.appendChild(pre);
+      } else {
+        messageEl.textContent = text;
+      }
+      sandboxMessages.appendChild(messageEl);
+      sandboxMessages.scrollTop = sandboxMessages.scrollHeight;
+    }
+
+    function formatJson(value) {
+      return JSON.stringify(value, null, 2);
+    }
+
+    function addSlotChoices(slots, serviceId) {
+      const messageEl = document.createElement("div");
+      messageEl.className = "message bot";
+
+      const titleEl = document.createElement("div");
+      titleEl.className = "message-title";
+      titleEl.textContent = "Изберете термин со еден клик:";
+      messageEl.appendChild(titleEl);
+
+      const listEl = document.createElement("div");
+      listEl.className = "slot-button-list";
+
+      for (const slot of slots) {
+        const buttonEl = document.createElement("button");
+        buttonEl.type = "button";
+        buttonEl.className = "slot-button";
+        buttonEl.textContent = slot.display_label || slot.start_at;
+        buttonEl.addEventListener("click", () => bookSelectedSlot(slot, serviceId, listEl));
+        listEl.appendChild(buttonEl);
+      }
+
+      messageEl.appendChild(listEl);
+      sandboxMessages.appendChild(messageEl);
+      sandboxMessages.scrollTop = sandboxMessages.scrollHeight;
+    }
+
+    async function bookSelectedSlot(slot, serviceId, buttonContainer) {
+      const patientName = patientNameInput.value.trim();
+      const patientPhone = patientPhoneInput.value.trim();
+      const patientEmail = patientEmailInput.value.trim();
+
+      if (!patientName) {
+        addMessage("Внесете име на пациент пред да резервирате термин.", "system");
+        return;
+      }
+
+      for (const button of buttonContainer.querySelectorAll("button")) {
+        button.disabled = true;
+      }
+
+      addMessage(`Book this meeting: ${slot.display_label}`, "user");
+      sandboxStatus.textContent = "Се испраќа барање за резервација...";
+
+      try {
+        const response = await fetch(bookingUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            service_id: serviceId,
+            slot_id: slot.slot_id,
+            patient_name: patientName,
+            patient_phone: patientPhone || null,
+            patient_email: patientEmail || null,
+            note: "Booked from cal.html sandbox",
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        sandboxStatus.textContent = "Терминот е испратен за резервација.";
+        addMessage(`Резервација: ${data.confirmation_message}`, "bot");
+        addMessage(formatJson(data), "bot", true);
+      } catch (error) {
+        sandboxStatus.textContent = `Грешка: ${error.message}`;
+        addMessage(`Неуспешна резервација. ${error.message}`, "bot");
+        for (const button of buttonContainer.querySelectorAll("button")) {
+          button.disabled = false;
+        }
+      }
+    }
+
+    function setDefaultDates() {
+      const today = new Date();
+      const endDate = new Date(today);
+      endDate.setDate(today.getDate() + 2);
+      dateFromInput.value = today.toISOString().slice(0, 10);
+      dateToInput.value = endDate.toISOString().slice(0, 10);
+    }
+
+    async function loadConfig() {
+      try {
+        const response = await fetch(configUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const config = await response.json();
+        const scheduling = config.scheduling || {};
+        sandboxSubtitle.textContent = `Tenant: ${tenant} | Provider: ${scheduling.provider || "n/a"} | Timezone: ${scheduling.timezone || "n/a"}`;
+        addMessage("Сандбоксот е подготвен за изолирано scheduling тестирање.", "system");
+        addMessage(formatJson({ tenant, scheduling }), "bot", true);
+      } catch (error) {
+        sandboxSubtitle.textContent = `Неуспешно вчитување за tenant: ${tenant}`;
+        sandboxStatus.textContent = `Грешка: ${error.message}`;
+        addMessage(`Не можев да ја вчитам scheduling конфигурацијата. ${error.message}`, "bot");
+      }
+    }
+
+    async function loadSlots() {
+      const payload = {
+        service_id: serviceIdInput.value.trim(),
+        date_from: dateFromInput.value,
+        date_to: dateToInput.value,
+        timezone: "Europe/Skopje",
+      };
+
+      if (!payload.service_id || !payload.date_from || !payload.date_to) {
+        addMessage("Внесете service id и date range пред да побарате слотови.", "system");
+        return;
+      }
+
+      loadSlotsButton.disabled = true;
+      sandboxStatus.textContent = "Се вчитуваат можни термини...";
+      addMessage(`Load slots for ${payload.service_id} from ${payload.date_from} to ${payload.date_to}`, "user");
+
+      try {
+        const response = await fetch(availabilityUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const slots = Array.isArray(data.slots) ? data.slots : [];
+        sandboxStatus.textContent = `Вчитани ${slots.length} слотови.`;
+        if (!slots.length) {
+          addMessage("Нема достапни слотови за избраниот опсег.", "bot");
+          addMessage(formatJson(data), "bot", true);
+          return;
+        }
+        addSlotChoices(slots, payload.service_id);
+        addMessage(formatJson(data), "bot", true);
+      } catch (error) {
+        sandboxStatus.textContent = `Грешка: ${error.message}`;
+        addMessage(`Неуспешно вчитување на слотови. ${error.message}`, "bot");
+      } finally {
+        loadSlotsButton.disabled = false;
+      }
+    }
+
+    loadSlotsButton.addEventListener("click", loadSlots);
+
+    setDefaultDates();
+    loadConfig();
+  </script>
+</body>
+</html>

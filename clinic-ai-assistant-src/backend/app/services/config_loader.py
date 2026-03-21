@@ -50,6 +50,76 @@ def _validate_service(service: dict, index: int):
         raise TenantConfigError(f"services[{index}].bookable must be a boolean")
 
 
+def _require_boolean(section_name: str, payload: dict, field_name: str):
+    value = payload.get(field_name)
+    if not isinstance(value, bool):
+        raise TenantConfigError(f"{section_name}.{field_name} must be a boolean")
+    return value
+
+
+def _require_positive_integer(section_name: str, payload: dict, field_name: str):
+    value = payload.get(field_name)
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise TenantConfigError(f"{section_name}.{field_name} must be a positive integer")
+    return value
+
+
+def _validate_business_hours(section_name: str, business_hours):
+    hours = _require_object(section_name, business_hours)
+    for day_name, ranges in hours.items():
+        if not isinstance(day_name, str) or not day_name.strip():
+            raise TenantConfigError(f"{section_name} day names must be non-empty strings")
+        if not isinstance(ranges, list):
+            raise TenantConfigError(f"{section_name}.{day_name} must be a list")
+        for index, time_range in enumerate(ranges):
+            if not isinstance(time_range, list) or len(time_range) != 2:
+                raise TenantConfigError(f"{section_name}.{day_name}[{index}] must be a two-item list")
+            start_at, end_at = time_range
+            if not isinstance(start_at, str) or not start_at.strip():
+                raise TenantConfigError(f"{section_name}.{day_name}[{index}][0] must be a non-empty string")
+            if not isinstance(end_at, str) or not end_at.strip():
+                raise TenantConfigError(f"{section_name}.{day_name}[{index}][1] must be a non-empty string")
+
+
+def _validate_scheduling(profile: dict, tenant: str):
+    scheduling = profile.get("scheduling")
+    if scheduling is None:
+        return
+
+    scheduling = _require_object(f"Profile '{tenant}'.scheduling", scheduling)
+    _require_boolean(f"Profile '{tenant}'.scheduling", scheduling, "enabled")
+    provider = scheduling.get("provider")
+    if not isinstance(provider, str) or not provider.strip():
+        raise TenantConfigError(f"Profile '{tenant}'.scheduling.provider is required")
+    _require_non_empty_string(f"Profile '{tenant}'.scheduling", scheduling, "timezone")
+    _require_positive_integer(f"Profile '{tenant}'.scheduling", scheduling, "slot_duration_minutes")
+    _require_positive_integer(f"Profile '{tenant}'.scheduling", scheduling, "slot_interval_minutes")
+    _require_positive_integer(f"Profile '{tenant}'.scheduling", scheduling, "minimum_notice_minutes")
+    _require_positive_integer(f"Profile '{tenant}'.scheduling", scheduling, "lookahead_days")
+    _validate_business_hours(
+        f"Profile '{tenant}'.scheduling.business_hours",
+        scheduling.get("business_hours"),
+    )
+
+    providers = _require_object(
+        f"Profile '{tenant}'.scheduling.providers",
+        scheduling.get("providers"),
+    )
+    normalized_provider = provider.strip()
+    if normalized_provider not in providers:
+        raise TenantConfigError(
+            f"Profile '{tenant}'.scheduling.provider must exist in scheduling.providers"
+        )
+
+    for provider_name, provider_config in providers.items():
+        if not isinstance(provider_name, str) or not provider_name.strip():
+            raise TenantConfigError(f"Profile '{tenant}'.scheduling.providers keys must be non-empty strings")
+        _require_object(
+            f"Profile '{tenant}'.scheduling.providers.{provider_name}",
+            provider_config,
+        )
+
+
 def _validate_profile(tenant: str, profile: dict):
     if not isinstance(profile, dict):
         raise TenantConfigError(f"Profile '{tenant}' must be a JSON object")
@@ -114,6 +184,8 @@ def _validate_profile(tenant: str, profile: dict):
             field_name,
         )
 
+    _validate_scheduling(profile, tenant)
+
 
 def load_profile_config(tenant: str):
     profile_path = PROFILES_DIR / f"{tenant}.json"
@@ -136,6 +208,8 @@ def load_public_profile_config(tenant: str) -> dict:
     business = profile.get("business", {})
     agent = profile.get("agent", {})
     services = profile.get("services", [])
+    scheduling = profile.get("scheduling", {})
+    actions = profile.get("actions", {})
 
     public_services = [
         {
@@ -164,4 +238,13 @@ def load_public_profile_config(tenant: str) -> dict:
             "greeting": profile.get("conversation", {}).get("greeting"),
         },
         "services": public_services,
+        "scheduling": {
+            "enabled": scheduling.get("enabled", False),
+            "provider": scheduling.get("provider"),
+            "timezone": scheduling.get("timezone"),
+            "slot_duration_minutes": scheduling.get("slot_duration_minutes"),
+            "booking_enabled": bool(
+                scheduling.get("enabled", False) and actions.get("allow_booking", False)
+            ),
+        },
     }

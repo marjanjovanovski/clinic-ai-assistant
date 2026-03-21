@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
 from app.routes.chat import router as chat_router
+from app.routes.scheduling import router as scheduling_router
 from app.services.config_loader import (
     TenantConfigError,
     TenantNotFoundError,
@@ -55,6 +56,7 @@ app.add_middleware(
 )
 
 app.include_router(chat_router)
+app.include_router(scheduling_router)
 
 app.mount("/frontend", StaticFiles(directory=str(FRONTEND_DIR)), name="frontend")
 
