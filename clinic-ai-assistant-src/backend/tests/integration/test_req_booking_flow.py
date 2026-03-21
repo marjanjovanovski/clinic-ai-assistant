@@ -290,8 +290,35 @@ def test_name_clarification_uses_guided_answer_and_returns_to_name_prompt(bookin
 
     assert clarification["session_status"] == "collecting_contact"
     assert clarification["booking_progress"]["next_field"] == "name"
-    assert "pacientot" in clarification["reply"]
-    assert "ime" in clarification["reply"].lower()
+    assert "пациентот" in clarification["reply"].lower()
+    assert "име" in clarification["reply"].lower()
+
+
+def test_phone_ownership_clarification_stays_short_and_resumes_phone(booking_ctx):
+    session_id, _ = _start_booking(booking_ctx)
+    _confirm_booking(booking_ctx, session_id)
+    _send(booking_ctx.client, "Marjan", session_id)
+
+    clarification = _send(booking_ctx.client, "na broj toj", session_id)
+
+    assert clarification["session_status"] == "collecting_contact"
+    assert clarification["booking_progress"]["next_field"] == "phone"
+    assert "бројот на лицето" in clarification["reply"].lower()
+    assert "на кој број" in clarification["reply"].lower()
+
+
+def test_email_ownership_clarification_stays_short_and_resumes_email(booking_ctx):
+    session_id, _ = _start_booking(booking_ctx)
+    _confirm_booking(booking_ctx, session_id)
+    _send(booking_ctx.client, "Marjan", session_id)
+    _send(booking_ctx.client, "070000000", session_id)
+
+    clarification = _send(booking_ctx.client, "na mojata poshta", session_id)
+
+    assert clarification["session_status"] == "collecting_contact"
+    assert clarification["booking_progress"]["next_field"] == "email"
+    assert "е-поштата" in clarification["reply"].lower()
+    assert "потврдата" in clarification["reply"].lower()
 
 
 def test_booking_scope_clarification_resumes_current_field(booking_ctx):

@@ -216,8 +216,8 @@ def _conversation_rule_list(profile: dict, rule_name: str) -> list[str]:
     return _profile_list(profile, "conversation_rules", rule_name)
 
 
-def _conversation_rule_patterns(profile: dict) -> list[tuple[list[str], str]]:
-    patterns = profile.get("conversation_rules", {}).get("casual_reply_patterns", [])
+def _conversation_rule_patterns(profile: dict, rule_name: str = "casual_reply_patterns") -> list[tuple[list[str], str]]:
+    patterns = profile.get("conversation_rules", {}).get(rule_name, [])
     if not isinstance(patterns, list):
         return []
 
@@ -433,17 +433,34 @@ def _contact_clarification_reply(profile: dict, field_name: str) -> str:
     return field_label
 
 
+def _ownership_clarification_reply(profile: dict, field_name: str) -> str | None:
+    field_prompt = _field_prompt(profile, field_name)
+    ownership_replies = _profile_text_map(profile, "reply_texts", "contact_ownership_clarification_replies")
+    template = ownership_replies.get(field_name) or ownership_replies.get("default")
+    if isinstance(template, str) and template.strip():
+        return template.strip().format(field_prompt=field_prompt)
+    return None
+
+
 def _contains_lookup_phrase(normalized_message: str, phrase: str) -> bool:
+    sanitized_message = re.sub(r"[^\w\s\u0400-\u04FF]+", " ", normalized_message)
+    sanitized_message = re.sub(r"\s+", " ", sanitized_message).strip()
     normalized_phrase = _normalize_lookup_text(phrase)
-    if not normalized_message or not normalized_phrase:
+    normalized_phrase = re.sub(r"[^\w\s\u0400-\u04FF]+", " ", normalized_phrase)
+    normalized_phrase = re.sub(r"\s+", " ", normalized_phrase).strip()
+    if not sanitized_message or not normalized_phrase:
         return False
 
-    return f" {normalized_phrase} " in f" {normalized_message} "
+    return f" {normalized_phrase} " in f" {sanitized_message} "
 
 
 def _field_clarification_with_resume(profile: dict, field_name: str) -> str:
     clarification_reply = _contact_clarification_reply(profile, field_name)
     field_prompt = _field_prompt(profile, field_name)
+    ownership_reply = _ownership_clarification_reply(profile, field_name)
+
+    if ownership_reply:
+        return ownership_reply
 
     if field_name != "phone":
         return clarification_reply
@@ -497,6 +514,20 @@ def _has_contact_ownership_clarification(message: str) -> bool:
         "нејзин", "нејзина", "нејзино", "туѓ", "туѓо",
     )
     return any(token in normalized_message for token in ownership_tokens)
+
+
+def _is_contact_ownership_style_clarification(message: str, field_name: str | None) -> bool:
+    if field_name is None or not _is_field_level_clarification(message, field_name):
+        return False
+
+    normalized_message = _normalize_lookup_text(message)
+    if not normalized_message:
+        return False
+
+    if _has_contact_ownership_clarification(message):
+        return True
+
+    return normalized_message.startswith("na ") or normalized_message.startswith("Ð½Ð° ")
 
 
 def _is_field_level_clarification(message: str, field_name: str | None) -> bool:
@@ -916,6 +947,9 @@ def _booking_guidance_reply(
     )
 
     if not api_key:
+        return fallback_reply
+
+    if guidance_kind == "field_clarification" and _is_contact_ownership_style_clarification(user_message, field_name):
         return fallback_reply
 
     field_prompt = _field_prompt(profile, field_name or "name")
@@ -1353,6 +1387,22 @@ def _greeting_reply(message: str, profile: dict) -> str | None:
     return _profile_text(profile, "reply_texts", "greeting_short")
 
 
+def _goal_redirect_reply(message: str, profile: dict) -> str | None:
+    normalized_message = _normalize_lookup_text(message)
+    if not normalized_message:
+        return None
+
+    redirect_replies = _profile_text_map(profile, "reply_texts", "goal_redirect_replies")
+
+    for triggers, reply_key in _conversation_rule_patterns(profile, "goal_redirect_reply_patterns"):
+        if any(_contains_lookup_phrase(normalized_message, trigger) for trigger in triggers):
+            reply = redirect_replies.get(reply_key)
+            if isinstance(reply, str) and reply.strip():
+                return reply.strip()
+
+    return None
+
+
 def _service_clarification_reply(message: str, profile: dict) -> str | None:
     normalized_message = _normalize_lookup_text(message)
 
@@ -1376,7 +1426,7 @@ def _casual_reply(message: str, profile: dict) -> str | None:
     casual_replies = _profile_text_map(profile, "reply_texts", "casual_replies")
 
     for triggers, reply_key in _conversation_rule_patterns(profile):
-        if any(trigger in normalized_message for trigger in triggers):
+        if any(_contains_lookup_phrase(normalized_message, trigger) for trigger in triggers):
             reply = casual_replies.get(reply_key)
             if isinstance(reply, str) and reply.strip():
                 return reply.strip()
@@ -1396,7 +1446,7 @@ def _is_acknowledgment_input(message: str, profile: dict) -> bool:
         return True
 
     for triggers, _reply_key in _conversation_rule_patterns(profile):
-        if any(trigger in normalized_message for trigger in triggers):
+        if any(_contains_lookup_phrase(normalized_message, trigger) for trigger in triggers):
             return True
 
     return False
@@ -2118,6 +2168,12 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 _clear_unknown_name_state(state)
 
         booking_input_type = _classify_booking_input(message, profile)
+        if (
+            booking_input_type != BOOKING_INPUT_CLARIFICATION
+            and _is_contact_ownership_style_clarification(message, next_field)
+            and not _is_valid_contact_field_value(next_field, message, profile)
+        ):
+            booking_input_type = BOOKING_INPUT_CLARIFICATION
 
         if booking_input_type == BOOKING_INPUT_CLARIFICATION:
             reply = _booking_guidance_reply(
@@ -2544,6 +2600,28 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             message=message,
             reply=greeting_reply,
             response_type="greeting",
+            services=services,
+            profile=profile,
+            stage_after=_stage_name(SESSION_STATE.get(session_key)),
+        )
+        return final_reply, session_id
+
+    goal_redirect_reply = _goal_redirect_reply(message, profile)
+    if goal_redirect_reply:
+        _log_chat_state(
+            message=message,
+            session_id=session_id,
+            intent="fallback",
+            stage_before=stage_before,
+            stage_after=_stage_name(SESSION_STATE.get(session_key)),
+        )
+        final_reply = _finalize_reply(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            message=message,
+            reply=goal_redirect_reply,
+            response_type="casual",
             services=services,
             profile=profile,
             stage_after=_stage_name(SESSION_STATE.get(session_key)),

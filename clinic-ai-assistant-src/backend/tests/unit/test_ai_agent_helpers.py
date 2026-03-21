@@ -24,6 +24,25 @@ def test_field_level_clarification_tracks_relevant_field_tokens_only():
     assert ai_agent._is_field_level_clarification("Vasilie", "name") is False
 
 
+def test_contact_ownership_style_clarification_catches_short_phone_and_email_ownership_inputs():
+    assert ai_agent._is_contact_ownership_style_clarification("na broj toj", "phone") is True
+    assert ai_agent._is_contact_ownership_style_clarification("na mojata poshta", "email") is True
+    assert ai_agent._is_contact_ownership_style_clarification("070000000", "phone") is False
+
+
+def test_goal_redirect_reply_catches_small_talk_without_grabbing_real_overview_question():
+    profile = _profile()
+
+    social_reply = ai_agent._goal_redirect_reply("shto pravish?", profile)
+    vague_reply = ai_agent._goal_redirect_reply("ajde togash", profile)
+
+    assert social_reply is not None
+    assert "стоматолошко прашање" in social_reply.casefold()
+    assert vague_reply is not None
+    assert "болка" in vague_reply.casefold()
+    assert ai_agent._goal_redirect_reply("a shto pravite vie?", profile) is None
+
+
 def test_booking_scope_clarification_stays_distinct_from_field_clarification():
     assert ai_agent._is_booking_scope_clarification("sto zakazuvame?", "phone") is True
     assert ai_agent._is_booking_scope_clarification("koja email adresa?", "email") is False

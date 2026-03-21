@@ -67,6 +67,10 @@
     "consultation_explanation_triggers": ["каква", "што е", "објасни", "kakva", "shto e", "objasni"],
     "broad_pricing_price_terms": ["цена", "цени", "колку", "чини", "чинат", "cena", "ceni", "kolku", "chini", "cini", "price", "prices"],
     "broad_pricing_service_terms": ["услуга", "услуги", "услугите", "usluga", "uslugi", "service", "services"],
+    "goal_redirect_reply_patterns": [
+      { "triggers": ["што правиш", "шо правиш", "shto pravish", "sto pravish"], "reply_key": "assistant_help" },
+      { "triggers": ["ајде тогаш", "ajde togash"], "reply_key": "narrow_need" }
+    ],
     "casual_reply_patterns": [
       { "triggers": ["фала", "благодарам", "fala", "blagodaram", "thanks", "thank you"], "reply_key": "thanks" },
       { "triggers": ["wow", "вау", "леле"], "reply_key": "wow" },
@@ -83,6 +87,10 @@
       "thanks": "Ви благодарам. Ако сакате, слободно кажете што ве интересира.",
       "wow": "Ви благодарам, драго ми е што помогнав. Ако сакате, можам и да ве насочам кон соодветна услуга или консултација.",
       "positive": "Драго ми е. Кажете ако сакате да провериме услуга или да закажеме консултација."
+    },
+    "goal_redirect_replies": {
+      "assistant_help": "Тука сум да ви помогнам околу стоматолошко прашање или закажување. Кажете ми накратко што ве мачи или што сакате да направите.",
+      "narrow_need": "Секако. Кажете ми само накратко дали имате болка, сакате преглед или ве интересира естетска услуга, па ќе ве насочам."
     },
     "price_templates": {
       "numeric": "{service_name} чини околу {price}{currency}.",
@@ -107,6 +115,12 @@
       "name": "Кажете ми на кое име да закажеме.",
       "phone": "Кажете ми број на кој клиниката може да ве контактира.",
       "email": "Кажете ми е-пошта на која да ви испратиме потврда за закажаната консултација или третман.",
+      "default": "{field_prompt}"
+    },
+    "contact_ownership_clarification_replies": {
+      "name": "Во ред, кажете ми го името на пациентот што треба да дојде.",
+      "phone": "Во ред, оставете го бројот на лицето за кое закажуваме. {field_prompt}",
+      "email": "Во ред, оставете ја е-поштата на која сакате да стигне потврдата. {field_prompt}",
       "default": "{field_prompt}"
     },
     "unknown_name_confirmation": "Дали „{candidate_name}“ е вашето име?",
