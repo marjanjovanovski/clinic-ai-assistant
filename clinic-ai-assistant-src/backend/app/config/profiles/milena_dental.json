@@ -108,7 +108,7 @@
       "email": "На која е-пошта да ви испратиме потврда за закажаниот термин?"
     },
     "field_error_prompts": {
-      "phone": "Ми изгледа дека {missing_digits_verb} уште {missing_digits} {missing_digits_label}. Можете ли да го напишете бројот повторно?",
+      "phone": "Ми делува дека {missing_digits_verb} уште {missing_digits} {missing_digits_label}, па пратете ми го бројот уште еднаш.",
       "email": "Ве молиме внесете точен емаил, таму ќе ја добиете потврдата за резервираниот термин."
     },
     "contact_clarification_replies": {

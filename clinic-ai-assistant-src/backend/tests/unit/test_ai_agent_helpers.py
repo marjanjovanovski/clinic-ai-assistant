@@ -128,6 +128,6 @@ def test_invalid_phone_reply_uses_human_singular_and_plural_wording():
     singular = ai_agent._invalid_phone_reply(profile, "07000000")
     plural = ai_agent._invalid_phone_reply(profile, "0700000")
 
-    assert "недостига уште 1 цифра" in singular.casefold()
-    assert "го напишете бројот повторно" in singular.casefold()
-    assert "недостигаат уште 2 цифри" in plural.casefold()
+    assert "ми делува дека недостига уште 1 цифра" in singular.casefold()
+    assert "пратете ми го бројот уште еднаш" in singular.casefold()
+    assert "ми делува дека недостигаат уште 2 цифри" in plural.casefold()

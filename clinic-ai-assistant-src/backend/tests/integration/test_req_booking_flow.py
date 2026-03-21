@@ -31,7 +31,7 @@ class FakeResponses:
                 label = "cifra" if missing_digits == 1 else "cifri"
                 verb = "nedostiga" if missing_digits == 1 else "nedostigaat"
                 return FakeResponse(
-                    f"Mi izgleda deka {verb} uste {missing_digits} {label}. {field_prompt}"
+                    f"Mi deluva deka {verb} uste {missing_digits} {label}, pa pratete mi go brojot ushte ednash."
                 )
             if kind == "catalog_redirect":
                 return FakeResponse(f"Ke prodolzime so zakazuvanjeto. {field_prompt}")
@@ -263,6 +263,7 @@ def test_repeated_short_phone_inputs_keep_guided_missing_digits_reply(booking_ct
     assert first["booking_progress"]["next_field"] == "phone"
     assert second["booking_progress"]["next_field"] == "phone"
     assert "6 cifri" in first["reply"]
+    assert "pratete mi go brojot ushte ednash" in first["reply"]
     assert "7 cifri" in second["reply"]
 
 
