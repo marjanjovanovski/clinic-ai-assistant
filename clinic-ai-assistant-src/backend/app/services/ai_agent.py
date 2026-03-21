@@ -270,7 +270,7 @@ def _booking_summary_payload(profile: dict, state: dict, collect_fields: list[st
         "title": "Резиме на барањето",
         "subtitle": "Подготвено за идно поврзување со календар и реален термин.",
         "service_name": service_name,
-        "appointment_display": "21 MAR 2026 at 14:00",
+        "appointment_display": "21 MAR 2026 \u0432\u043e 14:00",
         "appointment_status": "Привремен термин",
         "appointment_source": "placeholder",
         "fields": summary_fields,

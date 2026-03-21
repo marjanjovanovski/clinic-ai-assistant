@@ -213,20 +213,22 @@
 
     .booking-summary {
       display: none;
-      margin: 0 16px 12px 16px;
+      width: 100%;
+      margin: 0;
       padding: 16px;
       border: 1px solid #d7e4f5;
       border-radius: 16px;
       background:
         radial-gradient(circle at top right, rgba(96, 165, 250, 0.18), transparent 34%),
         linear-gradient(135deg, #f8fbff 0%, #eef6ff 58%, #f7fafc 100%);
-      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+      box-shadow: 0 6px 14px rgba(15, 23, 42, 0.04);
       gap: 14px;
       flex-direction: column;
     }
 
     .booking-summary.visible {
       display: flex;
+      align-self: stretch;
     }
 
     .booking-summary-header {
@@ -289,14 +291,61 @@
     .booking-summary-fields {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
+      gap: 8px;
     }
 
     .booking-summary-field {
-      padding: 11px 12px;
+      min-height: 58px;
+      padding: 8px 11px 9px 11px;
       border-radius: 12px;
       background: rgba(255, 255, 255, 0.84);
       border: 1px solid rgba(203, 213, 225, 0.9);
+    }
+
+    .booking-summary-fields .booking-summary-label {
+      font-size: 11px;
+    }
+
+    .booking-summary-fields .booking-summary-value {
+      margin-top: 2px;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+
+    .booking-summary-note {
+      display: none;
+      padding: 14px 15px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(191, 219, 254, 0.9);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    }
+
+    .booking-summary-note.visible {
+      display: block;
+    }
+
+    .booking-summary-note-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #475569;
+    }
+
+    .booking-summary-note-value {
+      margin-top: 8px;
+      min-height: 92px;
+      padding: 12px 13px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+      border: 1px solid rgba(203, 213, 225, 0.95);
+      color: #0f172a;
+      font-size: 14px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
 
     @media (max-width: 640px) {
@@ -478,6 +527,10 @@
         </div>
       </div>
       <div class="booking-summary-fields" id="bookingSummaryFields"></div>
+      <div class="booking-summary-note" id="bookingSummaryNote" hidden>
+        <div class="booking-summary-note-label" id="bookingSummaryNoteLabel">Забелешка од пациентот</div>
+        <div class="booking-summary-note-value" id="bookingSummaryNoteValue"></div>
+      </div>
     </div>
 
     <div class="chat-messages" id="chatMessages"></div>
@@ -507,12 +560,8 @@
     const bookingProgressSteps = document.getElementById("bookingProgressSteps");
     const bookingResetButton = document.getElementById("bookingResetButton");
     const bookingSummary = document.getElementById("bookingSummary");
-    const bookingSummaryTitle = document.getElementById("bookingSummaryTitle");
-    const bookingSummarySubtitle = document.getElementById("bookingSummarySubtitle");
-    const bookingSummaryBadge = document.getElementById("bookingSummaryBadge");
-    const bookingSummaryService = document.getElementById("bookingSummaryService");
-    const bookingSummaryAppointment = document.getElementById("bookingSummaryAppointment");
-    const bookingSummaryFields = document.getElementById("bookingSummaryFields");
+    const bookingSummaryTemplate = bookingSummary.cloneNode(true);
+    bookingSummary.remove();
 
     const pathParts = window.location.pathname.split("/").filter(Boolean);
     const tenant = pathParts[0] === "agent" && pathParts[1] ? pathParts[1] : "generic";
@@ -522,6 +571,74 @@
 
     const API_URL = `/chat?tenant=${encodeURIComponent(tenant)}`;
     const CONFIG_URL = `/config/${encodeURIComponent(tenant)}`;
+
+    function bookingSummaryKey(summary) {
+      if (!summary) {
+        return null;
+      }
+      return JSON.stringify(summary);
+    }
+
+    function populateBookingSummaryElement(element, summary) {
+      element.classList.add("visible");
+      element.querySelector("#bookingSummaryTitle").textContent = summary.title || "Резиме на барањето";
+      element.querySelector("#bookingSummarySubtitle").textContent = summary.subtitle || "";
+      element.querySelector("#bookingSummaryBadge").textContent = summary.appointment_status || "Привремен термин";
+      element.querySelector("#bookingSummaryService").textContent = summary.service_name || "Стоматолошка консултација";
+      element.querySelector("#bookingSummaryAppointment").textContent = summary.appointment_display || "21 MAR 2026 \u0432\u043e 14:00";
+
+      const fieldsContainer = element.querySelector("#bookingSummaryFields");
+      fieldsContainer.innerHTML = "";
+      for (const item of summary.fields || []) {
+        const fieldEl = document.createElement("div");
+        fieldEl.className = "booking-summary-field";
+
+        const labelEl = document.createElement("div");
+        labelEl.className = "booking-summary-label";
+        labelEl.textContent = labelForField(item.field) || item.label || "";
+
+        const valueEl = document.createElement("div");
+        valueEl.className = "booking-summary-value";
+        valueEl.textContent = item.value || "";
+
+        fieldEl.appendChild(labelEl);
+        fieldEl.appendChild(valueEl);
+        fieldsContainer.appendChild(fieldEl);
+      }
+
+      const noteContainer = element.querySelector("#bookingSummaryNote");
+      const noteLabel = element.querySelector("#bookingSummaryNoteLabel");
+      const noteValue = element.querySelector("#bookingSummaryNoteValue");
+      const summaryNote = String(summary.patient_note || summary.note || summary.notes || "").trim();
+      if (summaryNote) {
+        noteContainer.hidden = false;
+        noteContainer.classList.add("visible");
+        noteLabel.textContent = summary.note_label || "Забелешка од пациентот";
+        noteValue.textContent = summaryNote;
+      } else {
+        noteContainer.hidden = true;
+        noteContainer.classList.remove("visible");
+        noteLabel.textContent = "Забелешка од пациентот";
+        noteValue.textContent = "";
+      }
+
+      element.removeAttribute("id");
+      element.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
+      element.dataset.summaryKey = bookingSummaryKey(summary) || "";
+      return element;
+    }
+
+    function appendCompletedBookingSummary(summary) {
+      if (!summary) {
+        return;
+      }
+      const entry = populateBookingSummaryElement(bookingSummaryTemplate.cloneNode(true), summary);
+      chatMessages.appendChild(entry);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    let pendingCompletedSummary = null;
+    let lastAppendedSummaryKey = null;
 
     function renderMessageContent(text) {
       const value = String(text || "");
@@ -601,6 +718,11 @@
       messageEl.classList.add("message", sender);
       messageEl.appendChild(renderMessageContent(text));
       chatMessages.appendChild(messageEl);
+      if (sender === "bot" && pendingCompletedSummary) {
+        appendCompletedBookingSummary(pendingCompletedSummary);
+        lastAppendedSummaryKey = bookingSummaryKey(pendingCompletedSummary);
+        pendingCompletedSummary = null;
+      }
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
@@ -677,6 +799,8 @@
       }
 
       sessionId = null;
+      pendingCompletedSummary = null;
+      lastAppendedSummaryKey = null;
       window.localStorage.removeItem(sessionStorageKey);
       updateBookingProgress(null);
       statusText.textContent = "Подготвено";
@@ -706,44 +830,6 @@
       return item.value;
     }
 
-    function updateBookingSummary(summary) {
-      if (!summary) {
-        bookingSummary.classList.remove("visible");
-        bookingSummaryFields.innerHTML = "";
-        bookingSummaryTitle.textContent = "Резиме на барањето";
-        bookingSummarySubtitle.textContent = "";
-        bookingSummaryBadge.textContent = "Привремен термин";
-        bookingSummaryService.textContent = "";
-        bookingSummaryAppointment.textContent = "";
-        return;
-      }
-
-      bookingSummary.classList.add("visible");
-      bookingSummaryTitle.textContent = summary.title || "Резиме на барањето";
-      bookingSummarySubtitle.textContent = summary.subtitle || "";
-      bookingSummaryBadge.textContent = summary.appointment_status || "Привремен термин";
-      bookingSummaryService.textContent = summary.service_name || "Стоматолошка консултација";
-      bookingSummaryAppointment.textContent = summary.appointment_display || "21 MAR 2026 at 14:00";
-      bookingSummaryFields.innerHTML = "";
-
-      for (const item of summary.fields || []) {
-        const fieldEl = document.createElement("div");
-        fieldEl.className = "booking-summary-field";
-
-        const labelEl = document.createElement("div");
-        labelEl.className = "booking-summary-label";
-        labelEl.textContent = item.label || labelForField(item.field);
-
-        const valueEl = document.createElement("div");
-        valueEl.className = "booking-summary-value";
-        valueEl.textContent = item.value || "";
-
-        fieldEl.appendChild(labelEl);
-        fieldEl.appendChild(valueEl);
-        bookingSummaryFields.appendChild(fieldEl);
-      }
-    }
-
     function updateBookingProgress(progress) {
       if (!progress || !progress.visible) {
         bookingProgress.classList.remove("visible");
@@ -751,7 +837,6 @@
         bookingProgressTitle.textContent = progressTitleForPercent(0);
         bookingProgressStatus.textContent = "0 / 3";
         bookingResetButton.hidden = true;
-        updateBookingSummary(null);
         return;
       }
 
@@ -760,7 +845,15 @@
       bookingProgressStatus.textContent = `${progress.collection_status} / ${progress.collection_total}`;
       bookingResetButton.hidden = false;
       bookingProgressSteps.innerHTML = "";
-      updateBookingSummary(progress.reservation_status === "complete" ? progress.summary : null);
+      const currentSummaryKey = bookingSummaryKey(progress.summary);
+      if (
+        progress.reservation_status === "complete"
+        && progress.summary
+        && currentSummaryKey
+        && currentSummaryKey !== lastAppendedSummaryKey
+      ) {
+        pendingCompletedSummary = progress.summary;
+      }
 
       for (const item of progress.fields || []) {
         const stepEl = document.createElement("div");
@@ -793,6 +886,8 @@
         document.title = businessName;
 
         chatMessages.innerHTML = "";
+        pendingCompletedSummary = null;
+        lastAppendedSummaryKey = null;
         addMessage(greeting, "bot");
       } catch (error) {
         chatHeader.textContent = "Асистент";
