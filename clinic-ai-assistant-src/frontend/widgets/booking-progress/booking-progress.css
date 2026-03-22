@@ -1,2 +1,199 @@
-/* Task 1 scaffold.
-   Booking progress styles will move here in later tasks. */
+.booking-progress {
+  display: none;
+  padding: 14px 16px 12px 16px;
+  border-bottom: 1px solid #e5e5e5;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef6ff 100%);
+  gap: 10px;
+  flex-direction: column;
+}
+
+.booking-progress.visible {
+  display: flex;
+}
+
+@keyframes bookingAlertPulse {
+  0%, 100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.booking-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.booking-progress-controls {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 54px;
+  padding-bottom: 0;
+}
+
+.booking-progress-title {
+  display: inline-block;
+  position: relative;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  padding-bottom: 5px;
+}
+
+.booking-progress-title::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 2px;
+  border-radius: 999px;
+  background: #dc2626;
+  animation: bookingAlertPulse 1.35s ease-in-out infinite;
+}
+
+.booking-progress-status {
+  font-size: 12px;
+  color: #334155;
+  background: #dbeafe;
+  border-radius: 999px;
+  padding: 5px 10px;
+}
+
+.booking-reset-button {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 32px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1e3a8a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.booking-reset-button[hidden] {
+  display: none;
+}
+
+.booking-reset-button:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+  transform: translateX(-50%) translateY(-1px);
+}
+
+.booking-reset-button:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.booking-reset-button::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(-50%) translateY(-2px);
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.94);
+  color: #f8fafc;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18);
+  z-index: 3;
+}
+
+.booking-reset-button:hover::before,
+.booking-reset-button:focus-visible::before {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.booking-reset-icon {
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.booking-progress-steps {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.booking-step {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 13px;
+  background: #e2e8f0;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.booking-step.editable {
+  position: relative;
+  cursor: pointer;
+  transform-origin: left center;
+  padding-right: 14px;
+  transition: box-shadow 0.22s ease, padding-right 0.22s ease;
+}
+
+.booking-step.editable::after {
+  content: "✎";
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #166534;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(22, 101, 52, 0.28);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(22, 101, 52, 0.12);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.booking-step.editable:hover {
+  padding-right: 40px;
+  box-shadow: 0 0 0 1px rgba(22, 101, 52, 0.14);
+}
+
+.booking-step.editable:hover::after {
+  opacity: 1;
+}
+
+.booking-step.done {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.booking-step.active {
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-weight: 700;
+}

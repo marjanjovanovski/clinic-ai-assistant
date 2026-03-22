@@ -40,47 +40,54 @@ def test_completed_booking_summary_is_appended_from_template(monkeypatch, tmp_pa
 
     response = client.get("/agent/milena_dental")
 
+    assert 'href="/frontend/widgets/booking-summary/booking-summary.css"' in response.text
     assert 'const bookingSummaryTemplate = bookingSummary.cloneNode(true);' in response.text
     assert "bookingSummary.remove();" in response.text
-    assert "function bookingSummaryKey(summary)" in response.text
-    assert "function appendCompletedBookingSummary(summary)" in response.text
-    assert 'chatMessages.appendChild(entry);' in response.text
-    assert 'element.dataset.summaryKey = bookingSummaryKey(summary) || "";' in response.text
+    assert 'import { createBookingSummaryHistory } from "/frontend/widgets/booking-summary/booking-summary.js";' in response.text
+    assert "const bookingSummaryHistory = createBookingSummaryHistory({" in response.text
+    assert "bookingSummaryHistory.flushPending();" in response.text
 
 
 def test_completed_booking_summary_supports_multiple_history_entries(monkeypatch, tmp_path):
     client = _build_client(monkeypatch, tmp_path)
 
-    response = client.get("/agent/milena_dental")
+    response = client.get("/frontend/widgets/booking-summary/booking-summary.js")
 
-    assert "let pendingCompletedSummary = null;" in response.text
+    assert response.status_code == 200
+    assert "let pendingSummary = null;" in response.text
     assert "let lastAppendedSummaryKey = null;" in response.text
-    assert 'currentSummaryKey !== lastAppendedSummaryKey' in response.text
-    assert 'lastAppendedSummaryKey = bookingSummaryKey(pendingCompletedSummary);' in response.text
-    assert 'pendingCompletedSummary = progress.summary;' in response.text
+    assert "function queueIfNew(summary)" in response.text
+    assert "function flushPending()" in response.text
+    assert "lastAppendedSummaryKey = bookingSummaryKey(summary);" in response.text
 
 
 def test_completed_booking_summary_shell_is_calendar_ready(monkeypatch, tmp_path):
     client = _build_client(monkeypatch, tmp_path)
 
-    response = client.get("/agent/milena_dental")
+    summary_js = client.get("/frontend/widgets/booking-summary/booking-summary.js")
+    summary_css = client.get("/frontend/widgets/booking-summary/booking-summary.css")
 
-    assert 'summary.appointment_display || "21 MAR 2026 \\u0432\\u043e 14:00"' in response.text
-    assert 'const summaryNote = String(summary.patient_note || summary.note || summary.notes || "").trim();' in response.text
-    assert 'noteContainer.classList.add("visible")' in response.text
-    assert 'noteContainer.hidden = true;' in response.text
-    assert 'min-height: 58px;' in response.text
-    assert 'box-shadow: 0 6px 14px rgba(15, 23, 42, 0.04);' in response.text
+    assert summary_js.status_code == 200
+    assert summary_css.status_code == 200
+    assert 'summary.appointment_display || "21 MAR 2026 во 14:00"' in summary_js.text
+    assert 'const summaryNote = String(summary.patient_note || summary.note || summary.notes || "").trim();' in summary_js.text
+    assert 'noteContainer.classList.add("visible");' in summary_js.text
+    assert 'noteContainer.hidden = true;' in summary_js.text
+    assert "min-height: 58px;" in summary_css.text
+    assert "box-shadow: 0 6px 14px rgba(15, 23, 42, 0.04);" in summary_css.text
 
 
 def test_frontend_uses_internal_booking_edit_message(monkeypatch, tmp_path):
     client = _build_client(monkeypatch, tmp_path)
 
     response = client.get("/agent/milena_dental")
+    progress_js = client.get("/frontend/widgets/booking-progress/booking-progress.js")
 
+    assert progress_js.status_code == 200
+    assert 'import { createBookingProgressWidget } from "/frontend/widgets/booking-progress/booking-progress.js";' in response.text
     assert '`__booking_edit__:${fieldName}`' in response.text
-    assert "showUserMessage: false" in response.text
-    assert 'if (sender === "bot" && pendingCompletedSummary) {' in response.text
+    assert 'summaryHistory.queueIfNew(progress.summary);' in progress_js.text
+    assert 'stepEl.addEventListener("click", () => onEditField(item.field));' in progress_js.text
 
 
 def test_reset_behavior_is_local_session_rollover_only(monkeypatch, tmp_path):
@@ -90,6 +97,7 @@ def test_reset_behavior_is_local_session_rollover_only(monkeypatch, tmp_path):
 
     assert "sessionId = null;" in response.text
     assert "window.localStorage.removeItem(sessionStorageKey);" in response.text
-    assert "updateBookingProgress(null);" in response.text
+    assert "bookingSummaryHistory.reset();" in response.text
+    assert "bookingProgressWidget.reset();" in response.text
     assert "await loadTenantConfig();" in response.text
     assert "/reset" not in response.text
