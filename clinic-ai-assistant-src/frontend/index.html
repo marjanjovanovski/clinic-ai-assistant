@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" href="/frontend/favicon.ico">
+  <link rel="stylesheet" href="/frontend/chat/chat-shell.css" />
   <link rel="stylesheet" href="/frontend/widgets/booking-progress/booking-progress.css" />
   <link rel="stylesheet" href="/frontend/widgets/booking-summary/booking-summary.css" />
   <title id="pageTitle">Се вчитува...</title>
@@ -51,53 +52,6 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
-    }
-
-    .message {
-      max-width: 80%;
-      padding: 12px 14px;
-      border-radius: 12px;
-      line-height: 1.4;
-      word-break: break-word;
-    }
-
-    .message-text {
-      white-space: pre-wrap;
-    }
-
-    .message.user {
-      align-self: flex-end;
-      background: #dbeafe;
-    }
-
-    .message.bot {
-      align-self: flex-start;
-      background: #f1f5f9;
-    }
-
-    .message-structured {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .structured-group {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .structured-title {
-      font-weight: 700;
-    }
-
-    .structured-list {
-      margin: 0;
-      padding-left: 18px;
-    }
-
-    .structured-list li {
-      margin: 0;
     }
 
     .chat-input-area {

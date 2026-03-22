@@ -26,6 +26,7 @@ def test_agent_page_includes_booking_progress_shell(monkeypatch, tmp_path):
     response = client.get("/agent/milena_dental")
 
     assert response.status_code == 200
+    assert 'href="/frontend/chat/chat-shell.css"' in response.text
     assert 'id="bookingProgress"' in response.text
     assert 'id="bookingResetButton"' in response.text
     assert 'id="bookingProgressSteps"' in response.text
@@ -94,11 +95,12 @@ def test_frontend_uses_internal_booking_edit_message(monkeypatch, tmp_path):
 
     assert progress_js.status_code == 200
     assert registry_js.status_code == 200
-    assert 'import { createBookingProgressWidget } from "/frontend/widgets/booking-progress/booking-progress.js";' in response.text
+    assert 'import { createBookingProgressWidget } from "/frontend/widgets/booking-progress/booking-progress.js";' in registry_js.text
     assert '`__booking_edit__:${fieldName}`' in response.text
     assert 'widgetRegistry.mount("booking-progress", {' in response.text
     assert 'summaryHistory.queueIfNew(progress.summary);' in progress_js.text
     assert 'stepEl.addEventListener("click", () => onEditField(item.field));' in progress_js.text
+    assert 'const transcript = createChatTranscript(container, {' in registry_js.text
     assert 'registry.register("booking-progress"' in registry_js.text
     assert 'registry.register("booking-summary"' in registry_js.text
     assert 'registry.register("slot-list"' in registry_js.text
@@ -115,3 +117,17 @@ def test_reset_behavior_is_local_session_rollover_only(monkeypatch, tmp_path):
     assert "bookingProgressWidget.reset();" in response.text
     assert "await loadTenantConfig();" in response.text
     assert "/reset" not in response.text
+
+
+def test_booking_widget_demo_pages_use_live_assets(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+
+    progress_demo = client.get("/frontend/widgets/booking-progress/demo.html")
+    summary_demo = client.get("/frontend/widgets/booking-summary/demo.html")
+
+    assert progress_demo.status_code == 200
+    assert summary_demo.status_code == 200
+    assert 'href="/frontend/widgets/booking-progress/booking-progress.css"' in progress_demo.text
+    assert 'import { createBookingProgressWidget } from "/frontend/widgets/booking-progress/booking-progress.js";' in progress_demo.text
+    assert 'href="/frontend/widgets/booking-summary/booking-summary.css"' in summary_demo.text
+    assert 'import { createBookingSummaryElement } from "/frontend/widgets/booking-summary/booking-summary.js";' in summary_demo.text

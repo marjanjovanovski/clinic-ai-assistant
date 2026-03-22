@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/frontend/favicon.ico">
+  <link rel="stylesheet" href="/frontend/widgets/booking-summary/booking-summary.css" />
+  <title>Booking Summary Demo</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 32px 18px;
+      font-family: Arial, sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(96, 165, 250, 0.18), transparent 28%),
+        linear-gradient(180deg, #f8fbff 0%, #eef6ff 52%, #f8fafc 100%);
+      color: #0f172a;
+    }
+
+    .demo-shell {
+      width: 100%;
+      max-width: 820px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .demo-card {
+      padding: 20px;
+      border: 1px solid #dbe4f0;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 16px 38px rgba(15, 23, 42, 0.08);
+    }
+
+    .demo-title {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .demo-copy {
+      margin-top: 6px;
+      color: #475569;
+      line-height: 1.5;
+    }
+
+    .demo-mount {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-shell">
+    <div class="demo-card">
+      <div class="demo-title">Booking Summary Widget Demo</div>
+      <div class="demo-copy">This page mounts the real booking summary widget with representative mock data.</div>
+    </div>
+
+    <div class="demo-card demo-mount" id="demoMount"></div>
+  </div>
+
+  <div class="booking-summary" id="bookingSummaryTemplate" hidden>
+    <div class="booking-summary-header">
+      <div>
+        <div class="booking-summary-title" id="bookingSummaryTitle">Резиме на барањето</div>
+        <div class="booking-summary-subtitle" id="bookingSummarySubtitle"></div>
+      </div>
+      <div class="booking-summary-badge" id="bookingSummaryBadge">Привремен термин</div>
+    </div>
+    <div class="booking-summary-grid">
+      <div class="booking-summary-card">
+        <div class="booking-summary-label">Услуга</div>
+        <div class="booking-summary-value" id="bookingSummaryService"></div>
+      </div>
+      <div class="booking-summary-card">
+        <div class="booking-summary-label">Термин</div>
+        <div class="booking-summary-value" id="bookingSummaryAppointment"></div>
+      </div>
+    </div>
+    <div class="booking-summary-fields" id="bookingSummaryFields"></div>
+    <div class="booking-summary-note" id="bookingSummaryNote" hidden>
+      <div class="booking-summary-note-label" id="bookingSummaryNoteLabel">Забелешка од пациентот</div>
+      <div class="booking-summary-note-value" id="bookingSummaryNoteValue"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createBookingSummaryElement } from "/frontend/widgets/booking-summary/booking-summary.js";
+
+    const demoMount = document.getElementById("demoMount");
+    const template = document.getElementById("bookingSummaryTemplate");
+
+    const summary = createBookingSummaryElement({
+      template,
+      summary: {
+        title: "Резиме на барањето",
+        subtitle: "Подготвено за потврда во разговорот",
+        appointment_status: "Потврдено",
+        service_name: "Стоматолошка консултација",
+        appointment_display: "24 MAR 2026 во 14:30",
+        fields: [
+          { field: "name", value: "Marjan Velika" },
+          { field: "phone", value: "+389 70 000 000" },
+          { field: "email", value: "mail@test.mk" },
+        ],
+        patient_note: "Ве молам јавете се ако има порано достапен термин.",
+      },
+      labelForField(fieldName) {
+        if (fieldName === "name") return "Име";
+        if (fieldName === "phone") return "Телефон";
+        if (fieldName === "email") return "Е-пошта";
+        return fieldName;
+      },
+    });
+
+    demoMount.appendChild(summary);
+  </script>
+</body>
+</html>

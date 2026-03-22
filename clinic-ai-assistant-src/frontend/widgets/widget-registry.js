@@ -1,4 +1,4 @@
-import { createMessageElement } from "/frontend/chat/chat-shell.js";
+import { createChatTranscript } from "/frontend/chat/chat-shell.js";
 import { createBookingProgressWidget } from "/frontend/widgets/booking-progress/booking-progress.js";
 import { createBookingSummaryElement } from "/frontend/widgets/booking-summary/booking-summary.js";
 import { createSlotListWidget } from "/frontend/widgets/slot-list/slot-list.js";
@@ -79,6 +79,21 @@ export function createConversationWidgetDispatcher({
   registry,
   afterAppend = null,
 }) {
+  const transcript = createChatTranscript(container, {
+    afterAppend({ sender, element }) {
+      if (typeof afterAppend === "function") {
+        afterAppend({
+          container,
+          element,
+          kind: "message",
+          sender,
+          type: null,
+          widget: null,
+        });
+      }
+    },
+  });
+
   function appendNode(node, meta = {}) {
     container.appendChild(node);
     if (typeof afterAppend === "function") {
@@ -104,10 +119,7 @@ export function createConversationWidgetDispatcher({
   }
 
   function addTextMessage(text, sender) {
-    return appendNode(createMessageElement(text, sender), {
-      kind: "message",
-      sender,
-    });
+    return transcript.addMessage(text, sender);
   }
 
   function addWidget(type, payload = {}, options = {}) {
@@ -131,8 +143,8 @@ export function createConversationWidgetDispatcher({
   return {
     addTextMessage,
     addWidget,
-    clear,
-    scrollToBottom,
+    clear: transcript.clear,
+    scrollToBottom: transcript.scrollToBottom,
   };
 }
 

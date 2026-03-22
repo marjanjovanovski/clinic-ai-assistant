@@ -10,4 +10,6 @@ Initial widget targets:
 - booking-summary
 - slot-list
 
+Each widget folder can also expose a direct `demo.html` page that imports the real widget assets for isolated visual editing.
+
 Future widgets can be added here when they represent a self-contained conversation UI unit.

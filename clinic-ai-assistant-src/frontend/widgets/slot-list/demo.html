@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/frontend/favicon.ico">
+  <link rel="stylesheet" href="/frontend/chat/chat-shell.css" />
+  <link rel="stylesheet" href="/frontend/widgets/slot-list/slot-list.css" />
+  <title>Slot List Demo</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 32px 18px;
+      font-family: Arial, sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(125, 211, 252, 0.24), transparent 28%),
+        linear-gradient(180deg, #f8fbff 0%, #eff6ff 100%);
+      color: #0f172a;
+    }
+
+    .demo-shell {
+      width: 100%;
+      max-width: 860px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .demo-card {
+      padding: 20px;
+      border: 1px solid #dbe4f0;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 16px 38px rgba(15, 23, 42, 0.08);
+    }
+
+    .demo-title {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .demo-copy {
+      margin-top: 6px;
+      color: #475569;
+      line-height: 1.5;
+    }
+
+    .demo-chat {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .demo-chat .message {
+      max-width: 86%;
+      border-radius: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-shell">
+    <div class="demo-card">
+      <div class="demo-title">Slot List Widget Demo</div>
+      <div class="demo-copy">This page mounts the real slot list widget with representative scheduling slots.</div>
+    </div>
+
+    <div class="demo-card demo-chat">
+      <div class="message bot" id="slotListMount"></div>
+      <div class="message user" id="selectionEcho">No slot selected yet.</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createSlotListWidget } from "/frontend/widgets/slot-list/slot-list.js";
+
+    const slotListMount = document.getElementById("slotListMount");
+    const selectionEcho = document.getElementById("selectionEcho");
+
+    const widget = createSlotListWidget({
+      title: "Изберете термин со еден клик:",
+      slots: [
+        { slot_id: "slot-1", start_at: "2026-03-24T08:30:00+01:00", display_label: "24 MAR 2026 во 08:30" },
+        { slot_id: "slot-2", start_at: "2026-03-24T11:00:00+01:00", display_label: "24 MAR 2026 во 11:00" },
+        { slot_id: "slot-3", start_at: "2026-03-24T14:30:00+01:00", display_label: "24 MAR 2026 во 14:30" },
+      ],
+      onSelect(slot, slotListWidget) {
+        slotListWidget.disableAll();
+        selectionEcho.textContent = `Selected: ${slot.display_label}`;
+        window.setTimeout(() => {
+          slotListWidget.enableAll();
+        }, 400);
+      },
+    });
+
+    slotListMount.appendChild(widget.root);
+  </script>
+</body>
+</html>

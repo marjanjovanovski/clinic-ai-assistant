@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/frontend/favicon.ico">
+  <link rel="stylesheet" href="/frontend/widgets/booking-progress/booking-progress.css" />
+  <title>Booking Progress Demo</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 32px 18px;
+      font-family: Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(125, 211, 252, 0.26), transparent 28%),
+        linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+      color: #0f172a;
+    }
+
+    .demo-shell {
+      width: 100%;
+      max-width: 820px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .demo-card {
+      padding: 20px;
+      border: 1px solid #dbe4f0;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 16px 38px rgba(15, 23, 42, 0.08);
+    }
+
+    .demo-title {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .demo-copy {
+      margin-top: 6px;
+      color: #475569;
+      line-height: 1.5;
+    }
+
+    .booking-progress-demo {
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid #dbe4f0;
+      background: #ffffff;
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-shell">
+    <div class="demo-card">
+      <div class="demo-title">Booking Progress Widget Demo</div>
+      <div class="demo-copy">This page mounts the real booking progress widget with mock booking-collection state.</div>
+    </div>
+
+    <div class="booking-progress-demo">
+      <div class="booking-progress" id="bookingProgress">
+        <div class="booking-progress-header">
+          <div class="booking-progress-title" id="bookingProgressTitle">Закажување во тек</div>
+          <div class="booking-progress-controls">
+            <div class="booking-progress-status" id="bookingProgressStatus">0 / 3</div>
+            <button
+              type="button"
+              class="booking-reset-button"
+              id="bookingResetButton"
+              data-tooltip="Почни од почеток"
+              aria-label="Почни од почеток"
+              hidden
+            >
+              <span class="booking-reset-icon" aria-hidden="true">&#8634;</span>
+            </button>
+          </div>
+        </div>
+        <div class="booking-progress-steps" id="bookingProgressSteps"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createBookingProgressWidget } from "/frontend/widgets/booking-progress/booking-progress.js";
+
+    const bookingProgress = document.getElementById("bookingProgress");
+    const bookingProgressTitle = document.getElementById("bookingProgressTitle");
+    const bookingProgressStatus = document.getElementById("bookingProgressStatus");
+    const bookingProgressSteps = document.getElementById("bookingProgressSteps");
+    const bookingResetButton = document.getElementById("bookingResetButton");
+
+    const widget = createBookingProgressWidget({
+      root: bookingProgress,
+      titleElement: bookingProgressTitle,
+      statusElement: bookingProgressStatus,
+      stepsElement: bookingProgressSteps,
+      resetButton: bookingResetButton,
+      onEditField(fieldName) {
+        window.alert(`Mock edit for: ${fieldName}`);
+      },
+      labelForField(fieldName) {
+        if (fieldName === "name") return "Име";
+        if (fieldName === "phone") return "Телефон";
+        if (fieldName === "email") return "Е-пошта";
+        return fieldName;
+      },
+      summaryHistory: {
+        queueIfNew() {
+          return false;
+        },
+      },
+    });
+
+    widget.update({
+      visible: true,
+      progress_percent: 67,
+      collection_status: 2,
+      collection_total: 3,
+      reservation_status: "collecting_contact",
+      next_field: "email",
+      fields: [
+        { field: "name", value: "Marjan Velika", done: true },
+        { field: "phone", value: "+389 70 000 000", done: true },
+        { field: "email", value: "", done: false },
+      ],
+    });
+
+    bookingResetButton.addEventListener("click", () => {
+      widget.reset();
+      window.setTimeout(() => {
+        widget.update({
+          visible: true,
+          progress_percent: 67,
+          collection_status: 2,
+          collection_total: 3,
+          reservation_status: "collecting_contact",
+          next_field: "email",
+          fields: [
+            { field: "name", value: "Marjan Velika", done: true },
+            { field: "phone", value: "+389 70 000 000", done: true },
+            { field: "email", value: "", done: false },
+          ],
+        });
+      }, 200);
+    });
+  </script>
+</body>
+</html>

@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" href="/frontend/favicon.ico">
+  <link rel="stylesheet" href="/frontend/chat/chat-shell.css">
   <link rel="stylesheet" href="/frontend/widgets/slot-list/slot-list.css">
   <title>Scheduling Sandbox</title>
   <style>
@@ -120,31 +121,10 @@
       background: linear-gradient(180deg, #fdfefe 0%, #f8fbff 100%);
     }
 
-    .message {
+    .sandbox-messages .message {
       max-width: 86%;
       border-radius: 16px;
-      padding: 13px 14px;
       line-height: 1.45;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    .message.system {
-      align-self: center;
-      max-width: 100%;
-      background: #eef2ff;
-      color: #3730a3;
-      font-size: 13px;
-    }
-
-    .message.user {
-      align-self: flex-end;
-      background: #dbeafe;
-    }
-
-    .message.bot {
-      align-self: flex-start;
-      background: #f1f5f9;
     }
 
     .message pre {
@@ -209,6 +189,7 @@
   </div>
 
   <script type="module">
+    import { resolveTenantFromPath } from "/frontend/chat/chat-shell.js";
     import {
       createConversationWidgetDispatcher,
       createConversationWidgetRegistry,
@@ -226,8 +207,7 @@
     const patientEmailInput = document.getElementById("patientEmailInput");
     const loadSlotsButton = document.getElementById("loadSlotsButton");
 
-    const pathParts = window.location.pathname.split("/").filter(Boolean);
-    const tenant = pathParts[0] === "agent" && pathParts[1] ? pathParts[1] : "milena_dental";
+    const tenant = resolveTenantFromPath(window.location.pathname, "milena_dental");
 
     const configUrl = `/scheduling/config/${encodeURIComponent(tenant)}`;
     const availabilityUrl = `/scheduling/availability?tenant=${encodeURIComponent(tenant)}`;

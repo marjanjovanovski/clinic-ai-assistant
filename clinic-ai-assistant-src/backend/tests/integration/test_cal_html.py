@@ -27,6 +27,7 @@ def test_cal_html_is_served_as_frontend_sandbox(monkeypatch, tmp_path):
 
     assert response.status_code == 200
     assert "Scheduling Sandbox" in response.text
+    assert 'href="/frontend/chat/chat-shell.css"' in response.text
     assert 'id="loadSlotsButton"' in response.text
     assert 'id="patientNameInput"' in response.text
 
@@ -39,6 +40,7 @@ def test_cal_html_wires_slot_buttons_and_booking_request(monkeypatch, tmp_path):
     assert "function addSlotChoices" in response.text
     assert "async function bookSelectedSlot" in response.text
     assert 'href="/frontend/widgets/slot-list/slot-list.css"' in response.text
+    assert 'import { resolveTenantFromPath } from "/frontend/chat/chat-shell.js";' in response.text
     assert 'from "/frontend/widgets/widget-registry.js";' in response.text
     assert "const widgetRegistry = registerDefaultConversationWidgets(createConversationWidgetRegistry());" in response.text
     assert 'return conversationDispatcher.addWidget("slot-list", {' in response.text
@@ -53,14 +55,19 @@ def test_slot_list_widget_assets_are_served_for_scheduling_ui(monkeypatch, tmp_p
     widget_js = client.get("/frontend/widgets/slot-list/slot-list.js")
     widget_css = client.get("/frontend/widgets/slot-list/slot-list.css")
     registry_js = client.get("/frontend/widgets/widget-registry.js")
+    demo_html = client.get("/frontend/widgets/slot-list/demo.html")
 
     assert widget_js.status_code == 200
     assert widget_css.status_code == 200
     assert registry_js.status_code == 200
+    assert demo_html.status_code == 200
     assert "export function createSlotListWidget" in widget_js.text
     assert 'buttonEl.className = "slot-list-button"' in widget_js.text
     assert ".slot-list-actions {" in widget_css.text
     assert ".slot-list-button:disabled {" in widget_css.text
     assert "export function createConversationWidgetRegistry()" in registry_js.text
     assert "export function createConversationWidgetDispatcher({" in registry_js.text
+    assert 'import { createChatTranscript } from "/frontend/chat/chat-shell.js";' in registry_js.text
     assert 'registry.register("slot-list"' in registry_js.text
+    assert 'href="/frontend/widgets/slot-list/slot-list.css"' in demo_html.text
+    assert 'import { createSlotListWidget } from "/frontend/widgets/slot-list/slot-list.js";' in demo_html.text
