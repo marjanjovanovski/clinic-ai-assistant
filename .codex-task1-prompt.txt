@@ -1,0 +1,19 @@
+Re-anchor from repo truth and start Task 1 of the GUI-only conversation widgets refactor.
+
+Task 1:
+Audit the current frontend rendering responsibilities in:
+- clinic-ai-assistant-src/frontend/index.html
+- clinic-ai-assistant-src/frontend/cal.html
+
+Identify:
+- what belongs to the chat shell
+- what should become conversation widgets
+- what can be shared between index.html and cal.html
+- what should stay page-specific
+
+Then create the initial frontend folder structure for:
+- clinic-ai-assistant-src/frontend/chat/
+- clinic-ai-assistant-src/frontend/widgets/
+
+Do not yet wire index.html or cal.html to use the new modules.
+Do not change backend behavior.
