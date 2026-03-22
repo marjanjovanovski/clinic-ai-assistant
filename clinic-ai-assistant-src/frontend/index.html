@@ -548,7 +548,10 @@
     <div class="status" id="statusText">Подготвено</div>
   </div>
 
-  <script>
+  <script type="module">
+    import { createChatTranscript, resolveTenantFromPath } from "./chat/chat-shell.js";
+    import { bindTextInputSubmission, setInputBusyState } from "./chat/chat-input.js";
+
     const chatMessages = document.getElementById("chatMessages");
     const messageInput = document.getElementById("messageInput");
     const sendButton = document.getElementById("sendButton");
@@ -563,8 +566,7 @@
     const bookingSummaryTemplate = bookingSummary.cloneNode(true);
     bookingSummary.remove();
 
-    const pathParts = window.location.pathname.split("/").filter(Boolean);
-    const tenant = pathParts[0] === "agent" && pathParts[1] ? pathParts[1] : "generic";
+    const tenant = resolveTenantFromPath(window.location.pathname, "generic");
     const sessionStorageKey = `clinic-ai-session:${tenant}`;
     let sessionId = window.localStorage.getItem(sessionStorageKey) || null;
     let isSending = false;
@@ -640,90 +642,18 @@
     let pendingCompletedSummary = null;
     let lastAppendedSummaryKey = null;
 
-    function renderMessageContent(text) {
-      const value = String(text || "");
-      const lines = value.split(/\r?\n/);
-      const hasStructuredLines = lines.some((line) => {
-        const trimmed = line.trim();
-        return trimmed.startsWith("• ") || trimmed.startsWith("– ");
-      });
-
-      if (!hasStructuredLines) {
-        const textEl = document.createElement("div");
-        textEl.className = "message-text";
-        textEl.textContent = value;
-        return textEl;
+    const chatTranscript = createChatTranscript(chatMessages, {
+      afterAppend({ sender }) {
+        if (sender === "bot" && pendingCompletedSummary) {
+          appendCompletedBookingSummary(pendingCompletedSummary);
+          lastAppendedSummaryKey = bookingSummaryKey(pendingCompletedSummary);
+          pendingCompletedSummary = null;
+        }
       }
-
-      const wrapper = document.createElement("div");
-      wrapper.className = "message-structured";
-
-      let currentGroup = null;
-      let currentList = null;
-
-      for (const rawLine of lines) {
-        const trimmed = rawLine.trim();
-
-        if (!trimmed) {
-          currentList = null;
-          continue;
-        }
-
-        if (trimmed.startsWith("• ")) {
-          currentGroup = document.createElement("div");
-          currentGroup.className = "structured-group";
-
-          const titleEl = document.createElement("div");
-          titleEl.className = "structured-title";
-          titleEl.textContent = trimmed.slice(2).trim();
-
-          currentGroup.appendChild(titleEl);
-          wrapper.appendChild(currentGroup);
-          currentList = null;
-          continue;
-        }
-
-        if (trimmed.startsWith("– ")) {
-          if (!currentGroup) {
-            currentGroup = document.createElement("div");
-            currentGroup.className = "structured-group";
-            wrapper.appendChild(currentGroup);
-          }
-
-          if (!currentList) {
-            currentList = document.createElement("ul");
-            currentList.className = "structured-list";
-            currentGroup.appendChild(currentList);
-          }
-
-          const itemEl = document.createElement("li");
-          itemEl.textContent = trimmed.slice(2).trim();
-          currentList.appendChild(itemEl);
-          continue;
-        }
-
-        const textEl = document.createElement("div");
-        textEl.className = "message-text";
-        textEl.textContent = trimmed;
-        wrapper.appendChild(textEl);
-        currentGroup = null;
-        currentList = null;
-      }
-
-      return wrapper;
-    }
+    });
 
     function addMessage(text, sender) {
-      const messageEl = document.createElement("div");
-      messageEl.classList.add("message", sender);
-      messageEl.appendChild(renderMessageContent(text));
-      chatMessages.appendChild(messageEl);
-      if (sender === "bot" && pendingCompletedSummary) {
-        appendCompletedBookingSummary(pendingCompletedSummary);
-        lastAppendedSummaryKey = bookingSummaryKey(pendingCompletedSummary);
-        pendingCompletedSummary = null;
-      }
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      return chatTranscript.addMessage(text, sender);
     }
 
     async function performSend(userMessage, options = {}) {
@@ -743,8 +673,7 @@
         addMessage(trimmedMessage, "user");
       }
       messageInput.value = "";
-      sendButton.disabled = true;
-      messageInput.disabled = true;
+      setInputBusyState({ input: messageInput, button: sendButton, isBusy: true });
       statusText.textContent = "Се испраќа...";
 
       try {
@@ -780,8 +709,7 @@
         statusText.textContent = `Грешка: ${error.message}`;
       } finally {
         isSending = false;
-        sendButton.disabled = false;
-        messageInput.disabled = false;
+        setInputBusyState({ input: messageInput, button: sendButton, isBusy: false });
         messageInput.focus();
       }
     }
@@ -885,14 +813,14 @@
         chatHeader.textContent = businessName;
         document.title = businessName;
 
-        chatMessages.innerHTML = "";
+        chatTranscript.clear();
         pendingCompletedSummary = null;
         lastAppendedSummaryKey = null;
         addMessage(greeting, "bot");
       } catch (error) {
         chatHeader.textContent = "Асистент";
         document.title = "Асистент";
-        chatMessages.innerHTML = "";
+        chatTranscript.clear();
         addMessage("Здраво! Како можам да ви помогнам денес?", "bot");
         console.error("Failed to load tenant config:", error);
       }
@@ -903,14 +831,12 @@
       await performSend(userMessage, { showUserMessage: true });
     }
 
-    sendButton.addEventListener("click", sendMessage);
-    bookingResetButton.addEventListener("click", resetConversation);
-
-    messageInput.addEventListener("keydown", function (event) {
-      if (event.key === "Enter") {
-        sendMessage();
-      }
+    bindTextInputSubmission({
+      input: messageInput,
+      button: sendButton,
+      onSubmit: sendMessage,
     });
+    bookingResetButton.addEventListener("click", resetConversation);
 
     loadTenantConfig();
   </script>
