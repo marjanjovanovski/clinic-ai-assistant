@@ -12,3 +12,4 @@ _pytest_tmp_backend/
 **/runtime_traces/
 FollowUpWithAris.txt
 google-service-account.json
+.codex-task*-prompt.txt
