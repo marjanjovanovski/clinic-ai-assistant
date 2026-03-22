@@ -207,10 +207,14 @@
   </div>
 
   <script type="module">
-    import { createChatTranscript, resolveTenantFromPath } from "/frontend/chat/chat-shell.js";
+    import { resolveTenantFromPath } from "/frontend/chat/chat-shell.js";
     import { bindTextInputSubmission, setInputBusyState } from "/frontend/chat/chat-input.js";
-    import { createBookingProgressWidget } from "/frontend/widgets/booking-progress/booking-progress.js";
     import { createBookingSummaryHistory } from "/frontend/widgets/booking-summary/booking-summary.js";
+    import {
+      createConversationWidgetDispatcher,
+      createConversationWidgetRegistry,
+      registerDefaultConversationWidgets,
+    } from "/frontend/widgets/widget-registry.js";
 
     const chatMessages = document.getElementById("chatMessages");
     const messageInput = document.getElementById("messageInput");
@@ -234,21 +238,40 @@
     const API_URL = `/chat?tenant=${encodeURIComponent(tenant)}`;
     const CONFIG_URL = `/config/${encodeURIComponent(tenant)}`;
 
-    const bookingSummaryHistory = createBookingSummaryHistory({
-      template: bookingSummaryTemplate,
-      messageContainer: chatMessages,
-      labelForField,
-    });
+    const widgetRegistry = registerDefaultConversationWidgets(
+      createConversationWidgetRegistry(),
+      {
+        bookingSummaryTemplate,
+        labelForField,
+      }
+    );
 
-    const chatTranscript = createChatTranscript(chatMessages, {
-      afterAppend({ sender }) {
-        if (sender === "bot") {
+    const conversationDispatcher = createConversationWidgetDispatcher({
+      container: chatMessages,
+      registry: widgetRegistry,
+      afterAppend({ kind, sender }) {
+        if (kind === "message" && sender === "bot") {
           bookingSummaryHistory.flushPending();
         }
       }
     });
 
-    const bookingProgressWidget = createBookingProgressWidget({
+    const bookingSummaryHistory = createBookingSummaryHistory({
+      template: bookingSummaryTemplate,
+      labelForField,
+      appendSummary(summary) {
+        return conversationDispatcher.addWidget(
+          "booking-summary",
+          { summary },
+          {
+            template: bookingSummaryTemplate,
+            labelForField,
+          }
+        ).element;
+      },
+    });
+
+    const bookingProgressWidget = widgetRegistry.mount("booking-progress", {
       root: bookingProgress,
       titleElement: bookingProgressTitle,
       statusElement: bookingProgressStatus,
@@ -257,10 +280,10 @@
       onEditField: beginBookingFieldEdit,
       labelForField,
       summaryHistory: bookingSummaryHistory,
-    });
+    }).widget;
 
     function addMessage(text, sender) {
-      return chatTranscript.addMessage(text, sender);
+      return conversationDispatcher.addTextMessage(text, sender);
     }
 
     async function performSend(userMessage, options = {}) {
@@ -369,14 +392,14 @@
         chatHeader.textContent = businessName;
         document.title = businessName;
 
-        chatTranscript.clear();
+        conversationDispatcher.clear();
         bookingSummaryHistory.reset();
         bookingProgressWidget.reset();
         addMessage(greeting, "bot");
       } catch (error) {
         chatHeader.textContent = "Асистент";
         document.title = "Асистент";
-        chatTranscript.clear();
+        conversationDispatcher.clear();
         bookingSummaryHistory.reset();
         bookingProgressWidget.reset();
         addMessage("Здраво! Како можам да ви помогнам денес?", "bot");

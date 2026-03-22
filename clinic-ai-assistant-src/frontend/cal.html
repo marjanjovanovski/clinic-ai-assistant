@@ -209,7 +209,11 @@
   </div>
 
   <script type="module">
-    import { createSlotListWidget } from "/frontend/widgets/slot-list/slot-list.js";
+    import {
+      createConversationWidgetDispatcher,
+      createConversationWidgetRegistry,
+      registerDefaultConversationWidgets,
+    } from "/frontend/widgets/widget-registry.js";
 
     const sandboxSubtitle = document.getElementById("sandboxSubtitle");
     const sandboxMessages = document.getElementById("sandboxMessages");
@@ -228,19 +232,25 @@
     const configUrl = `/scheduling/config/${encodeURIComponent(tenant)}`;
     const availabilityUrl = `/scheduling/availability?tenant=${encodeURIComponent(tenant)}`;
     const bookingUrl = `/scheduling/book?tenant=${encodeURIComponent(tenant)}`;
+    const widgetRegistry = registerDefaultConversationWidgets(createConversationWidgetRegistry());
+    const conversationDispatcher = createConversationWidgetDispatcher({
+      container: sandboxMessages,
+      registry: widgetRegistry,
+    });
 
     function addMessage(text, sender, usePre = false) {
-      const messageEl = document.createElement("div");
-      messageEl.className = `message ${sender}`;
       if (usePre) {
+        const messageEl = document.createElement("div");
+        messageEl.className = `message ${sender}`;
         const pre = document.createElement("pre");
         pre.textContent = text;
         messageEl.appendChild(pre);
-      } else {
-        messageEl.textContent = text;
+        sandboxMessages.appendChild(messageEl);
+        sandboxMessages.scrollTop = sandboxMessages.scrollHeight;
+        return messageEl;
       }
-      sandboxMessages.appendChild(messageEl);
-      sandboxMessages.scrollTop = sandboxMessages.scrollHeight;
+
+      return conversationDispatcher.addTextMessage(text, sender);
     }
 
     function formatJson(value) {
@@ -248,18 +258,11 @@
     }
 
     function addSlotChoices(slots, serviceId) {
-      const messageEl = document.createElement("div");
-      messageEl.className = "message bot";
-
-      const slotList = createSlotListWidget({
+      return conversationDispatcher.addWidget("slot-list", {
         title: "Изберете термин со еден клик:",
         slots,
         onSelect: (slot, widget) => bookSelectedSlot(slot, serviceId, widget),
-      });
-
-      messageEl.appendChild(slotList.root);
-      sandboxMessages.appendChild(messageEl);
-      sandboxMessages.scrollTop = sandboxMessages.scrollHeight;
+      }, { sender: "bot" });
     }
 
     async function bookSelectedSlot(slot, serviceId, slotListWidget) {

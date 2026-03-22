@@ -44,7 +44,12 @@ def test_completed_booking_summary_is_appended_from_template(monkeypatch, tmp_pa
     assert 'const bookingSummaryTemplate = bookingSummary.cloneNode(true);' in response.text
     assert "bookingSummary.remove();" in response.text
     assert 'import { createBookingSummaryHistory } from "/frontend/widgets/booking-summary/booking-summary.js";' in response.text
+    assert 'from "/frontend/widgets/widget-registry.js";' in response.text
+    assert "const widgetRegistry = registerDefaultConversationWidgets(" in response.text
+    assert "const conversationDispatcher = createConversationWidgetDispatcher({" in response.text
     assert "const bookingSummaryHistory = createBookingSummaryHistory({" in response.text
+    assert 'conversationDispatcher.addWidget(' in response.text
+    assert '"booking-summary"' in response.text
     assert "bookingSummaryHistory.flushPending();" in response.text
 
 
@@ -54,11 +59,14 @@ def test_completed_booking_summary_supports_multiple_history_entries(monkeypatch
     response = client.get("/frontend/widgets/booking-summary/booking-summary.js")
 
     assert response.status_code == 200
+    assert "export function bookingSummaryKey(summary)" in response.text
+    assert "export function createBookingSummaryElement({" in response.text
     assert "let pendingSummary = null;" in response.text
     assert "let lastAppendedSummaryKey = null;" in response.text
     assert "function queueIfNew(summary)" in response.text
     assert "function flushPending()" in response.text
     assert "lastAppendedSummaryKey = bookingSummaryKey(summary);" in response.text
+    assert "typeof appendSummary === \"function\"" in response.text
 
 
 def test_completed_booking_summary_shell_is_calendar_ready(monkeypatch, tmp_path):
@@ -82,12 +90,18 @@ def test_frontend_uses_internal_booking_edit_message(monkeypatch, tmp_path):
 
     response = client.get("/agent/milena_dental")
     progress_js = client.get("/frontend/widgets/booking-progress/booking-progress.js")
+    registry_js = client.get("/frontend/widgets/widget-registry.js")
 
     assert progress_js.status_code == 200
+    assert registry_js.status_code == 200
     assert 'import { createBookingProgressWidget } from "/frontend/widgets/booking-progress/booking-progress.js";' in response.text
     assert '`__booking_edit__:${fieldName}`' in response.text
+    assert 'widgetRegistry.mount("booking-progress", {' in response.text
     assert 'summaryHistory.queueIfNew(progress.summary);' in progress_js.text
     assert 'stepEl.addEventListener("click", () => onEditField(item.field));' in progress_js.text
+    assert 'registry.register("booking-progress"' in registry_js.text
+    assert 'registry.register("booking-summary"' in registry_js.text
+    assert 'registry.register("slot-list"' in registry_js.text
 
 
 def test_reset_behavior_is_local_session_rollover_only(monkeypatch, tmp_path):
