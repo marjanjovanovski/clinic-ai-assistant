@@ -38,7 +38,22 @@ def test_cal_html_wires_slot_buttons_and_booking_request(monkeypatch, tmp_path):
 
     assert "function addSlotChoices" in response.text
     assert "async function bookSelectedSlot" in response.text
-    assert 'className = "slot-button"' in response.text
+    assert 'href="/frontend/widgets/slot-list/slot-list.css"' in response.text
+    assert 'import { createSlotListWidget } from "/frontend/widgets/slot-list/slot-list.js";' in response.text
+    assert "slotListWidget.disableAll()" in response.text
     assert "/scheduling/book?tenant=" in response.text
     assert "Booked from cal.html sandbox" in response.text
 
+
+def test_slot_list_widget_assets_are_served_for_scheduling_ui(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+
+    widget_js = client.get("/frontend/widgets/slot-list/slot-list.js")
+    widget_css = client.get("/frontend/widgets/slot-list/slot-list.css")
+
+    assert widget_js.status_code == 200
+    assert widget_css.status_code == 200
+    assert "export function createSlotListWidget" in widget_js.text
+    assert 'buttonEl.className = "slot-list-button"' in widget_js.text
+    assert ".slot-list-actions {" in widget_css.text
+    assert ".slot-list-button:disabled {" in widget_css.text

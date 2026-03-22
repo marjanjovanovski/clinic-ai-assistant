@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" href="/frontend/favicon.ico">
+  <link rel="stylesheet" href="/frontend/widgets/slot-list/slot-list.css">
   <title>Scheduling Sandbox</title>
   <style>
     * {
@@ -153,40 +154,6 @@
       white-space: pre-wrap;
     }
 
-    .message-title {
-      font-weight: 700;
-      margin-bottom: 10px;
-    }
-
-    .slot-button-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .slot-button {
-      border: 1px solid #bfdbfe;
-      border-radius: 999px;
-      padding: 9px 12px;
-      background: #ffffff;
-      color: #1d4ed8;
-      font-size: 13px;
-      cursor: pointer;
-      transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
-    }
-
-    .slot-button:hover {
-      border-color: #60a5fa;
-      background: #eff6ff;
-      transform: translateY(-1px);
-    }
-
-    .slot-button:disabled {
-      cursor: not-allowed;
-      opacity: 0.6;
-      transform: none;
-    }
-
     .sandbox-status {
       padding: 0 20px 18px 20px;
       font-size: 13px;
@@ -241,7 +208,9 @@
     <div class="sandbox-status" id="sandboxStatus">Подготвено</div>
   </div>
 
-  <script>
+  <script type="module">
+    import { createSlotListWidget } from "/frontend/widgets/slot-list/slot-list.js";
+
     const sandboxSubtitle = document.getElementById("sandboxSubtitle");
     const sandboxMessages = document.getElementById("sandboxMessages");
     const sandboxStatus = document.getElementById("sandboxStatus");
@@ -282,29 +251,18 @@
       const messageEl = document.createElement("div");
       messageEl.className = "message bot";
 
-      const titleEl = document.createElement("div");
-      titleEl.className = "message-title";
-      titleEl.textContent = "Изберете термин со еден клик:";
-      messageEl.appendChild(titleEl);
+      const slotList = createSlotListWidget({
+        title: "Изберете термин со еден клик:",
+        slots,
+        onSelect: (slot, widget) => bookSelectedSlot(slot, serviceId, widget),
+      });
 
-      const listEl = document.createElement("div");
-      listEl.className = "slot-button-list";
-
-      for (const slot of slots) {
-        const buttonEl = document.createElement("button");
-        buttonEl.type = "button";
-        buttonEl.className = "slot-button";
-        buttonEl.textContent = slot.display_label || slot.start_at;
-        buttonEl.addEventListener("click", () => bookSelectedSlot(slot, serviceId, listEl));
-        listEl.appendChild(buttonEl);
-      }
-
-      messageEl.appendChild(listEl);
+      messageEl.appendChild(slotList.root);
       sandboxMessages.appendChild(messageEl);
       sandboxMessages.scrollTop = sandboxMessages.scrollHeight;
     }
 
-    async function bookSelectedSlot(slot, serviceId, buttonContainer) {
+    async function bookSelectedSlot(slot, serviceId, slotListWidget) {
       const patientName = patientNameInput.value.trim();
       const patientPhone = patientPhoneInput.value.trim();
       const patientEmail = patientEmailInput.value.trim();
@@ -314,9 +272,7 @@
         return;
       }
 
-      for (const button of buttonContainer.querySelectorAll("button")) {
-        button.disabled = true;
-      }
+      slotListWidget.disableAll();
 
       addMessage(`Book this meeting: ${slot.display_label}`, "user");
       sandboxStatus.textContent = "Се испраќа барање за резервација...";
@@ -348,9 +304,7 @@
       } catch (error) {
         sandboxStatus.textContent = `Грешка: ${error.message}`;
         addMessage(`Неуспешна резервација. ${error.message}`, "bot");
-        for (const button of buttonContainer.querySelectorAll("button")) {
-          button.disabled = false;
-        }
+        slotListWidget.enableAll();
       }
     }
 
