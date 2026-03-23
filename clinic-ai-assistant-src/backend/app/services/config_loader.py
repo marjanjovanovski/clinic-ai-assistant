@@ -13,6 +13,10 @@ class TenantNotFoundError(FileNotFoundError):
     pass
 
 
+DEFAULT_ALLOW_SCHEDULING_FIRST = False
+DEFAULT_REQUIRE_CREDENTIALS_BEFORE_CONFIRM = True
+
+
 def _require_non_empty_string(section_name: str, payload: dict, field_name: str):
     value = payload.get(field_name)
     if not isinstance(value, str) or not value.strip():
@@ -120,6 +124,35 @@ def _validate_scheduling(profile: dict, tenant: str):
         )
 
 
+def _normalize_actions(tenant: str, profile: dict) -> dict:
+    actions = _require_object(f"Profile '{tenant}'.actions", profile.get("actions"))
+
+    allow_booking = actions.get("allow_booking")
+    if not isinstance(allow_booking, bool):
+        raise TenantConfigError(f"Profile '{tenant}'.actions.allow_booking must be a boolean")
+
+    allow_scheduling_first = actions.get("allow_scheduling_first", DEFAULT_ALLOW_SCHEDULING_FIRST)
+    if not isinstance(allow_scheduling_first, bool):
+        raise TenantConfigError(
+            f"Profile '{tenant}'.actions.allow_scheduling_first must be a boolean"
+        )
+
+    require_credentials_before_confirm = actions.get(
+        "require_credentials_before_confirm",
+        DEFAULT_REQUIRE_CREDENTIALS_BEFORE_CONFIRM,
+    )
+    if not isinstance(require_credentials_before_confirm, bool):
+        raise TenantConfigError(
+            f"Profile '{tenant}'.actions.require_credentials_before_confirm must be a boolean"
+        )
+
+    normalized_actions = dict(actions)
+    normalized_actions["allow_scheduling_first"] = allow_scheduling_first
+    normalized_actions["require_credentials_before_confirm"] = require_credentials_before_confirm
+    profile["actions"] = normalized_actions
+    return normalized_actions
+
+
 def _validate_profile(tenant: str, profile: dict):
     if not isinstance(profile, dict):
         raise TenantConfigError(f"Profile '{tenant}' must be a JSON object")
@@ -150,10 +183,8 @@ def _validate_profile(tenant: str, profile: dict):
             raise TenantConfigError(f"Profile '{tenant}' contains duplicate service id '{service_id}'")
         seen_service_ids.add(service_id)
 
-    actions = _require_object(f"Profile '{tenant}'.actions", profile.get("actions"))
+    actions = _normalize_actions(tenant, profile)
     allow_booking = actions.get("allow_booking")
-    if not isinstance(allow_booking, bool):
-        raise TenantConfigError(f"Profile '{tenant}'.actions.allow_booking must be a boolean")
 
     collect_fields = _require_list(
         f"Profile '{tenant}'.actions",
