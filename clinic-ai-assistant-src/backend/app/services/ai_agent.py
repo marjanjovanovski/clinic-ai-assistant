@@ -3,21 +3,29 @@ import logging
 import os
 import random
 import re
-import uuid
 
 from openai import OpenAI, OpenAIError, RateLimitError
 
+from app.services.chat_session_state import (
+    INTERACTION_HISTORY,
+    MAX_CONTEXT_INTERACTIONS,
+    MAX_INTERACTION_HISTORY,
+    SESSION_STATE,
+    _last_interaction,
+    _load_session_state,
+    _normalize_session_id,
+    _recent_interactions,
+    _session_key,
+    _stage_name,
+    _status_for_stage,
+)
 from app.services.config_loader import load_profile_config
-from app.services.lead_store import load_lead_checkpoint, save_lead_checkpoint
+from app.services.lead_store import save_lead_checkpoint
 from app.services.session_trace_logger import trace_event
 
 
 logger = logging.getLogger(__name__)
 DEBUG_AI = os.getenv("DEBUG_AI", "").strip().lower() == "true"
-SESSION_STATE = {}
-INTERACTION_HISTORY = {}
-MAX_INTERACTION_HISTORY = 6
-MAX_CONTEXT_INTERACTIONS = 1
 CANONICAL_INTENTS = {"greeting", "suggest_service", "business_overview", "list_services", "quote_price", "confirm_booking", "collect_contact", "fallback"}
 BOOKING_INPUT_FIELD_VALUE = "FIELD_VALUE"
 BOOKING_INPUT_CLARIFICATION = "CLARIFICATION_QUESTION"
@@ -64,56 +72,6 @@ def _fallback_reply(profile: dict) -> str:
         return fallback_message
 
     return ""
-
-
-def _session_key(tenant: str, session_id: str) -> str:
-    return f"{tenant}:{session_id}"
-
-
-def _normalize_session_id(session_id: str | None) -> str:
-    if isinstance(session_id, str) and session_id.strip():
-        return session_id.strip()
-
-    return str(uuid.uuid4())
-
-
-def _load_session_state(tenant: str, session_id: str) -> dict | None:
-    session_key = _session_key(tenant, session_id)
-    state = SESSION_STATE.get(session_key)
-    persisted_state = load_lead_checkpoint(tenant, session_id)
-
-    if state is None:
-        state = persisted_state
-    elif isinstance(state, dict) and isinstance(persisted_state, dict):
-        persisted_data = persisted_state.get("data")
-        if isinstance(persisted_data, dict):
-            authoritative_data = {}
-            for field_name, value in persisted_data.items():
-                if isinstance(value, str) and value.strip():
-                    authoritative_data[field_name] = value
-            state["data"] = authoritative_data
-
-        persisted_stage = persisted_state.get("stage")
-        if persisted_stage in {"awaiting_booking_confirmation", "collecting_contact", "completed"}:
-            state["stage"] = persisted_stage
-
-        if persisted_state.get("service_id"):
-            state["service_id"] = persisted_state.get("service_id")
-
-        if persisted_state.get("next_field") is not None:
-            state["next_field"] = persisted_state.get("next_field")
-
-    if state:
-        SESSION_STATE[session_key] = state
-
-    return state
-
-
-def _stage_name(state: dict | None) -> str | None:
-    if not isinstance(state, dict):
-        return None
-
-    return state.get("stage")
 
 
 def _log_chat_state(
@@ -238,14 +196,6 @@ def _conversation_rule_patterns(profile: dict, rule_name: str = "casual_reply_pa
     return normalized_patterns
 
 
-def _status_for_stage(stage: str | None) -> str:
-    if stage == "collecting_contact":
-        return "collecting_contact"
-    if stage == "completed":
-        return "completed"
-    return "active"
-
-
 def _booking_summary_payload(profile: dict, state: dict, collect_fields: list[str], data: dict, services: list[dict]) -> dict | None:
     if state.get("stage") != "completed":
         return None
@@ -320,18 +270,6 @@ def _messages_are_similar(left: str, right: str) -> bool:
     overlap = len(left_tokens & right_tokens)
     smallest = min(len(left_tokens), len(right_tokens))
     return smallest > 0 and (overlap / smallest) >= 0.75
-
-
-def _recent_interactions(session_key: str) -> list[dict]:
-    return INTERACTION_HISTORY.get(session_key, [])
-
-
-def _last_interaction(session_key: str) -> dict | None:
-    history = _recent_interactions(session_key)
-    if not history:
-        return None
-
-    return history[-1]
 
 
 def _record_interaction(session_key: str, message: str, reply: str, response_type: str | None) -> None:
