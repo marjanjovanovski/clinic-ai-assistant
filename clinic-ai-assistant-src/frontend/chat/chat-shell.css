@@ -20,6 +20,14 @@
   background: #f1f5f9;
 }
 
+.message-widget {
+  width: 100%;
+}
+
+.message-widget-slot-list {
+  max-width: min(100%, 760px);
+}
+
 .message.system {
   align-self: center;
   max-width: 100%;
@@ -51,4 +59,10 @@
 
 .structured-list li {
   margin: 0;
+}
+
+@media (max-width: 760px) {
+  .message-widget-slot-list {
+    max-width: 100%;
+  }
 }

@@ -126,7 +126,7 @@ export function createConversationWidgetDispatcher({
     const { sender = "bot", ...context } = options;
     const rendered = registry.mount(type, payload, context);
     const element = rendered.wrapInMessage
-      ? wrapWidgetElement(rendered.element, sender)
+      ? wrapWidgetElement(rendered.element, sender, type)
       : rendered.element;
 
     return {
@@ -148,9 +148,13 @@ export function createConversationWidgetDispatcher({
   };
 }
 
-function wrapWidgetElement(element, sender) {
+function wrapWidgetElement(element, sender, type = null) {
   const messageEl = document.createElement("div");
   messageEl.classList.add("message", sender);
+  messageEl.classList.add("message-widget");
+  if (type) {
+    messageEl.classList.add(`message-widget-${type}`);
+  }
   messageEl.appendChild(element);
   return messageEl;
 }
