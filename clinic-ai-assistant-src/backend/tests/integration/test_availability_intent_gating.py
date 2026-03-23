@@ -3,6 +3,19 @@ import importlib
 from fastapi.testclient import TestClient
 
 
+def _mock_profile_loader(real_loader):
+    def _load_profile(tenant: str):
+        profile = real_loader(tenant)
+        if tenant == "milena_dental":
+            profile = dict(profile)
+            scheduling = dict(profile.get("scheduling") or {})
+            scheduling["provider"] = "mock"
+            profile["scheduling"] = scheduling
+        return profile
+
+    return _load_profile
+
+
 class FakeResponse:
     def __init__(self, output_text: str):
         self.output_text = output_text
@@ -13,7 +26,7 @@ class FakeResponses:
         message = kwargs["input"][-1]["content"]
         if message == "check availability":
             return FakeResponse(
-                '{"intent":"availability_lookup","service_id":"unknown","message":"Ќе ми требаат неколку ваши податоци за да закажеме. Да почнеме со вашето име."}'
+                '{"intent":"availability_lookup","service_id":"consultation","message":"Еве неколку слободни термини:"}'
             )
         if message == "болка и пломба":
             return FakeResponse(
@@ -34,6 +47,8 @@ def _build_client(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
     from app.services import ai_agent, lead_store, session_trace_logger
+    import app.services.config_loader as config_loader_module
+    import app.services.scheduling.service as scheduling_service_module
 
     ai_agent.SESSION_STATE.clear()
     ai_agent.INTERACTION_HISTORY.clear()
@@ -42,6 +57,9 @@ def _build_client(monkeypatch, tmp_path):
     monkeypatch.setattr(session_trace_logger, "TRACE_DIR", tmp_path / "runtime_traces")
     monkeypatch.setattr(session_trace_logger, "SETTINGS_PATH", tmp_path / "settings.env")
     monkeypatch.setattr(session_trace_logger, "is_session_trace_enabled", lambda: False)
+    mocked_loader = _mock_profile_loader(config_loader_module.load_profile_config)
+    monkeypatch.setattr(config_loader_module, "load_profile_config", mocked_loader)
+    monkeypatch.setattr(scheduling_service_module, "load_profile_config", mocked_loader)
 
     import app.main as main_module
 
@@ -49,7 +67,7 @@ def _build_client(monkeypatch, tmp_path):
     return TestClient(main_module.app), ai_agent
 
 
-def test_availability_intent_marks_internal_state_without_starting_booking(monkeypatch, tmp_path):
+def test_availability_intent_triggers_scheduling_without_starting_booking(monkeypatch, tmp_path):
     client, ai_agent = _build_client(monkeypatch, tmp_path)
 
     response = client.post("/chat?tenant=milena_dental", json={"message": "check availability"})
@@ -58,11 +76,16 @@ def test_availability_intent_marks_internal_state_without_starting_booking(monke
     payload = response.json()
     assert payload["session_status"] == "active"
     assert payload["booking_progress"] is None
-    assert "вашето име" in payload["reply"]
+    assert "слободни термини" in payload["reply"]
+    assert "09:00" in payload["reply"]
 
     session_key = ai_agent._session_key("milena_dental", payload["session_id"])
-    assert ai_agent.SESSION_STATE[session_key][ai_agent.AVAILABILITY_INTENT_MARKER_KEY] is True
-    assert ai_agent.SESSION_STATE[session_key].get("stage") is None
+    scheduling_state = ai_agent.SESSION_STATE[session_key]["scheduling"]
+    assert ai_agent.AVAILABILITY_INTENT_MARKER_KEY not in ai_agent.SESSION_STATE[session_key]
+    assert scheduling_state["operation"] == "availability_lookup"
+    assert scheduling_state["status"] == "completed"
+    assert scheduling_state["output_payload"]["result"]["provider"] == "mock"
+    assert scheduling_state["output_payload"]["result"]["slots"][0]["slot_id"].startswith("mock|")
 
 
 def test_normal_booking_path_still_starts_contact_collection(monkeypatch, tmp_path):
@@ -82,4 +105,3 @@ def test_normal_booking_path_still_starts_contact_collection(monkeypatch, tmp_pa
     second_payload = second.json()
     assert second_payload["session_status"] == "collecting_contact"
     assert second_payload["booking_progress"]["next_field"] == "name"
-

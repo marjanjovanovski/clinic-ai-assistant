@@ -180,6 +180,46 @@ def test_handle_scheduling_capability_preserves_runtime_behavior_when_unused(mon
     assert result.assessment.reason == "no_scheduling_operation_requested"
 
 
+def test_handle_scheduling_capability_executes_availability_lookup_when_ready(monkeypatch):
+    monkeypatch.setattr(
+        scheduling_capability,
+        "get_scheduling_public_config",
+        lambda tenant: _snapshot(),
+    )
+
+    def fake_lookup_availability(**kwargs):
+        return AvailabilityResult(
+            provider="mock",
+            slots=[
+                AvailableSlot(
+                    provider="mock",
+                    slot_id="mock|slot-1",
+                    start_at="2026-03-23T09:00:00+01:00",
+                    end_at="2026-03-23T09:30:00+01:00",
+                    timezone="Europe/Skopje",
+                    display_label="23 Mar 2026 во 09:00",
+                )
+            ],
+        )
+
+    monkeypatch.setattr(scheduling_capability, "lookup_availability", fake_lookup_availability)
+
+    result = scheduling_capability.handle_scheduling_capability(
+        _context(
+            requested_operation=scheduling_capability.OPERATION_AVAILABILITY,
+            service_id="consultation",
+            date_from="2026-03-23",
+            date_to="2026-03-24",
+            intro_message="Еве неколку слободни термини:",
+        )
+    )
+
+    assert result.assessment.status == "completed"
+    assert result.assessment.reason == "availability_lookup_completed"
+    assert result.assessment.output_payload["result"]["provider"] == "mock"
+    assert "09:00" in result.assessment.output_payload["reply_text"]
+
+
 def test_lookup_availability_builds_scheduling_request_and_delegates(monkeypatch):
     captured = {}
 

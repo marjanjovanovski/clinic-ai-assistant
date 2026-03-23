@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
+from datetime import date, timedelta
 
 from app.services.scheduling.models import AvailabilityRequest, BookingRequest
 from app.services.scheduling.service import (
+    SchedulingConfigError,
+    SchedulingDisabledError,
+    SchedulingProviderError,
     book_slot,
     get_availability,
     get_scheduling_public_config,
@@ -51,6 +55,7 @@ class CapabilityContext:
     patient_phone: str | None = None
     patient_email: str | None = None
     note: str | None = None
+    intro_message: str | None = None
 
 
 @dataclass(slots=True)
@@ -115,6 +120,50 @@ def _base_capability_state(
         "slot_id": context.slot_id,
         "missing_inputs": missing_inputs,
     }
+
+
+def _availability_default_service_id(context: CapabilityContext) -> str | None:
+    if isinstance(context.service_id, str) and context.service_id.strip() and context.service_id != "unknown":
+        return context.service_id.strip()
+
+    for service in context.services:
+        if isinstance(service, dict) and service.get("id") == "consultation":
+            return "consultation"
+
+    for service in context.services:
+        service_id = service.get("id") if isinstance(service, dict) else None
+        if isinstance(service_id, str) and service_id.strip():
+            return service_id.strip()
+
+    return None
+
+
+def _availability_default_dates(context: CapabilityContext) -> tuple[str, str]:
+    today = date.today()
+    scheduling = context.profile.get("scheduling") if isinstance(context.profile, dict) else {}
+    lookahead_days = scheduling.get("lookahead_days") if isinstance(scheduling, dict) else None
+    if isinstance(lookahead_days, int) and lookahead_days > 1:
+        end_date = today + timedelta(days=1)
+    else:
+        end_date = today
+    return today.isoformat(), end_date.isoformat()
+
+
+def _with_availability_defaults(
+    context: CapabilityContext,
+    snapshot: SchedulingCapabilitySnapshot,
+) -> CapabilityContext:
+    if _normalized_operation(context.requested_operation) != OPERATION_AVAILABILITY:
+        return context
+
+    date_from, date_to = _availability_default_dates(context)
+    return replace(
+        context,
+        service_id=_availability_default_service_id(context),
+        date_from=context.date_from or date_from,
+        date_to=context.date_to or date_to,
+        timezone=_resolved_timezone(context, snapshot),
+    )
 
 
 def _availability_assessment(
@@ -267,12 +316,13 @@ def _booking_assessment(
 def assess_scheduling_capability(context: CapabilityContext) -> SchedulingCapabilityAssessment:
     snapshot = get_capability_snapshot(context.tenant)
     operation = _normalized_operation(context.requested_operation)
+    effective_context = _with_availability_defaults(context, snapshot)
 
     if operation == OPERATION_AVAILABILITY:
-        return _availability_assessment(context, snapshot)
+        return _availability_assessment(effective_context, snapshot)
 
     if operation == OPERATION_BOOK_SLOT:
-        return _booking_assessment(context, snapshot)
+        return _booking_assessment(effective_context, snapshot)
 
     return SchedulingCapabilityAssessment(
         can_handle=False,
@@ -285,8 +335,66 @@ def assess_scheduling_capability(context: CapabilityContext) -> SchedulingCapabi
     )
 
 
+def _availability_reply_text(context: CapabilityContext, slots_payload: list[dict]) -> str:
+    intro_message = context.intro_message.strip() if isinstance(context.intro_message, str) and context.intro_message.strip() else ""
+    slot_lines = [f"• {slot['display_label']}" for slot in slots_payload[:6] if isinstance(slot.get("display_label"), str)]
+    if intro_message and slot_lines:
+        return f"{intro_message}\n\n" + "\n".join(slot_lines)
+    if intro_message:
+        return intro_message
+    if slot_lines:
+        return "\n".join(slot_lines)
+    return ""
+
+
 def handle_scheduling_capability(context: CapabilityContext) -> CapabilityResult:
     assessment = assess_scheduling_capability(context)
+    operation = _normalized_operation(context.requested_operation)
+
+    if operation == OPERATION_AVAILABILITY and assessment.can_handle and assessment.status == "ready":
+        effective_context = replace(
+            context,
+            service_id=assessment.capability_state.get("service_id") if isinstance(assessment.capability_state, dict) else context.service_id,
+            date_from=assessment.output_payload.get("request", {}).get("date_from") if isinstance(assessment.output_payload, dict) else context.date_from,
+            date_to=assessment.output_payload.get("request", {}).get("date_to") if isinstance(assessment.output_payload, dict) else context.date_to,
+            timezone=assessment.capability_state.get("timezone") if isinstance(assessment.capability_state, dict) else context.timezone,
+        )
+        try:
+            availability = lookup_availability(
+                tenant=effective_context.tenant,
+                service_id=str(effective_context.service_id),
+                date_from=str(effective_context.date_from),
+                date_to=str(effective_context.date_to),
+                timezone=str(effective_context.timezone),
+                preferred_days=effective_context.preferred_days,
+                preferred_time_range=effective_context.preferred_time_range,
+            )
+            result_payload = availability.to_dict()
+            output_payload = {
+                **(assessment.output_payload or {}),
+                "result": result_payload,
+                "reply_text": _availability_reply_text(effective_context, result_payload.get("slots", [])),
+            }
+            return CapabilityResult(
+                next_action=CAPABILITY_NEXT_CONTINUE,
+                state=context.state,
+                assessment=SchedulingCapabilityAssessment(
+                    can_handle=assessment.can_handle,
+                    operation=assessment.operation,
+                    status="completed",
+                    reason="availability_lookup_completed",
+                    missing_inputs=[],
+                    capability_state=assessment.capability_state,
+                    output_payload=output_payload,
+                ),
+            )
+        except SchedulingDisabledError:
+            pass
+        except SchedulingConfigError:
+            pass
+        except SchedulingProviderError:
+            pass
+
     return CapabilityResult(
         next_action=CAPABILITY_NEXT_CONTINUE,
         state=context.state,
