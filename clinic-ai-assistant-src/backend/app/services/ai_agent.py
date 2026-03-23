@@ -244,10 +244,55 @@ def _store_scheduling_state(
         "reason": assessment.reason,
         "capability_state": assessment.capability_state,
         "output_payload": assessment.output_payload,
+        "booking_handoff_ready": bool(
+            assessment.operation == scheduling_capability.OPERATION_AVAILABILITY
+            and assessment.status == "completed"
+            and isinstance(assessment.output_payload, dict)
+            and isinstance(assessment.output_payload.get("result"), dict)
+            and isinstance(assessment.output_payload.get("result", {}).get("slots"), list)
+            and bool(assessment.output_payload.get("result", {}).get("slots"))
+        ),
     }
     next_state["scheduling"] = scheduling_state
     SESSION_STATE[session_key] = next_state
     return next_state
+
+
+def _scheduling_state(state: dict | None) -> dict | None:
+    if not isinstance(state, dict):
+        return None
+    scheduling_state = state.get("scheduling")
+    return scheduling_state if isinstance(scheduling_state, dict) else None
+
+
+def _scheduling_handoff_ready(state: dict | None) -> bool:
+    scheduling_state = _scheduling_state(state)
+    return bool(isinstance(scheduling_state, dict) and scheduling_state.get("booking_handoff_ready"))
+
+
+def _scheduling_handoff_payload(state: dict | None) -> dict | None:
+    scheduling_state = _scheduling_state(state)
+    if not isinstance(scheduling_state, dict):
+        return None
+
+    capability_state = scheduling_state.get("capability_state")
+    output_payload = scheduling_state.get("output_payload")
+    result_payload = output_payload.get("result") if isinstance(output_payload, dict) else None
+    slots = result_payload.get("slots") if isinstance(result_payload, dict) else None
+    if not isinstance(slots, list):
+        slots = []
+
+    return {
+        "source": "scheduling_availability",
+        "reason": "confirmed_interest_after_availability",
+        "service_id": capability_state.get("service_id") if isinstance(capability_state, dict) else None,
+        "slot_count": len(slots),
+        "selected_slot": None,
+        "availability_result": {
+            "provider": result_payload.get("provider") if isinstance(result_payload, dict) else None,
+            "slots": slots,
+        },
+    }
 
 
 def _booking_summary_payload(profile: dict, state: dict, collect_fields: list[str], data: dict, services: list[dict]) -> dict | None:
@@ -1175,6 +1220,7 @@ def _start_collecting_contact(
     service_id: str | None,
     collect_fields: list[str],
     profile: dict,
+    scheduling_handoff: dict | None = None,
 ) -> tuple[str, str]:
     return booking_credentials.start_collecting_contact(
         tenant=tenant,
@@ -1183,6 +1229,7 @@ def _start_collecting_contact(
         service_id=service_id,
         collect_fields=collect_fields,
         profile=profile,
+        scheduling_handoff=scheduling_handoff,
         save_lead_checkpoint=save_lead_checkpoint,
         render_profile_text=_render_profile_text,
         field_prompt=_field_prompt,
@@ -1810,6 +1857,57 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             previous_session_id=old_session_id,
         )
 
+    if (
+        allow_booking
+        and _scheduling_handoff_ready(state)
+        and booking_credentials.is_booking_confirmation(
+            message,
+            profile,
+            conversation_rule_list=_conversation_rule_list,
+        )
+    ):
+        scheduling_handoff = _scheduling_handoff_payload(state)
+        handoff_service_id = (
+            scheduling_handoff.get("service_id")
+            if isinstance(scheduling_handoff, dict)
+            else None
+        )
+        reply, session_id = _start_collecting_contact(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            service_id=handoff_service_id,
+            collect_fields=collect_fields,
+            profile=profile,
+            scheduling_handoff=scheduling_handoff,
+        )
+        _trace_stage_transition(
+            tenant,
+            session_id,
+            stage_before,
+            "collecting_contact",
+            reason="scheduling_availability_interest_confirmed",
+        )
+        _log_chat_state(
+            message=message,
+            session_id=session_id,
+            intent="confirm_booking",
+            stage_before=stage_before,
+            stage_after="collecting_contact",
+        )
+        final_reply = _finalize_reply(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            message=message,
+            reply=reply,
+            response_type="confirm_booking",
+            services=services,
+            profile=profile,
+            stage_after="collecting_contact",
+        )
+        return final_reply, session_id
+
     booking_context = booking_credentials.CapabilityContext(
         tenant=tenant,
         session_id=session_id,
@@ -2216,6 +2314,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                     service_id=service_id,
                     collect_fields=collect_fields,
                     profile=profile,
+                    scheduling_handoff=None,
                     save_lead_checkpoint=save_lead_checkpoint,
                     render_profile_text=_render_profile_text,
                     field_prompt=_field_prompt,

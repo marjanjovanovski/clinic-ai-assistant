@@ -86,6 +86,35 @@ def test_availability_intent_triggers_scheduling_without_starting_booking(monkey
     assert scheduling_state["status"] == "completed"
     assert scheduling_state["output_payload"]["result"]["provider"] == "mock"
     assert scheduling_state["output_payload"]["result"]["slots"][0]["slot_id"].startswith("mock|")
+    assert scheduling_state["booking_handoff_ready"] is True
+
+
+def test_availability_confirmation_hands_off_into_booking_collection(monkeypatch, tmp_path):
+    client, ai_agent = _build_client(monkeypatch, tmp_path)
+
+    first = client.post("/chat?tenant=milena_dental", json={"message": "check availability"})
+    assert first.status_code == 200
+    first_payload = first.json()
+
+    second = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "da", "session_id": first_payload["session_id"]},
+    )
+
+    assert second.status_code == 200
+    second_payload = second.json()
+    assert second_payload["session_status"] == "collecting_contact"
+    assert second_payload["booking_progress"]["next_field"] == "name"
+
+    session_key = ai_agent._session_key("milena_dental", first_payload["session_id"])
+    state = ai_agent.SESSION_STATE[session_key]
+    assert state["stage"] == "collecting_contact"
+    assert state["service_id"] == "consultation"
+    assert "scheduling" not in state
+    assert state["scheduling_handoff"]["source"] == "scheduling_availability"
+    assert state["scheduling_handoff"]["reason"] == "confirmed_interest_after_availability"
+    assert state["scheduling_handoff"]["slot_count"] >= 1
+    assert state["scheduling_handoff"]["availability_result"]["slots"][0]["slot_id"].startswith("mock|")
 
 
 def test_normal_booking_path_still_starts_contact_collection(monkeypatch, tmp_path):

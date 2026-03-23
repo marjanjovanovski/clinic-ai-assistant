@@ -536,6 +536,7 @@ def start_collecting_contact(
     service_id: str | None,
     collect_fields: list[str],
     profile: dict,
+    scheduling_handoff: dict | None,
     save_lead_checkpoint: Callable[..., Any],
     render_profile_text: Callable[..., str | None],
     field_prompt: Callable[[dict, str], str],
@@ -555,6 +556,8 @@ def start_collecting_contact(
         "next_field": next_field,
         "data": {},
     }
+    if isinstance(scheduling_handoff, dict) and scheduling_handoff:
+        SESSION_STATE[session_key]["scheduling_handoff"] = scheduling_handoff
     if known_name and "name" in collect_fields:
         SESSION_STATE[session_key]["pending_name_confirmation"] = known_name
     save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key], required_fields=[])
@@ -821,6 +824,7 @@ def maybe_handle_booking_turn(
                 service_id=state.get("service_id"),
                 collect_fields=collect_fields,
                 profile=profile,
+                scheduling_handoff=state.get("scheduling_handoff") if isinstance(state, dict) else None,
                 save_lead_checkpoint=save_lead_checkpoint,
                 render_profile_text=render_profile_text,
                 field_prompt=field_prompt,
@@ -1376,6 +1380,7 @@ def maybe_handle_booking_turn(
             service_id="consultation",
             collect_fields=collect_fields,
             profile=profile,
+            scheduling_handoff=None,
             save_lead_checkpoint=save_lead_checkpoint,
             render_profile_text=render_profile_text,
             field_prompt=field_prompt,
