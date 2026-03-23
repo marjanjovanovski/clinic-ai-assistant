@@ -989,32 +989,15 @@ def _extract_contact_fields_from_message(
     missing_fields: list[str],
     profile: dict,
 ) -> dict[str, str]:
-    extracted: dict[str, str] = {}
-    remaining_text = message.strip()
-
-    if "email" in missing_fields:
-        email_match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", remaining_text)
-        if email_match:
-            candidate_email = email_match.group(0).strip()
-            if _is_valid_contact_field_value("email", candidate_email, profile):
-                extracted["email"] = candidate_email
-                remaining_text = remaining_text.replace(candidate_email, " ")
-
-    if "phone" in missing_fields:
-        phone_match = re.search(r"\+?\d[\d\s()./-]{6,}\d", remaining_text)
-        if phone_match:
-            raw_phone = phone_match.group(0).strip()
-            candidate_phone = re.sub(r"\D+", "", raw_phone)
-            if _is_plausible_contact_phone(candidate_phone):
-                extracted["phone"] = candidate_phone
-                remaining_text = remaining_text.replace(raw_phone, " ", 1)
-
-    if "name" in missing_fields:
-        candidate_name = _extract_name_from_contact_bundle(remaining_text)
-        if candidate_name and _is_valid_contact_field_value("name", candidate_name, profile):
-            extracted["name"] = candidate_name
-
-    return extracted
+    return booking_credentials.extract_contact_fields_from_message(
+        message,
+        missing_fields,
+        profile,
+        is_valid_contact_field_value=_is_valid_contact_field_value,
+        normalize_lookup_text=_normalize_lookup_text,
+        normalized_name_candidate=_normalized_name_candidate,
+        is_plausible_contact_phone=_is_plausible_contact_phone,
+    )
 
 
 def _should_attempt_contact_bundle_parse(
@@ -1022,33 +1005,15 @@ def _should_attempt_contact_bundle_parse(
     missing_fields: list[str],
     profile: dict,
 ) -> bool:
-    if len(missing_fields) < 2:
-        return False
-
-    extracted = _extract_contact_fields_from_message(message, missing_fields, profile)
-    if len(extracted) < 2:
-        return False
-
-    normalized_message = _normalize_lookup_text(message)
-    has_labeled_contact_hint = any(
-        token in normalized_message
-        for token in (
-            "telefon",
-            "tel",
-            "broj",
-            "kontakt",
-            "email",
-            "mail",
-            "ime",
-            "phone",
-            "number",
-        )
+    return booking_credentials.should_attempt_contact_bundle_parse(
+        message,
+        missing_fields,
+        profile,
+        is_valid_contact_field_value=_is_valid_contact_field_value,
+        normalize_lookup_text=_normalize_lookup_text,
+        normalized_name_candidate=_normalized_name_candidate,
+        is_plausible_contact_phone=_is_plausible_contact_phone,
     )
-
-    explicit_email = "email" in extracted
-    explicit_phone = "phone" in extracted
-
-    return has_labeled_contact_hint or (explicit_email and explicit_phone)
 
 
 def _unknown_service_detail_reply(message: str, services: list[dict], profile: dict) -> str | None:
@@ -1158,58 +1123,31 @@ def _start_collecting_contact(
     collect_fields: list[str],
     profile: dict,
 ) -> tuple[str, str]:
-    known_name = _recent_contact_name_hint(session_key)
-    initial_data = {}
-    next_field = collect_fields[0]
-
-    SESSION_STATE[session_key] = {
-        "stage": "collecting_contact",
-        "service_id": service_id,
-        "next_field": next_field,
-        "data": initial_data,
-    }
-    if known_name and "name" in collect_fields:
-        SESSION_STATE[session_key]["pending_name_confirmation"] = known_name
-    save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key], required_fields=[])
-    return _booking_start_reply(profile, known_name), session_id
+    return booking_credentials.start_collecting_contact(
+        tenant=tenant,
+        session_id=session_id,
+        session_key=session_key,
+        service_id=service_id,
+        collect_fields=collect_fields,
+        profile=profile,
+        save_lead_checkpoint=save_lead_checkpoint,
+        render_profile_text=_render_profile_text,
+        field_prompt=_field_prompt,
+        normalize_lookup_text=_normalize_lookup_text,
+        normalized_name_candidate=_normalized_name_candidate,
+    )
 
 
 def _normalize_collecting_contact_state(state: dict, collect_fields: list[str]) -> tuple[dict, list[str], bool]:
-    changed = False
-
-    data = state.get("data")
-    if not isinstance(data, dict):
-        state["data"] = {}
-        data = state["data"]
-        changed = True
-
-    missing_fields = [field for field in collect_fields if field not in data]
-    expected_next_field = missing_fields[0] if missing_fields else None
-
-    if state.get("next_field") != expected_next_field:
-        state["next_field"] = expected_next_field
-        changed = True
-
-    return state, missing_fields, changed
+    return booking_credentials._normalize_collecting_contact_state(state, collect_fields)
 
 
 def _has_active_booking_lock(state: dict | None) -> bool:
-    if not isinstance(state, dict):
-        return False
-
-    return state.get("stage") == "collecting_contact"
+    return booking_credentials.has_active_booking_lock(state)
 
 
 def _persisted_fields_match(save_result: dict | None, required_fields: list[str]) -> bool:
-    if not isinstance(save_result, dict) or not save_result.get("success"):
-        return False
-
-    persisted_data = save_result.get("persisted_data")
-    if not isinstance(persisted_data, dict):
-        return False
-
-    normalized_required_fields = [field_name for field_name in required_fields if field_name in {"name", "phone", "email"}]
-    return all(isinstance(persisted_data.get(field_name), str) and persisted_data.get(field_name).strip() for field_name in normalized_required_fields)
+    return booking_credentials._persisted_fields_match(save_result, required_fields)
 
 
 def _recover_from_persistence_failure(
@@ -1218,24 +1156,15 @@ def _recover_from_persistence_failure(
     save_result: dict | None,
     fallback_field: str | None,
 ) -> str:
-    persisted_data = save_result.get("persisted_data") if isinstance(save_result, dict) else {}
-    if not isinstance(persisted_data, dict):
-        persisted_data = {}
-
-    missing_fields = [field_name for field_name in collect_fields if not persisted_data.get(field_name)]
-    retry_field = missing_fields[0] if missing_fields else fallback_field or collect_fields[0]
-
-    state["stage"] = "collecting_contact"
-    state["next_field"] = retry_field
-    state.setdefault("data", {}).pop(retry_field, None)
-    return retry_field
+    return booking_credentials._recover_from_persistence_failure(state, collect_fields, save_result, fallback_field)
 
 
 def _is_booking_confirmation(message: str, profile: dict) -> bool:
-    return message.strip().casefold() in {
-        word.casefold()
-        for word in _conversation_rule_list(profile, "booking_confirm_words")
-    }
+    return booking_credentials.is_booking_confirmation(
+        message,
+        profile,
+        conversation_rule_list=_conversation_rule_list,
+    )
 
 
 def _is_booking_rejection(message: str) -> bool:
@@ -1826,25 +1755,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             previous_session_id=old_session_id,
         )
 
-    booking_preparation = booking_credentials.prepare_booking_state(
-        tenant=tenant,
-        session_id=session_id,
-        session_key=session_key,
-        message=message,
-        state=state,
-        collect_fields=collect_fields,
-        requested_edit_field=requested_edit_field,
-        services=services,
-        profile=profile,
-        save_lead_checkpoint=save_lead_checkpoint,
-        finalize_reply=_finalize_reply,
-        log_chat_state=_log_chat_state,
-    )
-    state = booking_preparation.state
-    if booking_preparation.final_response:
-        return booking_preparation.final_response
-
-    booking_response = booking_credentials.maybe_handle_booking_turn(
+    booking_context = booking_credentials.CapabilityContext(
         tenant=tenant,
         session_id=session_id,
         session_key=session_key,
@@ -1856,6 +1767,10 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         services=services,
         profile=profile,
         api_key=api_key,
+        requested_edit_field=requested_edit_field,
+    )
+    booking_result = booking_credentials.handle_booking_capability(
+        booking_context,
         save_lead_checkpoint=save_lead_checkpoint,
         finalize_reply=_finalize_reply,
         trace_stage_transition=_trace_stage_transition,
@@ -1879,705 +1794,9 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         conversation_rule_list=_conversation_rule_list,
         random_choice=random.choice,
     )
-    if booking_response:
-        return booking_response
-
-    if state and state.get("stage") == "collecting_contact":
-        state, missing_fields, state_changed = _normalize_collecting_contact_state(state, collect_fields)
-        if state_changed:
-            save_lead_checkpoint(tenant, session_id, state, required_fields=[])
-        if state.get("next_field") is None and missing_fields:
-            state["next_field"] = missing_fields[0]
-            save_lead_checkpoint(tenant, session_id, state, required_fields=[])
-
-    if state and state.get("stage") in {"collecting_contact", "completed"} and requested_edit_field:
-        existing_value = state.get("data", {}).get(requested_edit_field)
-        if isinstance(existing_value, str) and existing_value.strip():
-            state["edit_phase"] = "confirm"
-            state["edit_field"] = requested_edit_field
-            state["edit_return_stage"] = state.get("stage")
-            state["edit_return_next_field"] = state.get("next_field")
-            save_lead_checkpoint(tenant, session_id, state, required_fields=[])
-            final_reply = _finalize_reply(
-                tenant=tenant,
-                session_id=session_id,
-                session_key=session_key,
-                message=message,
-                reply=_edit_record_confirmation_reply(),
-                response_type="collect_contact",
-                services=services,
-                profile=profile,
-                stage_after=state.get("stage"),
-            )
-            return final_reply, session_id
-
-    if state and state.get("stage") in {"collecting_contact", "completed"}:
-        edit_phase = state.get("edit_phase")
-        edit_field = state.get("edit_field")
-
-        if edit_phase == "confirm" and edit_field in collect_fields:
-            if _is_booking_confirmation(message, profile):
-                state["edit_phase"] = "value"
-                save_lead_checkpoint(tenant, session_id, state, required_fields=[])
-                final_reply = _finalize_reply(
-                    tenant=tenant,
-                    session_id=session_id,
-                    session_key=session_key,
-                    message=message,
-                    reply=_edit_record_value_reply(),
-                    response_type="collect_contact",
-                    services=services,
-                    profile=profile,
-                    stage_after=state.get("stage"),
-                )
-                return final_reply, session_id
-            if _is_booking_rejection(message):
-                _clear_edit_state(state)
-                save_lead_checkpoint(tenant, session_id, state, required_fields=[])
-                final_reply = _finalize_reply(
-                    tenant=tenant,
-                    session_id=session_id,
-                    session_key=session_key,
-                    message=message,
-                    reply=_edit_record_cancelled_reply(),
-                    response_type="collect_contact",
-                    services=services,
-                    profile=profile,
-                    stage_after=state.get("stage"),
-                )
-                return final_reply, session_id
-            final_reply = _finalize_reply(
-                tenant=tenant,
-                session_id=session_id,
-                session_key=session_key,
-                message=message,
-                reply=_edit_record_confirmation_reply(),
-                response_type="collect_contact",
-                services=services,
-                profile=profile,
-                stage_after=state.get("stage"),
-            )
-            return final_reply, session_id
-
-        if edit_phase == "value" and edit_field in collect_fields:
-            if not _is_valid_contact_field_value(edit_field, message, profile):
-                if (
-                    edit_field == "phone"
-                    and re.sub(r"\D+", "", message)
-                    and not state.get("phone_length_guided")
-                ):
-                    state["phone_length_guided"] = True
-                    reply = _invalid_phone_reply(profile, message)
-                elif edit_field == "email" and "@" in message:
-                    reply = _invalid_email_reply(profile)
-                else:
-                    reply = _edit_record_value_reply()
-                final_reply = _finalize_reply(
-                    tenant=tenant,
-                    session_id=session_id,
-                    session_key=session_key,
-                    message=message,
-                    reply=reply,
-                    response_type="collect_contact",
-                    services=services,
-                    profile=profile,
-                    stage_after=state.get("stage"),
-                )
-                return final_reply, session_id
-
-            state.setdefault("data", {})[edit_field] = message
-            if edit_field == "phone":
-                state.pop("phone_length_guided", None)
-
-            state["stage"] = state.get("edit_return_stage") or state.get("stage")
-            state["next_field"] = state.get("edit_return_next_field")
-            _clear_edit_state(state)
-            required_fields = collect_fields if state.get("stage") == "completed" else [edit_field]
-            save_result = save_lead_checkpoint(tenant, session_id, state, required_fields=required_fields)
-            if not _persisted_fields_match(save_result, required_fields):
-                final_reply = _finalize_reply(
-                    tenant=tenant,
-                    session_id=session_id,
-                    session_key=session_key,
-                    message=message,
-                    reply=_edit_record_value_reply(),
-                    response_type="collect_contact",
-                    services=services,
-                    profile=profile,
-                    stage_after=state.get("stage"),
-                )
-                return final_reply, session_id
-
-            stage_after = state.get("stage")
-            final_reply = _finalize_reply(
-                tenant=tenant,
-                session_id=session_id,
-                session_key=session_key,
-                message=message,
-                reply=_edit_record_saved_reply(),
-                response_type="collect_contact",
-                services=services,
-                profile=profile,
-                stage_after=stage_after,
-            )
-            return final_reply, session_id
-
-    # Booking state 1: waiting for the user to confirm a suggested service.
-    if state and state.get("stage") == "awaiting_booking_confirmation" and allow_booking:
-        contact_payload_detected = any(
-            (
-                _should_attempt_contact_bundle_parse(message, collect_fields, profile),
-                _is_valid_contact_field_value("name", message, profile),
-                _is_valid_contact_field_value("phone", message, profile),
-                _is_valid_contact_field_value("email", message, profile),
-            )
-        )
-        if _is_booking_confirmation(message, profile) or contact_payload_detected:
-            reply, session_id = _start_collecting_contact(
-                tenant,
-                session_id,
-                session_key,
-                state.get("service_id"),
-                collect_fields,
-                profile,
-            )
-            _trace_stage_transition(
-                tenant,
-                session_id,
-                stage_before,
-                "collecting_contact",
-                reason="backend_confirmation_word" if _is_booking_confirmation(message, profile) else "backend_contact_payload_start",
-            )
-            _log_chat_state(
-                message=message,
-                session_id=session_id,
-                intent="confirm_booking",
-                stage_before=stage_before,
-                stage_after="collecting_contact",
-            )
-            if not contact_payload_detected:
-                final_reply = _finalize_reply(
-                    tenant=tenant,
-                    session_id=session_id,
-                    session_key=session_key,
-                    message=message,
-                    reply=reply,
-                    response_type="confirm_booking",
-                    services=services,
-                    profile=profile,
-                    stage_after="collecting_contact",
-                )
-                return final_reply, session_id
-            state = SESSION_STATE.get(session_key)
-
-    # Booking state 2: backend owns the contact collection prompts until completion.
-    if _has_active_booking_lock(state):
-        next_field = state.get("next_field")
-        missing_fields = [field for field in collect_fields if field not in state.get("data", {})]
-        pending_name_confirmation = state.get("pending_name_confirmation")
-        force_accept_name = False
-
-        if next_field == "name" and isinstance(pending_name_confirmation, str) and pending_name_confirmation.strip():
-            explicit_name = _extract_explicit_contact_name(message)
-            if explicit_name:
-                state.pop("pending_name_confirmation", None)
-                message = explicit_name
-            elif _is_booking_confirmation(message, profile):
-                state.pop("pending_name_confirmation", None)
-                message = pending_name_confirmation
-            elif _is_booking_rejection(message):
-                state.pop("pending_name_confirmation", None)
-                save_lead_checkpoint(tenant, session_id, state, required_fields=[])
-                reply = _field_prompt(profile, "name")
-                final_reply = _finalize_reply(
-                    tenant=tenant,
-                    session_id=session_id,
-                    session_key=session_key,
-                    message=message,
-                    reply=reply,
-                    response_type="collect_contact",
-                    services=services,
-                    profile=profile,
-                    stage_after="collecting_contact",
-                )
-                return final_reply, session_id
-
-        if next_field == "name":
-            unknown_name_mode = state.get("unknown_name_mode")
-            unknown_name_candidate = state.get("unknown_name_candidate")
-
-            if unknown_name_mode == UNKNOWN_NAME_CONFIRM_MODE and isinstance(unknown_name_candidate, str) and unknown_name_candidate.strip():
-                if _is_booking_confirmation(message, profile):
-                    message = unknown_name_candidate
-                    force_accept_name = True
-                    _clear_unknown_name_state(state)
-                elif _is_booking_rejection(message):
-                    state["unknown_name_mode"] = UNKNOWN_NAME_REPEAT_MODE
-                    state.pop("unknown_name_candidate", None)
-                    save_lead_checkpoint(tenant, session_id, state, required_fields=[])
-                    final_reply = _finalize_reply(
-                        tenant=tenant,
-                        session_id=session_id,
-                        session_key=session_key,
-                        message=message,
-                        reply=_unknown_name_retry_reply(profile),
-                        response_type="collect_contact",
-                        services=services,
-                        profile=profile,
-                        stage_after="collecting_contact",
-                    )
-                    return final_reply, session_id
-                else:
-                    save_lead_checkpoint(tenant, session_id, state, required_fields=[])
-                    final_reply = _finalize_reply(
-                        tenant=tenant,
-                        session_id=session_id,
-                        session_key=session_key,
-                        message=message,
-                        reply=_unknown_name_confirmation_reply(profile, unknown_name_candidate),
-                        response_type="collect_contact",
-                        services=services,
-                        profile=profile,
-                        stage_after="collecting_contact",
-                    )
-                    return final_reply, session_id
-
-            elif unknown_name_mode == UNKNOWN_NAME_REPEAT_MODE:
-                if _classify_booking_input(message, profile) != BOOKING_INPUT_FIELD_VALUE or _is_conversational_filler_input(message, profile):
-                    save_lead_checkpoint(tenant, session_id, state, required_fields=[])
-                    final_reply = _finalize_reply(
-                        tenant=tenant,
-                        session_id=session_id,
-                        session_key=session_key,
-                        message=message,
-                        reply=_unknown_name_retry_reply(profile),
-                        response_type="collect_contact",
-                        services=services,
-                        profile=profile,
-                        stage_after="collecting_contact",
-                    )
-                    return final_reply, session_id
-
-                message = _normalize_freeform_name_value(message)
-                force_accept_name = bool(message)
-                _clear_unknown_name_state(state)
-
-        booking_input_type = _classify_booking_input(message, profile)
-        if (
-            booking_input_type != BOOKING_INPUT_CLARIFICATION
-            and _is_contact_ownership_style_clarification(message, next_field)
-            and not _is_valid_contact_field_value(next_field, message, profile)
-        ):
-            booking_input_type = BOOKING_INPUT_CLARIFICATION
-
-        if booking_input_type == BOOKING_INPUT_CLARIFICATION:
-            reply = _booking_guidance_reply(
-                api_key=api_key,
-                tenant=tenant,
-                session_id=session_id,
-                profile=profile,
-                field_name=next_field,
-                guidance_kind="field_clarification",
-                user_message=message,
-                services=services,
-                state=state,
-            )
-            final_reply = _finalize_reply(
-                tenant=tenant,
-                session_id=session_id,
-                session_key=session_key,
-                message=message,
-                reply=reply,
-                response_type="collect_contact",
-                services=services,
-                profile=profile,
-                stage_after="collecting_contact",
-            )
-            return final_reply, session_id
-
-        if next_field == "name" and _is_catalog_reference_during_contact_collection(message, services, profile):
-            reply = _booking_guidance_reply(
-                api_key=api_key,
-                tenant=tenant,
-                session_id=session_id,
-                profile=profile,
-                field_name=next_field,
-                guidance_kind="catalog_redirect",
-                user_message=message,
-                services=services,
-                state=state,
-            )
-            final_reply = _finalize_reply(
-                tenant=tenant,
-                session_id=session_id,
-                session_key=session_key,
-                message=message,
-                reply=reply,
-                response_type="collect_contact",
-                services=services,
-                profile=profile,
-                stage_after="collecting_contact",
-            )
-            return final_reply, session_id
-
-        extracted_fields = {}
-        if _should_attempt_contact_bundle_parse(message, missing_fields, profile):
-            extracted_fields = _extract_contact_fields_from_message(message, missing_fields, profile)
-        if extracted_fields:
-            state["data"].update(extracted_fields)
-
-            updated_missing_fields = [field for field in collect_fields if field not in state["data"]]
-            if next_field in extracted_fields and not updated_missing_fields:
-                state["stage"] = "completed"
-                save_result = save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
-                if not _persisted_fields_match(save_result, collect_fields):
-                    retry_field = _recover_from_persistence_failure(state, collect_fields, save_result, next_field)
-                    SESSION_STATE[session_key] = state
-                    _trace_stage_transition(
-                        tenant,
-                        session_id,
-                        stage_before,
-                        "collecting_contact",
-                        reason=f"persistence_retry_after_{next_field}_with_multi_field_parse",
-                    )
-                    _log_chat_state(
-                        message=message,
-                        session_id=session_id,
-                        intent="collect_contact",
-                        stage_before=stage_before,
-                        stage_after="collecting_contact",
-                    )
-                    reply = _field_prompt(profile, retry_field)
-                    final_reply = _finalize_reply(
-                        tenant=tenant,
-                        session_id=session_id,
-                        session_key=session_key,
-                        message=message,
-                        reply=reply,
-                        response_type="collect_contact",
-                        services=services,
-                        profile=profile,
-                        stage_after="collecting_contact",
-                    )
-                    return final_reply, session_id
-                SESSION_STATE.pop(session_key, None)
-                _trace_stage_transition(
-                    tenant,
-                    session_id,
-                    stage_before,
-                    "completed",
-                    reason=f"collected_{next_field}_with_multi_field_parse",
-                )
-                _log_chat_state(
-                    message=message,
-                    session_id=session_id,
-                    intent="collect_contact",
-                    stage_before=stage_before,
-                    stage_after="completed",
-                )
-                reply = _profile_text(profile, "reply_texts", "booking_completed")
-                final_reply = _finalize_reply(
-                    tenant=tenant,
-                    session_id=session_id,
-                    session_key=session_key,
-                    message=message,
-                    reply=reply,
-                    response_type="collect_contact",
-                    services=services,
-                    profile=profile,
-                    stage_after="completed",
-                )
-                return final_reply, session_id
-
-            if next_field not in extracted_fields:
-                state["next_field"] = next_field
-                save_result = save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
-                if not _persisted_fields_match(save_result, list(extracted_fields.keys())):
-                    retry_field = _recover_from_persistence_failure(state, collect_fields, save_result, next_field)
-                    SESSION_STATE[session_key] = state
-                    reply = _field_prompt(profile, retry_field)
-                    final_reply = _finalize_reply(
-                        tenant=tenant,
-                        session_id=session_id,
-                        session_key=session_key,
-                        message=message,
-                        reply=reply,
-                        response_type="collect_contact",
-                        services=services,
-                        profile=profile,
-                        stage_after="collecting_contact",
-                    )
-                    return final_reply, session_id
-                reply = _field_prompt(profile, next_field)
-                final_reply = _finalize_reply(
-                    tenant=tenant,
-                    session_id=session_id,
-                    session_key=session_key,
-                    message=message,
-                    reply=reply,
-                    response_type="collect_contact",
-                    services=services,
-                    profile=profile,
-                    stage_after="collecting_contact",
-                )
-                return final_reply, session_id
-
-            state["next_field"] = updated_missing_fields[0]
-            save_result = save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
-            if not _persisted_fields_match(save_result, list(extracted_fields.keys())):
-                retry_field = _recover_from_persistence_failure(state, collect_fields, save_result, next_field)
-                SESSION_STATE[session_key] = state
-                reply = _field_prompt(profile, retry_field)
-                final_reply = _finalize_reply(
-                    tenant=tenant,
-                    session_id=session_id,
-                    session_key=session_key,
-                    message=message,
-                    reply=reply,
-                    response_type="collect_contact",
-                    services=services,
-                    profile=profile,
-                    stage_after="collecting_contact",
-                )
-                return final_reply, session_id
-            _trace_stage_transition(
-                tenant,
-                session_id,
-                stage_before,
-                "collecting_contact",
-                reason=f"multi_field_parse_after_{next_field}",
-            )
-            _log_chat_state(
-                message=message,
-                session_id=session_id,
-                intent="collect_contact",
-                stage_before=stage_before,
-                stage_after="collecting_contact",
-            )
-            reply = _field_prompt(profile, updated_missing_fields[0])
-            final_reply = _finalize_reply(
-                tenant=tenant,
-                session_id=session_id,
-                session_key=session_key,
-                message=message,
-                reply=reply,
-                response_type="collect_contact",
-                services=services,
-                profile=profile,
-                stage_after="collecting_contact",
-            )
-            return final_reply, session_id
-
-        if next_field == "name" and not force_accept_name and not _is_valid_contact_field_value(next_field, message, profile):
-            if _should_offer_unknown_name_recovery(message, profile):
-                reply = _start_unknown_name_recovery(state, message, profile)
-                save_lead_checkpoint(tenant, session_id, state, required_fields=[])
-            else:
-                reply = _field_prompt(profile, next_field)
-            final_reply = _finalize_reply(
-                tenant=tenant,
-                session_id=session_id,
-                session_key=session_key,
-                message=message,
-                reply=reply,
-                response_type="collect_contact",
-                services=services,
-                profile=profile,
-                stage_after="collecting_contact",
-            )
-            return final_reply, session_id
-
-        if not force_accept_name and not _is_valid_contact_field_value(next_field, message, profile):
-            if next_field == "phone" and re.sub(r"\D+", "", message):
-                reply = _booking_guidance_reply(
-                    api_key=api_key,
-                    tenant=tenant,
-                    session_id=session_id,
-                    profile=profile,
-                    field_name=next_field,
-                    guidance_kind="phone_retry",
-                    user_message=message,
-                    services=services,
-                    state=state,
-                    missing_digits=max(0, 9 - len(re.sub(r"\D+", "", message))),
-                )
-            elif next_field == "email" and "@" in message:
-                reply = _invalid_email_reply(profile)
-            else:
-                reply = _field_prompt(profile, next_field)
-            final_reply = _finalize_reply(
-                tenant=tenant,
-                session_id=session_id,
-                session_key=session_key,
-                message=message,
-                reply=reply,
-                response_type="collect_contact",
-                services=services,
-                profile=profile,
-                stage_after="collecting_contact",
-            )
-            return final_reply, session_id
-
-        state["data"][next_field] = message
-        if next_field == "name":
-            state.pop("pending_name_confirmation", None)
-
-        remaining = [field for field in collect_fields if field not in state["data"]]
-
-        if remaining:
-            state["next_field"] = remaining[0]
-            save_result = save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
-            if not _persisted_fields_match(save_result, [next_field]):
-                retry_field = _recover_from_persistence_failure(state, collect_fields, save_result, next_field)
-                SESSION_STATE[session_key] = state
-                reply = _field_prompt(profile, retry_field)
-                final_reply = _finalize_reply(
-                    tenant=tenant,
-                    session_id=session_id,
-                    session_key=session_key,
-                    message=message,
-                    reply=reply,
-                    response_type="collect_contact",
-                    services=services,
-                    profile=profile,
-                    stage_after="collecting_contact",
-                )
-                return final_reply, session_id
-            _trace_stage_transition(
-                tenant,
-                session_id,
-                stage_before,
-                "collecting_contact",
-                reason=f"collected_{next_field}",
-            )
-            _log_chat_state(
-                message=message,
-                session_id=session_id,
-                intent="collect_contact",
-                stage_before=stage_before,
-                stage_after="collecting_contact",
-            )
-            reply = _field_prompt(profile, remaining[0])
-            final_reply = _finalize_reply(
-                tenant=tenant,
-                session_id=session_id,
-                session_key=session_key,
-                message=message,
-                reply=reply,
-                response_type="collect_contact",
-                services=services,
-                profile=profile,
-                stage_after="collecting_contact",
-            )
-            return final_reply, session_id
-
-        state["stage"] = "completed"
-        save_result = save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
-        if not _persisted_fields_match(save_result, collect_fields):
-            retry_field = _recover_from_persistence_failure(state, collect_fields, save_result, next_field)
-            SESSION_STATE[session_key] = state
-            _trace_stage_transition(
-                tenant,
-                session_id,
-                stage_before,
-                "collecting_contact",
-                reason=f"persistence_retry_after_{next_field}",
-            )
-            _log_chat_state(
-                message=message,
-                session_id=session_id,
-                intent="collect_contact",
-                stage_before=stage_before,
-                stage_after="collecting_contact",
-            )
-            reply = _field_prompt(profile, retry_field)
-            final_reply = _finalize_reply(
-                tenant=tenant,
-                session_id=session_id,
-                session_key=session_key,
-                message=message,
-                reply=reply,
-                response_type="collect_contact",
-                services=services,
-                profile=profile,
-                stage_after="collecting_contact",
-            )
-            return final_reply, session_id
-        SESSION_STATE.pop(session_key, None)
-        _trace_stage_transition(
-            tenant,
-            session_id,
-            stage_before,
-            "completed",
-            reason=f"collected_{next_field}",
-        )
-        _log_chat_state(
-            message=message,
-            session_id=session_id,
-            intent="collect_contact",
-            stage_before=stage_before,
-            stage_after="completed",
-        )
-        reply = _profile_text(profile, "reply_texts", "booking_completed")
-        final_reply = _finalize_reply(
-            tenant=tenant,
-            session_id=session_id,
-            session_key=session_key,
-            message=message,
-            reply=reply,
-            response_type="collect_contact",
-            services=services,
-            profile=profile,
-            stage_after="completed",
-        )
-        return final_reply, session_id
-
-    if not state and allow_booking and _should_start_consultation_booking(message, session_key, services, profile):
-        SESSION_STATE[session_key] = {
-            "stage": "awaiting_booking_confirmation",
-            "service_id": "consultation",
-        }
-        _trace_stage_transition(
-            tenant,
-            session_id,
-            stage_before,
-            "awaiting_booking_confirmation",
-            reason="predicted_consultation_confirmation",
-        )
-        reply, session_id = _start_collecting_contact(
-            tenant,
-            session_id,
-            session_key,
-            "consultation",
-            collect_fields,
-            profile,
-        )
-        _trace_stage_transition(
-            tenant,
-            session_id,
-            "awaiting_booking_confirmation",
-            "collecting_contact",
-            reason="predicted_consultation_confirmation",
-        )
-        _log_chat_state(
-            message=message,
-            session_id=session_id,
-            intent="confirm_booking",
-            stage_before=stage_before,
-            stage_after="collecting_contact",
-        )
-        final_reply = _finalize_reply(
-            tenant=tenant,
-            session_id=session_id,
-            session_key=session_key,
-            message=message,
-            reply=reply,
-            response_type="confirm_booking",
-            services=services,
-            profile=profile,
-            stage_after="collecting_contact",
-        )
-        return final_reply, session_id
+    state = booking_result.state
+    if booking_result.next_action == booking_credentials.CAPABILITY_NEXT_RETURN:
+        return booking_result.final_response
 
     greeting_reply = _greeting_reply(message, profile)
     if greeting_reply:

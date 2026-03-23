@@ -20,6 +20,33 @@ class BookingPreparationResult:
     final_response: tuple[str, str] | None = None
 
 
+CAPABILITY_NEXT_CONTINUE = "continue"
+CAPABILITY_NEXT_RETURN = "return_response"
+
+
+@dataclass
+class CapabilityContext:
+    tenant: str
+    session_id: str
+    session_key: str
+    message: str
+    state: dict | None
+    stage_before: str | None
+    allow_booking: bool
+    collect_fields: list[str]
+    services: list[dict]
+    profile: dict
+    api_key: str | None
+    requested_edit_field: str | None
+
+
+@dataclass
+class CapabilityResult:
+    next_action: str
+    state: dict | None
+    final_response: tuple[str, str] | None = None
+
+
 ProfileText = Callable[..., str | None]
 
 
@@ -1383,3 +1410,99 @@ def maybe_handle_booking_turn(
         return final_reply, session_id
 
     return None
+
+
+def handle_booking_capability(
+    context: CapabilityContext,
+    *,
+    save_lead_checkpoint: Callable[..., Any],
+    finalize_reply: Callable[..., str],
+    trace_stage_transition: Callable[..., None],
+    log_chat_state: Callable[..., None],
+    field_prompt: Callable[[dict, str], str],
+    field_error_prompt: Callable[..., str | None],
+    render_profile_text: Callable[..., str | None],
+    profile_text: ProfileText,
+    booking_guidance_reply: Callable[..., str],
+    is_valid_contact_field_value: Callable[[str | None, str, dict], bool],
+    classify_booking_input: Callable[[str, dict], str],
+    booking_input_field_value: str,
+    booking_input_clarification: str,
+    is_contact_ownership_style_clarification: Callable[[str, str | None], bool],
+    is_catalog_reference_during_contact_collection: Callable[[str, list[dict], dict], bool],
+    is_conversational_filler_input: Callable[[str, dict], bool],
+    should_start_consultation_booking: Callable[[str, str, list[dict], dict], bool],
+    normalize_lookup_text: Callable[[str], str],
+    normalized_name_candidate: Callable[[str], str | None],
+    is_plausible_contact_phone: Callable[[str], bool],
+    conversation_rule_list: Callable[[dict, str], list[str]],
+    random_choice: Callable[[tuple[str, str]], str],
+) -> CapabilityResult:
+    preparation = prepare_booking_state(
+        tenant=context.tenant,
+        session_id=context.session_id,
+        session_key=context.session_key,
+        message=context.message,
+        state=context.state,
+        collect_fields=context.collect_fields,
+        requested_edit_field=context.requested_edit_field,
+        services=context.services,
+        profile=context.profile,
+        save_lead_checkpoint=save_lead_checkpoint,
+        finalize_reply=finalize_reply,
+        log_chat_state=log_chat_state,
+    )
+    state = preparation.state
+    if preparation.final_response:
+        return CapabilityResult(
+            next_action=CAPABILITY_NEXT_RETURN,
+            state=state,
+            final_response=preparation.final_response,
+        )
+
+    response = maybe_handle_booking_turn(
+        tenant=context.tenant,
+        session_id=context.session_id,
+        session_key=context.session_key,
+        message=context.message,
+        state=state,
+        stage_before=context.stage_before,
+        allow_booking=context.allow_booking,
+        collect_fields=context.collect_fields,
+        services=context.services,
+        profile=context.profile,
+        api_key=context.api_key,
+        save_lead_checkpoint=save_lead_checkpoint,
+        finalize_reply=finalize_reply,
+        trace_stage_transition=trace_stage_transition,
+        log_chat_state=log_chat_state,
+        field_prompt=field_prompt,
+        field_error_prompt=field_error_prompt,
+        render_profile_text=render_profile_text,
+        profile_text=profile_text,
+        booking_guidance_reply=booking_guidance_reply,
+        is_valid_contact_field_value=is_valid_contact_field_value,
+        classify_booking_input=classify_booking_input,
+        booking_input_field_value=booking_input_field_value,
+        booking_input_clarification=booking_input_clarification,
+        is_contact_ownership_style_clarification=is_contact_ownership_style_clarification,
+        is_catalog_reference_during_contact_collection=is_catalog_reference_during_contact_collection,
+        is_conversational_filler_input=is_conversational_filler_input,
+        should_start_consultation_booking=should_start_consultation_booking,
+        normalize_lookup_text=normalize_lookup_text,
+        normalized_name_candidate=normalized_name_candidate,
+        is_plausible_contact_phone=is_plausible_contact_phone,
+        conversation_rule_list=conversation_rule_list,
+        random_choice=random_choice,
+    )
+    if response:
+        return CapabilityResult(
+            next_action=CAPABILITY_NEXT_RETURN,
+            state=state,
+            final_response=response,
+        )
+
+    return CapabilityResult(
+        next_action=CAPABILITY_NEXT_CONTINUE,
+        state=state,
+    )
