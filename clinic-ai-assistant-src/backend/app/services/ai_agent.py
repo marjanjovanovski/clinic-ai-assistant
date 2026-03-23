@@ -6,7 +6,7 @@ import re
 
 from openai import OpenAI, OpenAIError, RateLimitError
 
-from app.services import booking_credentials
+from app.services import booking_credentials, scheduling_capability
 from app.services.chat_session_state import (
     INTERACTION_HISTORY,
     MAX_CONTEXT_INTERACTIONS,
@@ -1797,6 +1797,22 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     state = booking_result.state
     if booking_result.next_action == booking_credentials.CAPABILITY_NEXT_RETURN:
         return booking_result.final_response
+
+    scheduling_context = scheduling_capability.CapabilityContext(
+        tenant=tenant,
+        session_id=session_id,
+        session_key=session_key,
+        message=message,
+        state=state,
+        profile=profile,
+        services=services,
+    )
+    scheduling_result = scheduling_capability.handle_scheduling_capability(
+        scheduling_context,
+    )
+    state = scheduling_result.state
+    if scheduling_result.next_action == scheduling_capability.CAPABILITY_NEXT_RETURN:
+        return scheduling_result.final_response
 
     greeting_reply = _greeting_reply(message, profile)
     if greeting_reply:

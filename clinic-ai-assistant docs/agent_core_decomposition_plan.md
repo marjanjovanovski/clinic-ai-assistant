@@ -132,7 +132,7 @@ This order keeps current behavior stable while reducing future split cost.
 ### Task 03
 
 - Title: Extract booking-credentials capability
-- Status: `not_started`
+- Status: `completed`
 - Scope:
   - create a dedicated backend module for booking confirmation + contact collection behavior
   - move edit/retry/recovery logic for name, phone, and email
@@ -147,7 +147,7 @@ This order keeps current behavior stable while reducing future split cost.
 ### Task 04
 
 - Title: Thin `ai_agent.py` into orchestration-first flow
-- Status: `not_started`
+- Status: `completed`
 - Scope:
   - define a small internal contract between orchestrator and capability modules
   - route booking behavior through the extracted booking-credentials module
@@ -161,7 +161,7 @@ This order keeps current behavior stable while reducing future split cost.
 ### Task 05
 
 - Title: Add scheduling capability bridge for orchestration
-- Status: `not_started`
+- Status: `completed`
 - Scope:
   - define how orchestration can invoke scheduling as a capability
   - preserve isolated scheduling runtime and sandbox behavior
@@ -229,4 +229,4 @@ Return:
 
 ## What Remains Next
 
-The next practical step is Task 03: extract booking-credentials capability into a dedicated backend module without changing current booking behavior.
+The next practical step is Task 06: enable a controlled scheduling-first chat path while preserving the current booking-first flow as the default stable path.
