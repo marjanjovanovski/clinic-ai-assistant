@@ -56,6 +56,7 @@ def test_factory_builds_google_calendar_provider():
 
 
 def test_google_provider_returns_open_slots_around_busy_events(monkeypatch):
+    target_date = "2026-04-20"
     provider = GoogleCalendarSchedulingProvider(
         {
             "calendar_id": "primary",
@@ -78,8 +79,8 @@ def test_google_provider_returns_open_slots_around_busy_events(monkeypatch):
         lambda: _FakeCalendarService(
             [
                 {
-                    "start": {"dateTime": "2026-03-23T10:00:00+01:00"},
-                    "end": {"dateTime": "2026-03-23T10:30:00+01:00"},
+                    "start": {"dateTime": f"{target_date}T10:00:00+01:00"},
+                    "end": {"dateTime": f"{target_date}T10:30:00+01:00"},
                 }
             ]
         ),
@@ -89,16 +90,16 @@ def test_google_provider_returns_open_slots_around_busy_events(monkeypatch):
         AvailabilityRequest(
             tenant="milena_dental",
             service_id="consultation",
-            date_from="2026-03-23",
-            date_to="2026-03-23",
+            date_from=target_date,
+            date_to=target_date,
             timezone="Europe/Skopje",
         )
     )
 
     slot_starts = [slot["start_at"] for slot in result.to_dict()["slots"]]
-    assert "2026-03-23T10:00:00+01:00" not in slot_starts
-    assert "2026-03-23T09:00:00+01:00" in slot_starts
-    assert "2026-03-23T11:00:00+01:00" in slot_starts
+    assert f"{target_date}T10:00:00+01:00" not in slot_starts
+    assert f"{target_date}T09:00:00+01:00" in slot_starts
+    assert f"{target_date}T11:00:00+01:00" in slot_starts
 
 
 def test_google_provider_books_selected_slot_and_normalizes_result(monkeypatch):
