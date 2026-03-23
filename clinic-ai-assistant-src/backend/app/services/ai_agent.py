@@ -1750,6 +1750,8 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     rules = conversation.get("rules", [])
 
     allow_booking = actions.get("allow_booking", False)
+    allow_scheduling_first = actions.get("allow_scheduling_first") is True
+    require_credentials_before_confirm = actions.get("require_credentials_before_confirm") is True
     collect_fields = actions.get("collect_contact_fields", [])
     communication_rules = profile.get("\u043a\u043e\u043c\u0443\u043d\u0438\u043a\u0430\u0446\u0438\u0441\u043a\u0438_\u043f\u0440\u0430\u0432\u0438\u043b\u0430", [])
     categories = _catalog_categories(profile, services)
@@ -1800,8 +1802,6 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         system_prompt += (
             "\n\nBooking capability: enabled."
             "\nCanonical intents: greeting, suggest_service, business_overview, list_services, quote_price, confirm_booking, fallback."
-            f"\nUse {AVAILABILITY_INTENT_OUTPUT} when the user is primarily asking about appointment availability, free slots, or opening-time availability."
-            f"\n{AVAILABILITY_INTENT_OUTPUT} is an internal orchestration signal, not a booking confirmation."
             "\nIf the user confirms booking, return confirm_booking."
             "\nIf the user asks what the clinic does or asks about the business in general, return business_overview."
             "\nIf the user asks what services are available or asks generally what the clinic offers, return list_services."
@@ -1809,6 +1809,16 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             "\nDo not volunteer prices in general descriptive answers."
             f"\nCollect these fields in order: {collect_fields}"
         )
+        if allow_scheduling_first:
+            system_prompt += (
+                f"\nUse {AVAILABILITY_INTENT_OUTPUT} when the user is primarily asking about appointment availability, free slots, or opening-time availability."
+                f"\n{AVAILABILITY_INTENT_OUTPUT} is an internal orchestration signal, not a booking confirmation."
+            )
+
+    # Task 7C keeps the existing booking safeguard path intact. We only read this normalized
+    # coexistence flag here so orchestration can continue to require credentials before any final
+    # completion until there is an explicit safe branch to change that behavior.
+    _ = require_credentials_before_confirm
 
     if output_contract:
         system_prompt += (
@@ -1859,6 +1869,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
 
     if (
         allow_booking
+        and allow_scheduling_first
         and _scheduling_handoff_ready(state)
         and booking_credentials.is_booking_confirmation(
             message,
@@ -1961,7 +1972,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         services=services,
         requested_operation=(
             scheduling_capability.OPERATION_AVAILABILITY
-            if _has_availability_intent_marker(state)
+            if allow_scheduling_first and _has_availability_intent_marker(state)
             else None
         ),
     )
@@ -2248,7 +2259,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             message_text = parsed.get("message")
             booking_input_type = _classify_booking_input(message, profile)
 
-            if availability_intent_requested:
+            if availability_intent_requested and allow_scheduling_first:
                 state = _set_availability_intent_marker(session_key, state)
                 scheduling_context = scheduling_capability.CapabilityContext(
                     tenant=tenant,
