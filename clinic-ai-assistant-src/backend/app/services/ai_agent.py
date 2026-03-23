@@ -1,3 +1,16 @@
+"""Main chat orchestration.
+
+Architecture manifest for this file:
+- This file owns orchestration, workflow state, validation boundaries, and allowed transitions.
+- The LLM interprets user wording; Python code must steer workflow and side effects.
+- Tenant wording, conversational content, and tenant-specific knobs belong in config, not Python logic.
+- Do not build or extend phrase dictionaries here for business semantics or tenant phrasing.
+- If a change appears to require many wording variants, stop and move the boundary to config,
+  normalized model output, or a capability contract instead of adding more phrases.
+- Scheduling and booking side effects must be gated by backend contracts and state transitions,
+  not by raw message phrasing.
+"""
+
 import json
 import logging
 import os
@@ -31,6 +44,8 @@ CANONICAL_INTENTS = {"greeting", "suggest_service", "business_overview", "list_s
 BOOKING_INPUT_FIELD_VALUE = "FIELD_VALUE"
 BOOKING_INPUT_CLARIFICATION = "CLARIFICATION_QUESTION"
 BOOKING_INPUT_FEEDBACK = "FEEDBACK_OR_META"
+AVAILABILITY_INTENT_MARKER_KEY = "_availability_intent_pending"
+AVAILABILITY_INTENT_OUTPUT = "availability_lookup"
 UNKNOWN_NAME_CONFIRM_MODE = booking_credentials.UNKNOWN_NAME_CONFIRM_MODE
 UNKNOWN_NAME_REPEAT_MODE = booking_credentials.UNKNOWN_NAME_REPEAT_MODE
 INTENT_ALIASES = {
@@ -195,6 +210,19 @@ def _conversation_rule_patterns(profile: dict, rule_name: str = "casual_reply_pa
             normalized_patterns.append((clean_triggers, reply_key.strip()))
 
     return normalized_patterns
+
+
+def _is_availability_intent_output(intent: str | None) -> bool:
+    if not isinstance(intent, str):
+        return False
+    return intent.strip().casefold() == AVAILABILITY_INTENT_OUTPUT
+
+
+def _set_availability_intent_marker(session_key: str, state: dict | None) -> dict:
+    next_state = dict(state) if isinstance(state, dict) else {}
+    next_state[AVAILABILITY_INTENT_MARKER_KEY] = True
+    SESSION_STATE[session_key] = next_state
+    return next_state
 
 
 def _booking_summary_payload(profile: dict, state: dict, collect_fields: list[str], data: dict, services: list[dict]) -> dict | None:
@@ -1700,6 +1728,8 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         system_prompt += (
             "\n\nBooking capability: enabled."
             "\nCanonical intents: greeting, suggest_service, business_overview, list_services, quote_price, confirm_booking, fallback."
+            f"\nUse {AVAILABILITY_INTENT_OUTPUT} when the user is primarily asking about appointment availability, free slots, or opening-time availability."
+            f"\n{AVAILABILITY_INTENT_OUTPUT} is an internal orchestration signal, not a booking confirmation."
             "\nIf the user confirms booking, return confirm_booking."
             "\nIf the user asks what the clinic does or asks about the business in general, return business_overview."
             "\nIf the user asks what services are available or asks generally what the clinic offers, return list_services."
@@ -2053,10 +2083,14 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 return final_reply, session_id
 
             raw_intent = parsed.get("intent")
+            availability_intent_requested = _is_availability_intent_output(raw_intent)
             intent = _normalize_intent(raw_intent)
             service_id = parsed.get("service_id")
             message_text = parsed.get("message")
             booking_input_type = _classify_booking_input(message, profile)
+
+            if availability_intent_requested:
+                state = _set_availability_intent_marker(session_key, state)
 
             trace_event(
                 tenant,
@@ -2065,9 +2099,10 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 raw_intent=raw_intent,
                 normalized_intent=intent,
                 service_id=service_id,
+                availability_intent_requested=availability_intent_requested,
             )
 
-            if intent == "confirm_booking" and allow_booking:
+            if intent == "confirm_booking" and allow_booking and not availability_intent_requested:
                 reply, session_id = booking_credentials.start_collecting_contact(
                     tenant=tenant,
                     session_id=session_id,
@@ -2108,7 +2143,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 )
                 return final_reply, session_id
 
-            if intent == "suggest_service" and allow_booking and service_id and service_id != "unknown":
+            if intent == "suggest_service" and allow_booking and not availability_intent_requested and service_id and service_id != "unknown":
                 bookable_service_ids = {
                     service.get("id")
                     for service in services

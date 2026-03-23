@@ -220,6 +220,10 @@ Rules:
 - do not redo already completed tasks
 - keep behavior stable unless the current task explicitly changes runtime behavior
 - keep scope limited to conversation/session state, booking-credentials, scheduling capability, and orchestration
+- keep orchestration code as workflow/state control, not as a tenant-language phrase dictionary
+- let the LLM interpret wording; let backend code gate side effects and allowed transitions
+- keep tenant wording/content and tenant-specific knobs in config, not Python
+- if a change seems to require many wording variants in Python, stop and move the boundary to config, normalized model output, or a capability contract
 
 Return:
 1. what you changed
