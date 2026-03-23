@@ -738,7 +738,7 @@
         "seed": "milena-dental-mock"
       },
       "google_calendar": {
-        "calendar_id": "primary",
+        "calendar_id": "assitantseen@gmail.com",
         "credentials": {
           "auth_type": "service_account",
           "service_account_file": "backend/app/config/secrets/google-service-account.json"
