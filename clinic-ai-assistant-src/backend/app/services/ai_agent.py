@@ -44,7 +44,6 @@ CANONICAL_INTENTS = {"greeting", "suggest_service", "business_overview", "list_s
 BOOKING_INPUT_FIELD_VALUE = "FIELD_VALUE"
 BOOKING_INPUT_CLARIFICATION = "CLARIFICATION_QUESTION"
 BOOKING_INPUT_FEEDBACK = "FEEDBACK_OR_META"
-AVAILABILITY_INTENT_MARKER_KEY = "_availability_intent_pending"
 AVAILABILITY_INTENT_OUTPUT = "availability_lookup"
 UNKNOWN_NAME_CONFIRM_MODE = booking_credentials.UNKNOWN_NAME_CONFIRM_MODE
 UNKNOWN_NAME_REPEAT_MODE = booking_credentials.UNKNOWN_NAME_REPEAT_MODE
@@ -216,83 +215,6 @@ def _is_availability_intent_output(intent: str | None) -> bool:
     if not isinstance(intent, str):
         return False
     return intent.strip().casefold() == AVAILABILITY_INTENT_OUTPUT
-
-
-def _set_availability_intent_marker(session_key: str, state: dict | None) -> dict:
-    next_state = dict(state) if isinstance(state, dict) else {}
-    next_state[AVAILABILITY_INTENT_MARKER_KEY] = True
-    SESSION_STATE[session_key] = next_state
-    return next_state
-
-
-def _has_availability_intent_marker(state: dict | None) -> bool:
-    return isinstance(state, dict) and bool(state.get(AVAILABILITY_INTENT_MARKER_KEY))
-
-
-def _store_scheduling_state(
-    session_key: str,
-    state: dict | None,
-    *,
-    assessment: scheduling_capability.SchedulingCapabilityAssessment,
-) -> dict:
-    next_state = dict(state) if isinstance(state, dict) else {}
-    next_state.pop(AVAILABILITY_INTENT_MARKER_KEY, None)
-
-    scheduling_state = {
-        "operation": assessment.operation,
-        "status": assessment.status,
-        "reason": assessment.reason,
-        "capability_state": assessment.capability_state,
-        "output_payload": assessment.output_payload,
-        "booking_handoff_ready": bool(
-            assessment.operation == scheduling_capability.OPERATION_AVAILABILITY
-            and assessment.status == "completed"
-            and isinstance(assessment.output_payload, dict)
-            and isinstance(assessment.output_payload.get("result"), dict)
-            and isinstance(assessment.output_payload.get("result", {}).get("slots"), list)
-            and bool(assessment.output_payload.get("result", {}).get("slots"))
-        ),
-    }
-    next_state["scheduling"] = scheduling_state
-    SESSION_STATE[session_key] = next_state
-    return next_state
-
-
-def _scheduling_state(state: dict | None) -> dict | None:
-    if not isinstance(state, dict):
-        return None
-    scheduling_state = state.get("scheduling")
-    return scheduling_state if isinstance(scheduling_state, dict) else None
-
-
-def _scheduling_handoff_ready(state: dict | None) -> bool:
-    scheduling_state = _scheduling_state(state)
-    return bool(isinstance(scheduling_state, dict) and scheduling_state.get("booking_handoff_ready"))
-
-
-def _scheduling_handoff_payload(state: dict | None) -> dict | None:
-    scheduling_state = _scheduling_state(state)
-    if not isinstance(scheduling_state, dict):
-        return None
-
-    capability_state = scheduling_state.get("capability_state")
-    output_payload = scheduling_state.get("output_payload")
-    result_payload = output_payload.get("result") if isinstance(output_payload, dict) else None
-    slots = result_payload.get("slots") if isinstance(result_payload, dict) else None
-    if not isinstance(slots, list):
-        slots = []
-
-    return {
-        "source": "scheduling_availability",
-        "reason": "confirmed_interest_after_availability",
-        "service_id": capability_state.get("service_id") if isinstance(capability_state, dict) else None,
-        "slot_count": len(slots),
-        "selected_slot": None,
-        "availability_result": {
-            "provider": result_payload.get("provider") if isinstance(result_payload, dict) else None,
-            "slots": slots,
-        },
-    }
 
 
 def _booking_summary_payload(profile: dict, state: dict, collect_fields: list[str], data: dict, services: list[dict]) -> dict | None:
@@ -1870,14 +1792,14 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     if (
         allow_booking
         and allow_scheduling_first
-        and _scheduling_handoff_ready(state)
+        and scheduling_capability.scheduling_handoff_ready(state)
         and booking_credentials.is_booking_confirmation(
             message,
             profile,
             conversation_rule_list=_conversation_rule_list,
         )
     ):
-        scheduling_handoff = _scheduling_handoff_payload(state)
+        scheduling_handoff = scheduling_capability.scheduling_handoff_payload(state)
         handoff_service_id = (
             scheduling_handoff.get("service_id")
             if isinstance(scheduling_handoff, dict)
@@ -1972,7 +1894,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         services=services,
         requested_operation=(
             scheduling_capability.OPERATION_AVAILABILITY
-            if allow_scheduling_first and _has_availability_intent_marker(state)
+            if allow_scheduling_first and scheduling_capability.has_pending_availability_intent(state)
             else None
         ),
     )
@@ -1981,15 +1903,14 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     )
     state = scheduling_result.state
     if scheduling_result.assessment.operation == scheduling_capability.OPERATION_AVAILABILITY:
-        state = _store_scheduling_state(
+        state = scheduling_capability.store_scheduling_state(
             session_key,
             state,
             assessment=scheduling_result.assessment,
+            session_state=SESSION_STATE,
         )
-        scheduling_reply = (
-            scheduling_result.assessment.output_payload.get("reply_text")
-            if isinstance(scheduling_result.assessment.output_payload, dict)
-            else None
+        scheduling_reply = scheduling_capability.assessment_reply_text(
+            scheduling_result.assessment
         )
         if isinstance(scheduling_reply, str) and scheduling_reply.strip():
             _log_chat_state(
@@ -2260,7 +2181,11 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             booking_input_type = _classify_booking_input(message, profile)
 
             if availability_intent_requested and allow_scheduling_first:
-                state = _set_availability_intent_marker(session_key, state)
+                state = scheduling_capability.mark_availability_intent_pending(
+                    session_key,
+                    state,
+                    SESSION_STATE,
+                )
                 scheduling_context = scheduling_capability.CapabilityContext(
                     tenant=tenant,
                     session_id=session_id,
@@ -2276,15 +2201,14 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 scheduling_result = scheduling_capability.handle_scheduling_capability(
                     scheduling_context,
                 )
-                state = _store_scheduling_state(
+                state = scheduling_capability.store_scheduling_state(
                     session_key,
                     scheduling_result.state,
                     assessment=scheduling_result.assessment,
+                    session_state=SESSION_STATE,
                 )
-                scheduling_reply = (
-                    scheduling_result.assessment.output_payload.get("reply_text")
-                    if isinstance(scheduling_result.assessment.output_payload, dict)
-                    else None
+                scheduling_reply = scheduling_capability.assessment_reply_text(
+                    scheduling_result.assessment
                 )
                 if isinstance(scheduling_reply, str) and scheduling_reply.strip():
                     _log_chat_state(

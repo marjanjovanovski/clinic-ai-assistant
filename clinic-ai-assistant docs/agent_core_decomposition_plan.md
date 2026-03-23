@@ -175,7 +175,7 @@ This order keeps current behavior stable while reducing future split cost.
 ### Task 06
 
 - Title: Enable controlled scheduling-first chat path
-- Status: `not_started`
+- Status: `completed`
 - Scope:
   - support availability-first user requests in main chat
   - allow scheduling to run before booking-credentials when appropriate
@@ -187,11 +187,15 @@ This order keeps current behavior stable while reducing future split cost.
   - ask for available slots first
   - verify scheduling-first path keeps session continuity
   - verify booking-first path still works
+- Completed slices:
+  - `6A` `c0cf830` refactor(agent): rewrite availability intent gate contract
+  - `6B` `a554f36` refactor(agent): trigger scheduling capability from chat
+  - `6C` `f6daadd` refactor(agent): hand off scheduling-first chat into booking
 
 ### Task 07
 
 - Title: Add minimal tenant-driven capability coexistence config
-- Status: `not_started`
+- Status: `completed`
 - Scope:
   - introduce only the minimal config needed for current capability ordering/coexistence
   - validate config safely in `config_loader.py`
@@ -202,6 +206,10 @@ This order keeps current behavior stable while reducing future split cost.
   - current tenant config still works
   - invalid config shapes fail safely
   - scheduling-first and booking-first paths both still behave correctly
+- Completed slices:
+  - `7A` `ee39688` chore(config): add capability coexistence flags
+  - `7B` `dd1514e` chore(config): normalize capability coexistence flags
+  - `7C` `dc4f6c1` refactor(agent): gate scheduling-first chat by config
 
 ## Reset-Safe Restart Prompt
 
@@ -231,6 +239,15 @@ Return:
 3. what remains next
 ```
 
-## What Remains Next
+## Current Ready State
 
-The next practical step is Task 06: enable a controlled scheduling-first chat path while preserving the current booking-first flow as the default stable path.
+The current decomposition scope is complete for:
+
+- shared conversation/session state extraction
+- booking-credentials capability extraction
+- scheduling capability orchestration bridge
+- controlled scheduling-first chat entry
+- scheduling-first handoff into booking with session continuity
+- minimal tenant-driven capability coexistence config
+
+At this point, `ai_agent.py` remains orchestration-focused, while booking rules stay in `booking_credentials.py`, scheduling-first state/transition handling stays behind `scheduling_capability.py`, and tenant wording/content remains config-backed.

@@ -20,6 +20,7 @@ CAPABILITY_NEXT_CONTINUE = "continue"
 CAPABILITY_NEXT_RETURN = "return_response"
 OPERATION_AVAILABILITY = "availability_lookup"
 OPERATION_BOOK_SLOT = "book_selected_slot"
+AVAILABILITY_INTENT_MARKER_KEY = "_availability_intent_pending"
 
 
 @dataclass(slots=True)
@@ -93,6 +94,92 @@ def _normalized_operation(value: str | None) -> str | None:
         return None
     normalized = value.strip()
     return normalized or None
+
+
+def mark_availability_intent_pending(session_key: str, state: dict | None, session_state: dict) -> dict:
+    next_state = dict(state) if isinstance(state, dict) else {}
+    next_state[AVAILABILITY_INTENT_MARKER_KEY] = True
+    session_state[session_key] = next_state
+    return next_state
+
+
+def has_pending_availability_intent(state: dict | None) -> bool:
+    return isinstance(state, dict) and bool(state.get(AVAILABILITY_INTENT_MARKER_KEY))
+
+
+def _slots_from_assessment(assessment: SchedulingCapabilityAssessment) -> list[dict]:
+    output_payload = assessment.output_payload if isinstance(assessment.output_payload, dict) else None
+    result_payload = output_payload.get("result") if isinstance(output_payload, dict) else None
+    slots = result_payload.get("slots") if isinstance(result_payload, dict) else None
+    return slots if isinstance(slots, list) else []
+
+
+def store_scheduling_state(
+    session_key: str,
+    state: dict | None,
+    *,
+    assessment: SchedulingCapabilityAssessment,
+    session_state: dict,
+) -> dict:
+    next_state = dict(state) if isinstance(state, dict) else {}
+    next_state.pop(AVAILABILITY_INTENT_MARKER_KEY, None)
+
+    scheduling_state = {
+        "operation": assessment.operation,
+        "status": assessment.status,
+        "reason": assessment.reason,
+        "capability_state": assessment.capability_state,
+        "output_payload": assessment.output_payload,
+        "booking_handoff_ready": bool(
+            assessment.operation == OPERATION_AVAILABILITY
+            and assessment.status == "completed"
+            and bool(_slots_from_assessment(assessment))
+        ),
+    }
+    next_state["scheduling"] = scheduling_state
+    session_state[session_key] = next_state
+    return next_state
+
+
+def scheduling_handoff_ready(state: dict | None) -> bool:
+    if not isinstance(state, dict):
+        return False
+    scheduling_state = state.get("scheduling")
+    return bool(isinstance(scheduling_state, dict) and scheduling_state.get("booking_handoff_ready"))
+
+
+def scheduling_handoff_payload(state: dict | None) -> dict | None:
+    if not isinstance(state, dict):
+        return None
+
+    scheduling_state = state.get("scheduling")
+    if not isinstance(scheduling_state, dict):
+        return None
+
+    capability_state = scheduling_state.get("capability_state")
+    output_payload = scheduling_state.get("output_payload")
+    result_payload = output_payload.get("result") if isinstance(output_payload, dict) else None
+    slots = result_payload.get("slots") if isinstance(result_payload, dict) else []
+    if not isinstance(slots, list):
+        slots = []
+
+    return {
+        "source": "scheduling_availability",
+        "reason": "confirmed_interest_after_availability",
+        "service_id": capability_state.get("service_id") if isinstance(capability_state, dict) else None,
+        "slot_count": len(slots),
+        "selected_slot": None,
+        "availability_result": {
+            "provider": result_payload.get("provider") if isinstance(result_payload, dict) else None,
+            "slots": slots,
+        },
+    }
+
+
+def assessment_reply_text(assessment: SchedulingCapabilityAssessment) -> str | None:
+    output_payload = assessment.output_payload if isinstance(assessment.output_payload, dict) else None
+    reply_text = output_payload.get("reply_text") if isinstance(output_payload, dict) else None
+    return reply_text.strip() if isinstance(reply_text, str) and reply_text.strip() else None
 
 
 def _resolved_timezone(context: CapabilityContext, snapshot: SchedulingCapabilitySnapshot) -> str:
