@@ -710,6 +710,8 @@
   ],
   "actions": {
     "allow_booking": true,
+    "allow_scheduling_first": true,
+    "require_credentials_before_confirm": true,
     "collect_contact_fields": [
       "name",
       "phone",
