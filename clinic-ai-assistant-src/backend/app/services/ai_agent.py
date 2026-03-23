@@ -6,6 +6,7 @@ import re
 
 from openai import OpenAI, OpenAIError, RateLimitError
 
+from app.services import booking_credentials
 from app.services.chat_session_state import (
     INTERACTION_HISTORY,
     MAX_CONTEXT_INTERACTIONS,
@@ -30,8 +31,8 @@ CANONICAL_INTENTS = {"greeting", "suggest_service", "business_overview", "list_s
 BOOKING_INPUT_FIELD_VALUE = "FIELD_VALUE"
 BOOKING_INPUT_CLARIFICATION = "CLARIFICATION_QUESTION"
 BOOKING_INPUT_FEEDBACK = "FEEDBACK_OR_META"
-UNKNOWN_NAME_CONFIRM_MODE = "confirm_candidate"
-UNKNOWN_NAME_REPEAT_MODE = "repeat_request"
+UNKNOWN_NAME_CONFIRM_MODE = booking_credentials.UNKNOWN_NAME_CONFIRM_MODE
+UNKNOWN_NAME_REPEAT_MODE = booking_credentials.UNKNOWN_NAME_REPEAT_MODE
 INTENT_ALIASES = {
     "greeting": "greeting",
     "hello": "greeting",
@@ -1673,51 +1674,16 @@ def get_booking_progress(tenant: str, session_id: str | None) -> dict | None:
     if not isinstance(state, dict):
         return None
 
-    stage = _stage_name(state)
-    if stage not in {"collecting_contact", "completed"}:
-        return None
-
-    data = state.get("data")
-    if not isinstance(data, dict):
-        data = {}
-
-    field_progress = []
-    completed_count = 0
-    for field_name in collect_fields:
-        raw_value = data.get(field_name)
-        is_done = isinstance(raw_value, str) and raw_value.strip()
-        if is_done:
-            completed_count += 1
-        field_progress.append(
-            {
-                "field": field_name,
-                "label": _field_prompt(profile, field_name),
-                "value": raw_value.strip() if is_done else None,
-                "done": bool(is_done),
-            }
-        )
-
-    progress_percent = 0
-    if completed_count == 1:
-        progress_percent = 30
-    elif completed_count == 2:
-        progress_percent = 60
-    elif completed_count >= 3:
-        progress_percent = 100
-
-    booking_summary = _booking_summary_payload(profile, state, collect_fields, data, services)
-
-    return {
-        "visible": True,
-        "booking_stage": stage,
-        "collection_status": completed_count,
-        "collection_total": len(collect_fields),
-        "progress_percent": progress_percent,
-        "reservation_status": "complete" if stage == "completed" else "pending",
-        "next_field": state.get("next_field"),
-        "fields": field_progress,
-        "summary": booking_summary,
-    }
+    return booking_credentials.get_booking_progress(
+        profile,
+        services,
+        collect_fields,
+        state,
+        field_prompt=_field_prompt,
+        service_by_id=_service_by_id,
+        consultation_service=_consultation_service,
+        service_display_name=_service_display_name,
+    )
 
 
 def generate_reply(tenant: str, message: str, session_id: str | None = None) -> tuple[str, str]:
@@ -1822,7 +1788,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
     session_key = _session_key(tenant, session_id)
     state = _load_session_state(tenant, session_id)
     stage_before = _stage_name(state)
-    requested_edit_field = _booking_edit_requested_field(message, collect_fields)
+    requested_edit_field = booking_credentials.booking_edit_requested_field(message, collect_fields)
 
     trace_event(
         tenant,
@@ -1859,6 +1825,62 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             reason="post_completion_rollover",
             previous_session_id=old_session_id,
         )
+
+    booking_preparation = booking_credentials.prepare_booking_state(
+        tenant=tenant,
+        session_id=session_id,
+        session_key=session_key,
+        message=message,
+        state=state,
+        collect_fields=collect_fields,
+        requested_edit_field=requested_edit_field,
+        services=services,
+        profile=profile,
+        save_lead_checkpoint=save_lead_checkpoint,
+        finalize_reply=_finalize_reply,
+        log_chat_state=_log_chat_state,
+    )
+    state = booking_preparation.state
+    if booking_preparation.final_response:
+        return booking_preparation.final_response
+
+    booking_response = booking_credentials.maybe_handle_booking_turn(
+        tenant=tenant,
+        session_id=session_id,
+        session_key=session_key,
+        message=message,
+        state=state,
+        stage_before=stage_before,
+        allow_booking=allow_booking,
+        collect_fields=collect_fields,
+        services=services,
+        profile=profile,
+        api_key=api_key,
+        save_lead_checkpoint=save_lead_checkpoint,
+        finalize_reply=_finalize_reply,
+        trace_stage_transition=_trace_stage_transition,
+        log_chat_state=_log_chat_state,
+        field_prompt=_field_prompt,
+        field_error_prompt=_field_error_prompt,
+        render_profile_text=_render_profile_text,
+        profile_text=_profile_text,
+        booking_guidance_reply=_booking_guidance_reply,
+        is_valid_contact_field_value=_is_valid_contact_field_value,
+        classify_booking_input=_classify_booking_input,
+        booking_input_field_value=BOOKING_INPUT_FIELD_VALUE,
+        booking_input_clarification=BOOKING_INPUT_CLARIFICATION,
+        is_contact_ownership_style_clarification=_is_contact_ownership_style_clarification,
+        is_catalog_reference_during_contact_collection=_is_catalog_reference_during_contact_collection,
+        is_conversational_filler_input=_is_conversational_filler_input,
+        should_start_consultation_booking=_should_start_consultation_booking,
+        normalize_lookup_text=_normalize_lookup_text,
+        normalized_name_candidate=_normalized_name_candidate,
+        is_plausible_contact_phone=_is_plausible_contact_phone,
+        conversation_rule_list=_conversation_rule_list,
+        random_choice=random.choice,
+    )
+    if booking_response:
+        return booking_response
 
     if state and state.get("stage") == "collecting_contact":
         state, missing_fields, state_changed = _normalize_collecting_contact_state(state, collect_fields)
@@ -2811,13 +2833,18 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             )
 
             if intent == "confirm_booking" and allow_booking:
-                reply, session_id = _start_collecting_contact(
-                    tenant,
-                    session_id,
-                    session_key,
-                    service_id,
-                    collect_fields,
-                    profile,
+                reply, session_id = booking_credentials.start_collecting_contact(
+                    tenant=tenant,
+                    session_id=session_id,
+                    session_key=session_key,
+                    service_id=service_id,
+                    collect_fields=collect_fields,
+                    profile=profile,
+                    save_lead_checkpoint=save_lead_checkpoint,
+                    render_profile_text=_render_profile_text,
+                    field_prompt=_field_prompt,
+                    normalize_lookup_text=_normalize_lookup_text,
+                    normalized_name_candidate=_normalized_name_candidate,
                 )
                 _trace_stage_transition(
                     tenant,
@@ -2853,11 +2880,14 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                     if service.get("bookable")
                 }
                 if service_id in bookable_service_ids:
-                    SESSION_STATE[session_key] = {
-                        "stage": "awaiting_booking_confirmation",
-                        "service_id": service_id,
-                    }
-                    save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key], required_fields=collect_fields)
+                    booking_credentials.mark_booking_confirmation_pending(
+                        tenant=tenant,
+                        session_id=session_id,
+                        session_key=session_key,
+                        service_id=service_id,
+                        collect_fields=collect_fields,
+                        save_lead_checkpoint=save_lead_checkpoint,
+                    )
                     _trace_stage_transition(
                         tenant,
                         session_id,
