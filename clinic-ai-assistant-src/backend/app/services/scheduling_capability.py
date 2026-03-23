@@ -403,13 +403,12 @@ def _booking_assessment(
 def assess_scheduling_capability(context: CapabilityContext) -> SchedulingCapabilityAssessment:
     snapshot = get_capability_snapshot(context.tenant)
     operation = _normalized_operation(context.requested_operation)
-    effective_context = _with_availability_defaults(context, snapshot)
 
     if operation == OPERATION_AVAILABILITY:
-        return _availability_assessment(effective_context, snapshot)
+        return _availability_assessment(context, snapshot)
 
     if operation == OPERATION_BOOK_SLOT:
-        return _booking_assessment(effective_context, snapshot)
+        return _booking_assessment(context, snapshot)
 
     return SchedulingCapabilityAssessment(
         can_handle=False,
@@ -435,11 +434,13 @@ def _availability_reply_text(context: CapabilityContext, slots_payload: list[dic
 
 
 def handle_scheduling_capability(context: CapabilityContext) -> CapabilityResult:
-    assessment = assess_scheduling_capability(context)
     operation = _normalized_operation(context.requested_operation)
+    snapshot = get_capability_snapshot(context.tenant)
+    effective_context = _with_availability_defaults(context, snapshot)
+    assessment = assess_scheduling_capability(effective_context)
 
     if operation == OPERATION_AVAILABILITY and assessment.can_handle and assessment.status == "ready":
-        effective_context = replace(
+        execution_context = replace(
             context,
             service_id=assessment.capability_state.get("service_id") if isinstance(assessment.capability_state, dict) else context.service_id,
             date_from=assessment.output_payload.get("request", {}).get("date_from") if isinstance(assessment.output_payload, dict) else context.date_from,
@@ -448,19 +449,19 @@ def handle_scheduling_capability(context: CapabilityContext) -> CapabilityResult
         )
         try:
             availability = lookup_availability(
-                tenant=effective_context.tenant,
-                service_id=str(effective_context.service_id),
-                date_from=str(effective_context.date_from),
-                date_to=str(effective_context.date_to),
-                timezone=str(effective_context.timezone),
-                preferred_days=effective_context.preferred_days,
-                preferred_time_range=effective_context.preferred_time_range,
+                tenant=execution_context.tenant,
+                service_id=str(execution_context.service_id),
+                date_from=str(execution_context.date_from),
+                date_to=str(execution_context.date_to),
+                timezone=str(execution_context.timezone),
+                preferred_days=execution_context.preferred_days,
+                preferred_time_range=execution_context.preferred_time_range,
             )
             result_payload = availability.to_dict()
             output_payload = {
                 **(assessment.output_payload or {}),
                 "result": result_payload,
-                "reply_text": _availability_reply_text(effective_context, result_payload.get("slots", [])),
+                "reply_text": _availability_reply_text(execution_context, result_payload.get("slots", [])),
             }
             return CapabilityResult(
                 next_action=CAPABILITY_NEXT_CONTINUE,
