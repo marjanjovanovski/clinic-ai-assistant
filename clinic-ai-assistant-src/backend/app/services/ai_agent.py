@@ -35,6 +35,7 @@ from app.services.agent_service_helpers import (
     _catalog_categories,
     _match_service_for_message,
     _normalize_lookup_text,
+    _ordered_categories,
     _orientation_price_text,
     _service_by_id,
     _service_description_reply,
