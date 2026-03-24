@@ -1352,7 +1352,6 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         incoming_session_id=original_session_id,
         message=message,
     )
-    log_chat_message(tenant, session_id, "user", message)
 
     business = profile.get("business", {})
     conversation = profile.get("conversation", {})
@@ -1483,6 +1482,8 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             reason="post_completion_rollover",
             previous_session_id=old_session_id,
         )
+
+    log_chat_message(tenant, session_id, "user", message)
 
     if (
         allow_booking

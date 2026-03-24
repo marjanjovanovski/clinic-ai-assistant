@@ -37,7 +37,7 @@ Update rules:
 - Prompt 2 - Completed
 - Prompt 3 - Completed
 - Prompt 4 - Completed
-- Prompt 5 - Pending
+- Prompt 5 - Completed
 - Prompt 6 - Pending
 
 ## Working Rules For The Implementing AI Agent
@@ -316,7 +316,7 @@ Explicitly not done in this prompt:
 - no broader runtime cleanup outside the transcript logging path
 - no admin/reporting/query endpoints for chat transcript review yet
 
-## Prompt 5 - Pending
+## Prompt 5 - Completed
 
 ### Goal
 
@@ -337,6 +337,21 @@ Do not write tests in this prompt. Do not modify schema or migration files unles
 ### Required Outcome
 
 All runtime paths use the new relational model. The application functions correctly end-to-end with the refactored schema.
+
+### Completion Note
+
+Prompt 5 was completed in:
+- `clinic-ai-assistant-src/backend/app/services/ai_agent.py`
+
+Implemented outcomes:
+- user-turn transcript logging now happens after session rollover resolution
+- a new conversation started after a completed session is logged against the new session id, not the old completed one
+- the runtime path remains compatible with the tenant-backed persistence introduced in Prompts 2 and 3
+
+Explicitly not done in this prompt:
+- no test updates yet
+- no new schema changes
+- no transcript review/reporting UI or endpoint work
 
 ## Prompt 6 - Pending
 
