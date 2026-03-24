@@ -142,6 +142,48 @@ Examples:
 
 This rule applies even if the git commit author remains a different value.
 
+## History DB Location And Update Path
+
+The project history database referenced by the commit workflow lives here:
+
+- `clinic-ai-assistant-src/lessons_learned_repo/project_history.db`
+
+The implementation layer for reading and writing that database lives here:
+
+- `clinic-ai-assistant-src/lessons_learned_repo/history_store.py`
+- `clinic-ai-assistant-src/lessons_learned_repo/history_cli.py`
+
+Preferred update path:
+- use the helpers in `history_store.py` when working directly in code
+- use `history_cli.py` when a CLI-based workflow is more appropriate
+
+Tables relevant to the commit workflow:
+- `project_requirements`
+- `requirement_execution`
+- `lessons_learned`
+
+For post-commit logging, the most important table is:
+- `requirement_execution`
+
+Minimum required fields for a `requirement_execution` entry:
+- `req_code`
+- `prompt_text`
+- `execution_summary`
+- `execution_impact`
+- `git_commit_hash`
+- `author_name`
+
+Required author rule for those entries:
+- `author_name` must be the acting AI agent
+- do not default it to `Marjan Jovanovski`
+- examples:
+  - `Kai - Codex`
+  - `Claude`
+
+If a lesson is also created or updated as part of the work, `lessons_learned.author_name` must follow the same rule.
+
+When a new agent joins and asks where the commit-history database lives or how it should be updated, this section is the source of truth.
+
 ## No Auto-Advance Rule
 
 - The agent must not begin the next prompt immediately after committing.
