@@ -38,6 +38,7 @@ Update rules:
 - Prompt 3 - Pending
 - Prompt 4 - Pending
 - Prompt 5 - Pending
+- Prompt 6 - Pending
 
 ## Working Rules For The Implementing AI Agent
 
@@ -53,7 +54,7 @@ Update rules:
 
 ### Goal
 
-Understand the current implementation and document the reasoning for the refactor before making structural changes.
+Understand the current implementation and produce a structured Change Map that all later prompts will reference instead of re-exploring the repo.
 
 ### Instructions
 
@@ -69,30 +70,49 @@ You must understand:
 - how the current booking flow relies on lead persistence
 - what tests currently validate this behavior
 
-You must then write a concise implementation understanding summary covering:
+You must then write two outputs:
+
+**Output 1 — Architecture Summary**
+
+A concise prose summary covering:
 - the current persistence model
 - why it works today
 - its limitations
 - why the new relational model is needed
-- the likely code touchpoints that will need to change
+
+**Output 2 — Change Map**
+
+A structured table listing every file that will need to change. For each file include:
+
+| Field | Description |
+|---|---|
+| File path | Exact relative path from repo root |
+| Why it matters | One sentence on its role in the current model |
+| Functions / modules likely to change | Specific named functions or classes, not vague descriptions |
+| Phase | One or more of: `schema`, `migration`, `runtime`, `test` |
+| Risk | `Low`, `Medium`, or `High` with a one-line reason |
+
+The Change Map must be complete enough that agents executing Prompts 2–6 can go directly to the relevant files and functions without re-exploring the repo.
 
 ### Required Outcome
 
-Produce a concise but clear architecture/migration understanding before schema work begins.
+An architecture summary and a complete Change Map. No code changes in this prompt.
 
 ## Prompt 2 - Pending
 
 ### Goal
 
-Design and implement the new tenant model.
+Design and implement the complete schema for the new relational model — tenants table and leads FK refactor — in a single pass.
 
 ### Instructions
 
-Create a new `tenants` table.
+Reference the Change Map produced in Prompt 1. Work only on the files and functions identified there as `phase: schema`.
+
+**Step 1 — Create the `tenants` table**
 
 The table must include:
-- `id`
-- `unique_identifier`
+- `id` — autoincrement integer primary key
+- `unique_identifier` — stable unique business identifier, non-nullable, unique-indexed
 - `name`
 - `comment`
 - `phone`
@@ -101,107 +121,136 @@ The table must include:
 - `secondary_contact_name`
 - `date_registered`
 
-Design requirements:
-- If `id` is an autoincrement integer primary key, also keep `unique_identifier` as a stable unique business identifier.
-- If a different key strategy is better, explain it briefly, but still provide a stable unique identifier suitable for business use.
-- Add appropriate uniqueness and indexing where justified.
-- Insert an initial tenant record with `name = "milena_dental"`.
+Add a unique index on `unique_identifier`. Insert an initial tenant record with `name = "milena_dental"`.
+
+**Step 2 — Refactor the `leads` table**
+
+Add `tenant_id` as a foreign key referencing `tenants.id`. Do not remove the existing `tenant` text column yet — that is handled in Prompt 3 during safe migration. The column must coexist in this step.
+
+Add an index on `tenant_id`.
 
 ### Required Outcome
 
-A production-minded tenant parent table exists and includes the migrated seed tenant.
+Both schema changes are implemented in the database initialization layer. The `tenant` text column still exists at the end of this prompt — it will be removed in Prompt 3.
 
 ## Prompt 3 - Pending
 
 ### Goal
 
-Refactor the leads model to use relational tenant ownership.
+Execute the safe SQLite data migration — backfill `tenant_id`, verify data integrity, then remove the legacy `tenant` column.
 
 ### Instructions
 
-Modify the existing `leads` table so it no longer relies on the current `tenant` text column.
+Reference the Change Map produced in Prompt 1. Work only on the files and functions identified there as `phase: migration`.
 
-Required changes:
-- introduce `tenant_id`
-- connect `tenant_id` to `tenants.id`
-- preserve all existing lead data
-- migrate all records currently tied to `milena_dental` so they now reference the inserted tenant row
-- remove the old `tenant` column after migration is safely handled
+SQLite does not support `DROP COLUMN` before version 3.35 and has significant DDL constraints. Handle this with care.
+
+Required steps in order:
+1. Backfill `tenant_id` on all existing `leads` rows where `tenant = "milena_dental"` by looking up the inserted tenant record.
+2. Verify that no lead row has a null `tenant_id` after backfill. If any row cannot be matched, log it and halt — do not silently discard data.
+3. Remove the legacy `tenant` column using a safe SQLite table-rebuild migration (create new table, copy data, drop old, rename).
+4. Confirm foreign key integrity after migration completes.
 
 Important:
 - preserve compatibility with the current lead checkpoint and recovery behavior
-- be careful with SQLite migration constraints
-- ensure existing session-linked lead rows continue to work
+- ensure existing session-linked lead rows continue to work after the column removal
+- the migration must be repeatable and safe to run against the current `assistant_velika.db`
 
 ### Required Outcome
 
-`leads` is tenant-owned through a foreign key and all current lead data remains intact and linked to the correct tenant parent.
+All existing lead data is intact, linked to the correct tenant via `tenant_id`, and the legacy `tenant` text column no longer exists.
 
 ## Prompt 4 - Pending
 
 ### Goal
 
-Add durable, professional-grade chat transcript persistence.
+Add durable chat transcript persistence via a two-table schema and wire it into the runtime flow.
 
 ### Instructions
 
-Create a new schema structure for logging all chat encounters.
+Reference the Change Map produced in Prompt 1. Work only on the files and functions identified there as `phase: schema` or `phase: runtime` related to chat logging.
 
-Business intent:
-- every user message must be stored
-- every assistant reply must be stored
-- each conversation must be clearly tied to the correct tenant
-- each conversation must be clearly tied to the correct session
-- natural ordering of the conversation must be easy to reconstruct
-- chats must never mix with one another
-- the design must be suitable for future simultaneous activity and higher write volume
+**Schema — two tables required:**
 
-Design freedom:
-- if appropriate, create `chat_sessions` and `chat_messages`
-- if a different normalized structure is better, use it and explain why
-- avoid redundant repetition of session-level data where a better structure exists
+`chat_sessions`
+- `id` — autoincrement integer primary key
+- `session_id` — stable unique session identifier, unique-indexed
+- `tenant_id` — foreign key to `tenants.id`
+- `started_at` — timestamp
 
-Implementation requirement:
-- integrate this into the actual runtime flow so new chat turns are persisted automatically
-- make the ownership and ordering model easy to inspect later
+`chat_messages`
+- `id` — autoincrement integer primary key
+- `chat_session_id` — foreign key to `chat_sessions.id`
+- `role` — `user` or `assistant`
+- `content` — message text
+- `created_at` — timestamp, used for ordering
+
+Add an index on `chat_messages.chat_session_id` and `created_at`.
+
+**Runtime integration:**
+
+Wire both tables into the actual message handling flow so that:
+- a `chat_session` row is created or retrieved at the start of each session
+- every user message and every assistant reply is written to `chat_messages` immediately after it occurs
+- messages are never written in bulk at session end — each turn is persisted as it happens
+
+Do not mix session-level metadata into the messages table.
 
 ### Required Outcome
 
-A durable transcript/audit structure exists and captures the real flow of every conversation in a session-safe and tenant-safe way.
+Both tables exist, are correctly indexed, and every real chat turn is persisted automatically during runtime. No test work in this prompt.
 
 ## Prompt 5 - Pending
 
 ### Goal
 
-Finish application integration, validation, and test coverage.
+Complete runtime integration — update all application code that reads or writes leads and sessions to use the new relational model.
 
 ### Instructions
 
+Reference the Change Map produced in Prompt 1. Work only on the files and functions identified there as `phase: runtime`.
+
 Update the application code so:
-- new leads are written with `tenant_id`
-- lead loading and recovery continue to function
-- new chat sessions and messages are persisted
-- existing booking semantics are preserved
+- new leads are written with `tenant_id` instead of the legacy `tenant` text value
+- lead loading and session recovery continue to function using `tenant_id`
+- existing booking semantics — stages like `awaiting_booking_confirmation`, `collecting_contact`, `completed` — are fully preserved
+- no runtime path still references the removed `tenant` column
+
+Do not write tests in this prompt. Do not modify schema or migration files unless a runtime bug requires a targeted fix.
+
+### Required Outcome
+
+All runtime paths use the new relational model. The application functions correctly end-to-end with the refactored schema.
+
+## Prompt 6 - Pending
+
+### Goal
+
+Add test coverage for the refactored model and produce the final delivery summary.
+
+### Instructions
+
+Reference the Change Map produced in Prompt 1. Work only on the files and functions identified there as `phase: test`.
 
 Add or update tests for:
 - tenant creation
-- seed/migration of `milena_dental`
+- seed record for `milena_dental`
 - lead backfill to `tenant_id`
 - lead recovery after migration
 - chat session creation
-- chat message ordering
-- correct tenant/session ownership
-- prevention of cross-session mixing
+- chat message ordering by `created_at`
+- correct tenant and session ownership on both leads and chat messages
+- prevention of cross-session message mixing
 
-Then summarize:
-- what changed
-- why the new design is better
-- what assumptions were made
+After tests pass, write a final summary covering:
+- what changed across all six prompts
+- why the new design is better than the original
+- what assumptions were made during implementation
 - any risks or recommended follow-up work
 
 ### Required Outcome
 
-The refactor is fully integrated, validated, and documented.
+Test suite passes. Final summary is written. All prompts are marked `Completed` and this document is ready to be archived to `ProjectTasks_Done`.
 
 ## Final Completion Rule
 
