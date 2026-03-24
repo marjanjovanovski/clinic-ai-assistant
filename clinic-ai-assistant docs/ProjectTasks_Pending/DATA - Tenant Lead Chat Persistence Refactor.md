@@ -36,7 +36,7 @@ Update rules:
 - Prompt 1 - Completed
 - Prompt 2 - Completed
 - Prompt 3 - Completed
-- Prompt 4 - Pending
+- Prompt 4 - Completed
 - Prompt 5 - Pending
 - Prompt 6 - Pending
 
@@ -256,7 +256,7 @@ Explicitly not done in this prompt:
 - no test updates yet
 - no chat transcript schema work yet
 
-## Prompt 4 - Pending
+## Prompt 4 - Completed
 
 ### Goal
 
@@ -295,6 +295,26 @@ Do not mix session-level metadata into the messages table.
 ### Required Outcome
 
 Both tables exist, are correctly indexed, and every real chat turn is persisted automatically during runtime. No test work in this prompt.
+
+### Completion Note
+
+Prompt 4 was completed in:
+- `clinic-ai-assistant-src/backend/app/services/lead_store.py`
+- `clinic-ai-assistant-src/backend/app/services/ai_agent.py`
+
+Implemented outcomes:
+- `chat_sessions` schema is created idempotently
+- `chat_messages` schema is created idempotently
+- a unique index is enforced on `chat_sessions.session_id`
+- an ordering index is created on `chat_messages(chat_session_id, created_at)`
+- user messages are logged at request start in `generate_reply()`
+- assistant replies are logged in `_finalize_reply()`
+- session rows are created or reused automatically based on `session_id`
+
+Explicitly not done in this prompt:
+- no test updates yet
+- no broader runtime cleanup outside the transcript logging path
+- no admin/reporting/query endpoints for chat transcript review yet
 
 ## Prompt 5 - Pending
 

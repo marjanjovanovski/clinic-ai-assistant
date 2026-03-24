@@ -57,7 +57,7 @@ from app.services.chat_session_state import (
     _status_for_stage,
 )
 from app.services.config_loader import load_profile_config
-from app.services.lead_store import save_lead_checkpoint
+from app.services.lead_store import log_chat_message, save_lead_checkpoint
 from app.services.session_trace_logger import trace_event
 
 
@@ -1053,6 +1053,7 @@ def _finalize_reply(
         final_reply = reformulated
 
     _record_interaction(session_key, message, final_reply, response_type)
+    log_chat_message(tenant, session_id, "assistant", final_reply)
     _trace_response(tenant, session_id, final_reply, stage_after)
     return final_reply
 
@@ -1351,6 +1352,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         incoming_session_id=original_session_id,
         message=message,
     )
+    log_chat_message(tenant, session_id, "user", message)
 
     business = profile.get("business", {})
     conversation = profile.get("conversation", {})

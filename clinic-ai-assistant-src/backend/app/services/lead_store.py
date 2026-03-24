@@ -235,6 +235,76 @@ def _rebuild_leads_table_without_legacy_tenant(connection) -> None:
     connection.execute("ALTER TABLE leads__new RENAME TO leads")
 
 
+def _ensure_chat_session(connection, tenant: str, session_id: str):
+    tenant_row = _ensure_tenant_row(connection, tenant)
+    connection.execute(
+        """
+        INSERT INTO chat_sessions (
+            session_id,
+            tenant_id,
+            started_at
+        )
+        VALUES (?, ?, ?)
+        ON CONFLICT(session_id) DO UPDATE SET
+            tenant_id = excluded.tenant_id
+        """,
+        (
+            session_id,
+            tenant_row["id"],
+            datetime.now(timezone.utc).isoformat(),
+        ),
+    )
+    return connection.execute(
+        """
+        SELECT id, session_id, tenant_id, started_at
+        FROM chat_sessions
+        WHERE session_id = ?
+        """,
+        (session_id,),
+    ).fetchone()
+
+
+def log_chat_message(tenant: str, session_id: str, role: str, content: str):
+    normalized_role = role.strip() if isinstance(role, str) else ""
+    normalized_content = content.strip() if isinstance(content, str) else ""
+    if normalized_role not in {"user", "assistant"}:
+        raise ValueError("role must be 'user' or 'assistant'")
+    if not normalized_content:
+        return None
+
+    try:
+        with _connect() as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+            chat_session = _ensure_chat_session(connection, tenant, session_id)
+            connection.execute(
+                """
+                INSERT INTO chat_messages (
+                    chat_session_id,
+                    role,
+                    content,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    chat_session["id"],
+                    normalized_role,
+                    normalized_content,
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
+            connection.commit()
+            return chat_session["id"]
+    except sqlite3.Error:
+        logger.exception(
+            "Failed to persist chat message for tenant=%s session_id=%s role=%s",
+            tenant,
+            session_id,
+            normalized_role,
+        )
+        return None
+
+
 def init_leads_db():
     with _connect() as connection:
         connection.execute("PRAGMA foreign_keys = ON")
@@ -260,6 +330,42 @@ def init_leads_db():
             """
         )
         _seed_default_tenant(connection)
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chat_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                tenant_id INTEGER NOT NULL,
+                started_at TEXT NOT NULL,
+                UNIQUE(session_id),
+                FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_session_id INTEGER NOT NULL,
+                role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (chat_session_id) REFERENCES chat_sessions(id)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_sessions_session_id
+            ON chat_sessions(session_id)
+            """
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_chat_messages_session_created_at
+            ON chat_messages(chat_session_id, created_at)
+            """
+        )
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS leads (
