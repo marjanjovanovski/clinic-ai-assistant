@@ -10,6 +10,8 @@ from app.services.session_trace_logger import trace_event
 logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DB_PATH = BASE_DIR / "db" / "assistant_velika.db"
+DEFAULT_TENANT_NAME = "milena_dental"
+DEFAULT_TENANT_UNIQUE_IDENTIFIER = "milena_dental"
 
 
 def _connect():
@@ -25,6 +27,13 @@ def _normalize_saved_value(value):
 
     normalized = value.strip()
     return normalized or None
+
+
+def _table_columns(connection, table_name: str) -> set[str]:
+    return {
+        row["name"]
+        for row in connection.execute(f"PRAGMA table_info({table_name})").fetchall()
+    }
 
 
 def _fetch_persisted_lead(connection, tenant: str, session_id: str):
@@ -69,6 +78,28 @@ def _hydrate_state_from_row(row):
 
 def init_leads_db():
     with _connect() as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS tenants (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                unique_identifier TEXT NOT NULL,
+                name TEXT NOT NULL,
+                comment TEXT,
+                phone TEXT,
+                email TEXT,
+                primary_contact_name TEXT,
+                secondary_contact_name TEXT,
+                date_registered TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_unique_identifier
+            ON tenants(unique_identifier)
+            """
+        )
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS leads (
@@ -84,6 +115,46 @@ def init_leads_db():
                 UNIQUE(tenant, session_id)
             )
             """
+        )
+        lead_columns = _table_columns(connection, "leads")
+        if "tenant_id" not in lead_columns:
+            connection.execute(
+                """
+                ALTER TABLE leads
+                ADD COLUMN tenant_id INTEGER REFERENCES tenants(id)
+                """
+            )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_leads_tenant_id
+            ON leads(tenant_id)
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO tenants (
+                unique_identifier,
+                name,
+                comment,
+                phone,
+                email,
+                primary_contact_name,
+                secondary_contact_name,
+                date_registered
+            )
+            SELECT ?, ?, NULL, NULL, NULL, NULL, NULL, ?
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM tenants
+                WHERE name = ?
+            )
+            """,
+            (
+                DEFAULT_TENANT_UNIQUE_IDENTIFIER,
+                DEFAULT_TENANT_NAME,
+                datetime.now(timezone.utc).isoformat(),
+                DEFAULT_TENANT_NAME,
+            ),
         )
         connection.commit()
 

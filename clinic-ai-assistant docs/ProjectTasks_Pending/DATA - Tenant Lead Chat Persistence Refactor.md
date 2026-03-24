@@ -34,7 +34,7 @@ Update rules:
 ## Global Status Summary
 
 - Prompt 1 - Completed
-- Prompt 2 - Pending
+- Prompt 2 - Completed
 - Prompt 3 - Pending
 - Prompt 4 - Pending
 - Prompt 5 - Pending
@@ -161,7 +161,7 @@ This file is a pure pass-through. It receives `tenant` as a string query paramet
 
 ---
 
-## Prompt 2 - Pending
+## Prompt 2 - Completed
 
 ### Goal
 
@@ -195,6 +195,22 @@ Add an index on `tenant_id`.
 ### Required Outcome
 
 Both schema changes are implemented in the database initialization layer. The `tenant` text column still exists at the end of this prompt — it will be removed in Prompt 3.
+
+### Completion Note
+
+Prompt 2 was completed in `clinic-ai-assistant-src/backend/app/services/lead_store.py`.
+
+Implemented outcomes:
+- `init_leads_db()` now creates the `tenants` table if missing
+- a unique index is created on `tenants.unique_identifier`
+- `leads.tenant_id` is added idempotently if missing
+- an index is created on `leads.tenant_id`
+- the default tenant seed row for `milena_dental` is inserted if missing
+
+Explicitly not done in this prompt:
+- no backfill of existing `leads.tenant_id` values
+- no removal of the legacy `tenant` text column
+- no runtime refactor of read/write paths to use `tenant_id`
 
 ## Prompt 3 - Pending
 
