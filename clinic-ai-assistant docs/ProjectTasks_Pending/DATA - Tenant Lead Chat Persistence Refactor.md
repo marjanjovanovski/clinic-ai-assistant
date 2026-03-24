@@ -33,7 +33,7 @@ Update rules:
 
 ## Global Status Summary
 
-- Prompt 1 - Pending
+- Prompt 1 - Completed
 - Prompt 2 - Pending
 - Prompt 3 - Pending
 - Prompt 4 - Pending
@@ -50,7 +50,7 @@ Update rules:
 - Update this file immediately after each prompt is completed.
 - Do not mark a prompt as completed unless the requested work for that prompt has actually been implemented and verified as far as possible.
 
-## Prompt 1 - Pending
+## Prompt 1 - Completed
 
 ### Goal
 
@@ -97,6 +97,69 @@ The Change Map must be complete enough that agents executing Prompts 2–6 can g
 ### Required Outcome
 
 An architecture summary and a complete Change Map. No code changes in this prompt.
+
+---
+
+### Output 1 — Architecture Summary
+
+**Current persistence model**
+
+The app uses a single SQLite database at `clinic-ai-assistant-src/backend/db/assistant_velika.db`. The database is initialized at application startup via `init_leads_db()` in `lead_store.py`, which is called directly from `main.py`.
+
+The `leads` table has this shape:
+
+```
+id, tenant TEXT, session_id TEXT, contact_name, contact_phone,
+contact_email, collected_data_json TEXT, created_at, updated_at
+UNIQUE(tenant, session_id)
+```
+
+Tenant identity is stored as a plain text string in the `tenant` column. There is no `tenants` table. The string value `"milena_dental"` is hardcoded at every call site. The unique constraint is on `(tenant, session_id)` which acts as the business key for a session.
+
+**How it works today**
+
+- On each chat turn, `save_lead_checkpoint(tenant, session_id, state)` is called from `ai_agent.py` and `booking_credentials.py` at every stage transition.
+- `load_lead_checkpoint(tenant, session_id)` is called by `chat_session_state._load_session_state()` on every request to recover in-memory state from the database.
+- The `collected_data_json` column stores the full session state dict (stage, data, next_field, service_id, scheduling_handoff, etc.) as a JSON blob.
+- Contact fields (`contact_name`, `contact_phone`, `contact_email`) are also stored as dedicated columns for easy querying and are treated as the authoritative source during hydration — they override stale values in the JSON blob.
+- Session recovery (`_load_session_state`) merges the persisted stage and contact data back into in-memory `SESSION_STATE`. Stages `awaiting_booking_confirmation`, `collecting_contact`, and `completed` are the only stages that are restored from persistence.
+- There is no chat transcript storage — messages are held only in the in-memory `INTERACTION_HISTORY` dict and are lost when the process restarts.
+
+**Why it works today**
+
+There is currently one tenant (`milena_dental`). The tenant text string is consistent across all call sites. The UNIQUE constraint on `(tenant, session_id)` prevents duplicate rows. Session recovery is reliable as long as the process has already initialized the DB at startup.
+
+**Its limitations**
+
+- No relational integrity — `tenant` is a free-text string. Nothing prevents a typo or a new tenant string that doesn't correspond to any registered business entity.
+- No `tenants` table means no place to store tenant metadata (contact info, registration date, etc.).
+- Adding a second tenant requires no schema change — it just starts writing new string values, which is fragile.
+- No chat transcript — there is no durable record of what was said in any conversation. If the process restarts mid-session, the conversation history is gone.
+- `collected_data_json` stores the entire session state, mixing transient workflow state with durable contact data.
+
+**Why the new relational model is needed**
+
+A `tenants` table provides a stable, owned identity for each clinic. `leads.tenant_id` becomes a proper foreign key, enforcing that every lead belongs to a real registered tenant. Chat transcript tables allow every message to be persisted durably, enabling audit, debugging, and future analytics without relying on in-memory state.
+
+---
+
+### Output 2 — Change Map
+
+| File path | Why it matters | Functions / modules likely to change | Phase | Risk |
+|---|---|---|---|---|
+| `clinic-ai-assistant-src/backend/app/services/lead_store.py` | Owns all DB schema init, lead read/write, and session recovery logic | `init_leads_db`, `save_lead_checkpoint`, `load_lead_checkpoint`, `_fetch_persisted_lead` | schema, migration, runtime | **High** — every lead read/write passes through here; breakage stops the booking flow entirely |
+| `clinic-ai-assistant-src/backend/app/main.py` | Calls `init_leads_db()` at startup | `startup block` (line 25), imports | schema, runtime | **Low** — only needs to call any new init functions added alongside `init_leads_db` |
+| `clinic-ai-assistant-src/backend/app/services/booking_credentials.py` | Contains all booking stage transitions; calls `save_lead_checkpoint` ~20 times across all stages | `start_collecting_contact`, `mark_booking_confirmation_pending`, `handle_field_input`, `handle_completed_edit`, and all functions accepting `save_lead_checkpoint` as a callable | runtime | **High** — most call sites pass `tenant` as a string; all must remain compatible after the FK refactor |
+| `clinic-ai-assistant-src/backend/app/services/ai_agent.py` | Top-level orchestration; imports and passes `save_lead_checkpoint` to booking_credentials at 4 call sites | Lines 1093, 1553, 1946, 1992 — all `save_lead_checkpoint=save_lead_checkpoint` kwarg passes | runtime | **Medium** — the function signature is injected, so changes are localized if the signature stays stable |
+| `clinic-ai-assistant-src/backend/app/services/chat_session_state.py` | Calls `load_lead_checkpoint` on every request for session recovery | `_load_session_state` | runtime | **Medium** — recovery logic reads persisted stage and data; must keep working after `tenant` column is removed |
+| `clinic-ai-assistant-src/backend/db/assistant_velika.db` | The live SQLite database with real lead rows tied to `"milena_dental"` | N/A — data file, not code | migration | **High** — existing rows must be backfilled to `tenant_id` without data loss; SQLite DDL constraints apply |
+| `clinic-ai-assistant-src/backend/tests/integration/test_req_booking_flow.py` | Integration test suite covering the full booking flow end-to-end; directly calls `load_lead_checkpoint("milena_dental", ...)` | `_build_booking_ctx`, all test functions that assert `stored = booking_ctx.lead_store.load_lead_checkpoint(...)` | test | **Medium** — tests use the tenant string directly; will need updates after the FK refactor |
+| `clinic-ai-assistant-src/backend/tests/unit/test_lead_store_helpers.py` | Unit tests for `lead_store` internals; directly calls `save_lead_checkpoint` and `load_lead_checkpoint` with `"milena_dental"` | `test_save_lead_checkpoint_*`, `test_load_lead_checkpoint_*`, `isolated_db` fixture | test | **Medium** — fixtures initialize the DB and will need to seed a tenant row after schema change |
+
+**Explicitly excluded: `clinic-ai-assistant-src/backend/app/routes/chat.py`**
+This file is a pure pass-through. It receives `tenant` as a string query parameter and passes it unchanged to `ai_agent.py`. It has no direct database interaction. The internal translation from tenant slug to `tenant_id` happens inside `lead_store`, so the route signature and behavior do not change. No modification required.
+
+---
 
 ## Prompt 2 - Pending
 
