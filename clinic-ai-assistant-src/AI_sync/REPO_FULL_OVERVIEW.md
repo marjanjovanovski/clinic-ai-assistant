@@ -3,7 +3,7 @@
 ## 1. Repository Identity
 
 - repository name: clinic-ai-assistant
-- primary purpose: multi-tenant clinic chat assistant with deterministic routing, tenant-driven configuration, booking/contact collection, an isolated scheduling subsystem, and control-layer sync artifacts
+- primary purpose: multi-tenant clinic chat assistant with deterministic routing, tenant-driven configuration, booking/contact collection, a scheduling-first coexistence bridge, standalone scheduling infrastructure, and control-layer sync artifacts
 - primary stack: FastAPI, OpenAI Responses API, Python, SQLite, static HTML/CSS/JS, JSON tenant profiles, dotenv
 - current sync status: deterministic task execution framework active in `clinic-ai-assistant-src/AI_sync/`
 - current control-layer identity: AI Execution Protocol Layer complete for task atomicity, identity, session discipline, lifecycle control, context isolation, and backend configuration separation
@@ -153,7 +153,7 @@
 - path: clinic-ai-assistant-src/backend/app/services/ai_agent.py
   - file type: python
   - layer classification: service
-  - role/purpose: conversation orchestration, deterministic routing, OpenAI fallback, booking state handling, bounded context carry, clarification recovery, and session flow control using JSON-driven behavior configuration
+  - role/purpose: conversation orchestration, deterministic routing, OpenAI fallback, booking state handling, scheduling-capability handoff, bounded context carry, clarification recovery, and session flow control using JSON-driven behavior configuration
 - path: clinic-ai-assistant-src/backend/app/services/config_loader.py
   - file type: python
   - layer classification: service
@@ -197,7 +197,11 @@
 - path: clinic-ai-assistant-src/backend/tests/integration/test_scheduling_api.py
   - file type: python
   - layer classification: test
-  - role/purpose: integration coverage for isolated scheduling config, availability, booking, and scheduling error mapping
+  - role/purpose: integration coverage for scheduling config, availability, booking, and scheduling error mapping
+- path: clinic-ai-assistant-src/backend/tests/unit/test_scheduling_capability.py
+  - file type: python
+  - layer classification: test
+  - role/purpose: focused unit coverage for scheduling-capability assessment, orchestrator-safe request building, availability execution, and booking handoff behavior
 - path: clinic-ai-assistant-src/backend/tests/integration/test_cal_html.py
   - file type: python
   - layer classification: test
@@ -280,6 +284,7 @@
   - clinic-ai-assistant-src/backend/tests/integration/test_req_booking_flow.py
   - clinic-ai-assistant-src/backend/tests/integration/test_frontend_booking_ui.py
   - clinic-ai-assistant-src/backend/tests/unit/test_google_calendar_provider.py
+  - clinic-ai-assistant-src/backend/tests/unit/test_scheduling_capability.py
   - clinic-ai-assistant-src/backend/tests/unit/test_scheduling_factory.py
   - clinic-ai-assistant-src/backend/tests/unit/test_scheduling_models.py
 - sync artifact:
@@ -342,6 +347,8 @@
   - bounded recent-context carry
   - catalog/service-list routing
   - explicit booking-confirm gating
+  - scheduling-capability assessment and availability-first orchestration when tenant config enables coexistence
+  - scheduling handoff into booking contact collection after explicit user confirmation
   - lightweight contact value plausibility checks
   - clarification recovery that distinguishes booking-scope confusion from field-level clarification
   - ownership clarification continuity for name/phone/email during active booking
@@ -364,26 +371,29 @@
   - stepwise booking contact intro wording
   - natural Macedonian field prompts and clarification replies
   - current live receptionist-style behavior for the main tenant
-  - isolated scheduling configuration with Google Calendar as the active provider for sandbox validation
+  - coexistence flags that allow both booking-first and scheduling-first paths
+  - active Google Calendar scheduling configuration for live tenant behavior
 - `milena_dental.json` is the most actively refined tenant profile and should be treated as the primary live reference for current Macedonian behavior
 
 ## 10. Scheduling Subsystem Snapshot
 
-- the repository now contains an isolated scheduling subsystem that is intentionally separate from the current booking/chat flow
+- the repository now contains a standalone scheduling subsystem plus an orchestration bridge into the main chat flow
 - the scheduling subsystem currently includes:
   - normalized scheduling models
   - a provider interface and factory
   - a deterministic mock provider
   - a Google Calendar provider
   - standalone `/scheduling/*` endpoints
-  - a dedicated `frontend/cal.html` sandbox
+  - scheduling-capability assessment and request building in `ai_agent.py`
+  - a dedicated `frontend/cal.html` sandbox / scheduling-chat surface
 - live validation completed in the isolated sandbox shows:
   - Google availability lookup works with service-account auth
   - Google booking works by creating an event directly on the target calendar
   - service-account booking intentionally skips attendee invites and Google email updates
 - practical implication:
-  - the isolated scheduling runtime is functional now
-  - booking-flow integration remains intentionally not implemented
+  - the standalone scheduling runtime is functional now
+  - chat orchestration can enter an availability-first path when the tenant enables it
+  - final booking completion still remains guarded by the existing contact-collection and persistence rules
 
 ## 11. Recent Completed Development
 
@@ -407,6 +417,10 @@
 - added Google Calendar availability and booking support behind the scheduling provider boundary
 - validated live Google Calendar availability and booking through the isolated sandbox
 - updated the Google service-account booking path to omit attendee invites for compatibility without Domain-Wide Delegation
+- added tenant-level coexistence flags for booking-first and scheduling-first behavior
+- added scheduling-capability assessment and orchestrator-safe request construction
+- added chat-side availability-first handoff that can transition into contact collection after explicit confirmation
+- evolved `cal.html` from a pure sandbox into a hybrid scheduling-chat verification surface
 
 ## 12. Current Stability / Likely Next Testing Focus
 
@@ -419,11 +433,13 @@
   - recovery prefers persisted checkpoint/database truth for saved contact fields
   - isolated scheduling availability works in both mock and Google modes
   - isolated scheduling booking works in mock mode and live Google service-account mode
+  - scheduling-capability assessment can safely distinguish idle, awaiting-input, ready, disabled, and completed orchestration states
+  - scheduling-first interest can hand off into the protected booking/contact flow without bypassing confirmation
 - likely future testing focus:
   - full end-to-end booking verification against real DB rows during live chat
   - repeated interruption/resume behavior across the same `session_id`
   - tenant-by-tenant behavior parity outside `milena_dental.json`
-  - eventual safe integration of scheduling into the main booking flow
+  - final end-to-end completion for chat-originated scheduling-first flows after slot selection
 
 ## 13. Sync Note For Collaborators
 
@@ -433,6 +449,6 @@
   - AI_sync = deterministic AI Execution Protocol Layer
   - `PROMPT_PROTOCOL.md` = active execution contract
   - tenant profile JSON = approved home for conversational/configuration content
-  - `ai_agent.py` = logic/orchestration, validation, flow control, and persistence-gating layer only
+  - `ai_agent.py` = logic/orchestration, validation, booking flow control, scheduling-capability bridge, and persistence-gating layer only
   - `lead_store.py` = verified persistence and checkpoint recovery layer
-  - scheduling runtime = separate subsystem under `app/services/scheduling/` and `/scheduling/*`
+  - scheduling runtime = standalone subsystem under `app/services/scheduling/` and `/scheduling/*`, with a partial orchestration bridge into chat

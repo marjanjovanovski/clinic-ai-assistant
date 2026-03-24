@@ -14,9 +14,12 @@
   - `collecting_contact`
   - `completed`
 - Session-based booking continuity with completed-session rollover
+- Scheduling-capability orchestration inside `ai_agent.py` for availability-first requests
+- Scheduling-first coexistence flags in tenant profiles, including `allow_scheduling_first` for `milena_dental`
 - Scheduling service layer with normalized models, provider factory wiring, and tenant-driven scheduling config validation
 - Deterministic mock scheduling provider for isolated slot and booking testing
 - Google Calendar scheduling provider with live-validated availability lookup and booking event creation
+- Scheduling-capability tests that verify orchestrator-safe availability and booking request handoff
 
 ## Prototype / In Progress
 
@@ -24,7 +27,7 @@
 - Multi-tenant support beyond the sample tenants
 - Frontend session-status awareness
 - Localized Macedonian shell text for the default frontend
-- Booking-flow integration with the isolated scheduling subsystem
+- Safe end-to-end completion of scheduling-selected slots through the main chat flow
 - Patient-facing confirmation delivery beyond direct Google Calendar event creation
 
 ## Planned
@@ -37,9 +40,12 @@
 
 ## Scheduling Notes
 
-- The scheduling subsystem is intentionally separate from the current booking/chat flow.
-- `clinic-ai-assistant-src/frontend/cal.html` is the current sandbox for isolated scheduling validation.
+- The scheduling subsystem is no longer only an isolated backend sandbox.
+- `ai_agent.py` now recognizes availability-first intent when tenant config enables scheduling-first coexistence.
+- The current bridge is partial by design: availability assessment and slot surfacing can begin from chat, while final booking still stays behind the existing credential-collection safeguards.
+- `clinic-ai-assistant-src/frontend/cal.html` is now both a sandbox and a scheduling-chat surface for exercising the live scheduling endpoints alongside chat UI state.
 - `clinic-ai-assistant-src/backend/app/config/profiles/milena_dental.json` currently uses `google_calendar` as the active scheduling provider.
+- `clinic-ai-assistant-src/backend/app/config/profiles/milena_dental.json` currently enables both `allow_booking` and `allow_scheduling_first`, so booking-first and availability-first paths can coexist for the main tenant.
 - The Google provider currently uses service-account authentication.
 - In this service-account mode, booking creates a Google Calendar event without attendee invites or Google email updates.
 - That behavior is intentional because Google blocks attendee invites for service accounts without Domain-Wide Delegation.
