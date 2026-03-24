@@ -38,7 +38,7 @@ Update rules:
 - Prompt 3 - Completed
 - Prompt 4 - Completed
 - Prompt 5 - Completed
-- Prompt 6 - Pending
+- Prompt 6 - Completed
 
 ## Working Rules For The Implementing AI Agent
 
@@ -353,7 +353,7 @@ Explicitly not done in this prompt:
 - no new schema changes
 - no transcript review/reporting UI or endpoint work
 
-## Prompt 6 - Pending
+## Prompt 6 - Completed
 
 ### Goal
 
@@ -382,6 +382,49 @@ After tests pass, write a final summary covering:
 ### Required Outcome
 
 Test suite passes. Final summary is written. All prompts are marked `Completed` and this document is ready to be archived to `ProjectTasks_Done`.
+
+### Completion Note
+
+Prompt 6 was completed in:
+- `clinic-ai-assistant-src/backend/tests/unit/test_lead_store_helpers.py`
+- `clinic-ai-assistant-src/backend/tests/integration/test_req_booking_flow.py`
+
+Implemented outcomes:
+- unit tests now validate tenant-owned lead rows and transcript persistence helpers
+- integration coverage now validates tenant ownership and chat transcript creation across the main booking flow
+- scoped backend tests for the refactor pass successfully
+
+Executed verification:
+- `.\\tests\\unit\\test_lead_store_helpers.py`
+- `.\\tests\\integration\\test_req_booking_flow.py`
+- result: `30 passed`
+
+### Final Summary
+
+What changed across all prompts:
+- Prompt 1 documented the current lead persistence model and produced a Change Map for later work
+- Prompt 2 introduced the `tenants` schema, `leads.tenant_id`, the required indexes, and the initial `milena_dental` seed tenant
+- Prompt 3 migrated existing lead rows to `tenant_id`, removed the legacy `tenant` column, rebuilt `leads` safely for SQLite, and preserved lead-store compatibility
+- Prompt 4 added durable transcript persistence through `chat_sessions` and `chat_messages`, plus per-turn runtime logging
+- Prompt 5 fixed runtime logging order so new conversations after session rollover are attached to the correct session id
+- Prompt 6 updated the relevant unit and integration tests to validate tenant ownership and transcript behavior
+
+Why the new design is better:
+- tenant ownership is now relational instead of free-text
+- lead rows are tied to a real parent entity
+- transcript data is durable instead of in-memory only
+- the schema is safer for future multi-tenant growth and later reporting/audit work
+
+Assumptions made during implementation:
+- tenant slug values such as `milena_dental` remain the runtime-facing identifier passed through the app
+- `unique_identifier` can use the same initial value as the tenant name for the first seeded tenant
+- transcript persistence should happen in the service layer rather than through the route handler
+
+Risks and recommended follow-up work:
+- add dedicated transcript-focused integration coverage beyond the booking flow
+- consider a first-class tenant lookup helper to centralize slug-to-tenant resolution
+- clean up the task document encoding artifacts (`â€”`) in a documentation-only follow-up
+- archive this document into `ProjectTasks_Done` after the final commit and history DB update
 
 ## Final Completion Rule
 

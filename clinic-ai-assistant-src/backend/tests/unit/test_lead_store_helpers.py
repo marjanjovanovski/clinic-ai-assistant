@@ -103,13 +103,12 @@ def test_load_lead_checkpoint_returns_hydrated_persisted_truth(isolated_db):
             """
             UPDATE leads
             SET contact_name = ?, contact_email = ?, collected_data_json = ?
-            WHERE tenant = ? AND session_id = ?
+            WHERE session_id = ?
             """,
             (
                 "Marjan",
                 "mail@test.mk",
                 json.dumps({"stage": "completed", "data": {"name": "Stale Name"}}),
-                "milena_dental",
                 "session-load",
             ),
         )
@@ -122,3 +121,50 @@ def test_load_lead_checkpoint_returns_hydrated_persisted_truth(isolated_db):
         "phone": "070000000",
         "email": "mail@test.mk",
     }
+
+
+def test_save_lead_checkpoint_creates_tenant_owned_lead_and_chat_logging_support(isolated_db):
+    result = lead_store.save_lead_checkpoint(
+        "milena_dental",
+        "session-owned",
+        {"stage": "collecting_contact", "data": {"name": "Marjan"}},
+        required_fields=["name"],
+    )
+    chat_session_id = lead_store.log_chat_message("milena_dental", "session-owned", "user", "Hello")
+    lead_store.log_chat_message("milena_dental", "session-owned", "assistant", "Hi there")
+
+    assert result["success"] is True
+    assert isinstance(chat_session_id, int)
+
+    with sqlite3.connect(lead_store.DB_PATH) as connection:
+        tenant_row = connection.execute(
+            "SELECT id, unique_identifier, name FROM tenants WHERE name = ?",
+            ("milena_dental",),
+        ).fetchone()
+        lead_row = connection.execute(
+            "SELECT tenant_id, session_id FROM leads WHERE session_id = ?",
+            ("session-owned",),
+        ).fetchone()
+        chat_session_row = connection.execute(
+            "SELECT id, tenant_id, session_id FROM chat_sessions WHERE session_id = ?",
+            ("session-owned",),
+        ).fetchone()
+        chat_messages = connection.execute(
+            """
+            SELECT role, content
+            FROM chat_messages
+            WHERE chat_session_id = ?
+            ORDER BY id ASC
+            """,
+            (chat_session_id,),
+        ).fetchall()
+
+    assert tenant_row is not None
+    assert tenant_row[2] == "milena_dental"
+    assert tenant_row[1] == "milena_dental"
+    assert lead_row == (tenant_row[0], "session-owned")
+    assert chat_session_row == (chat_session_id, tenant_row[0], "session-owned")
+    assert chat_messages == [
+        ("user", "Hello"),
+        ("assistant", "Hi there"),
+    ]

@@ -187,6 +187,46 @@ def test_main_booking_path_requires_explicit_confirmation_and_persisted_completi
         "email": "mail@test.mk",
     }
 
+    with sqlite3.connect(booking_ctx.lead_store.DB_PATH) as connection:
+        connection.row_factory = sqlite3.Row
+        tenant_row = connection.execute(
+            "SELECT id FROM tenants WHERE name = ?",
+            ("milena_dental",),
+        ).fetchone()
+        lead_row = connection.execute(
+            "SELECT tenant_id, session_id FROM leads WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+        chat_session_row = connection.execute(
+            "SELECT id, tenant_id, session_id FROM chat_sessions WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+        chat_messages = connection.execute(
+            """
+            SELECT role, content
+            FROM chat_messages
+            WHERE chat_session_id = ?
+            ORDER BY id ASC
+            """,
+            (chat_session_row["id"],),
+        ).fetchall()
+
+    assert tenant_row is not None
+    assert lead_row["tenant_id"] == tenant_row["id"]
+    assert chat_session_row["tenant_id"] == tenant_row["id"]
+    assert chat_session_row["session_id"] == session_id
+    assert [row["role"] for row in chat_messages] == [
+        "user", "assistant",
+        "user", "assistant",
+        "user", "assistant",
+        "user", "assistant",
+        "user", "assistant",
+        "user", "assistant",
+    ]
+    assert chat_messages[0]["content"] == BOOKING_REQUEST
+    assert chat_messages[2]["content"] == "thanks"
+    assert chat_messages[-1]["content"] == fifth["reply"]
+
 
 def test_valid_name_progresses_booking_flow(booking_ctx):
     session_id, _ = _start_booking(booking_ctx)
