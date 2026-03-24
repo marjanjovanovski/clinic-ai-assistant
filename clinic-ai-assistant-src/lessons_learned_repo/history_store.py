@@ -32,6 +32,34 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _default_author_name() -> str:
+    result = subprocess.run(
+        ["git", "config", "user.name"],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    author_name = result.stdout.strip()
+    return author_name or "Unknown Author"
+
+
+def _author_name_for_commit_hash(commit_hash: str | None) -> str:
+    normalized_commit_hash = commit_hash.strip() if isinstance(commit_hash, str) and commit_hash.strip() else None
+    if not normalized_commit_hash:
+        return _default_author_name()
+
+    result = subprocess.run(
+        ["git", "show", "-s", "--format=%an", normalized_commit_hash],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    author_name = result.stdout.strip()
+    return author_name or _default_author_name()
+
+
 def _normalize_required_text(value: str, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} is required.")
@@ -75,7 +103,7 @@ def _execution_rows_by_ids(connection: sqlite3.Connection, execution_ids: list[i
     placeholders = ",".join("?" for _ in execution_ids)
     rows = connection.execute(
         f"""
-        SELECT id, requirement_id, prompt_text, execution_summary, execution_impact, git_commit_hash, created_at
+        SELECT id, requirement_id, prompt_text, execution_summary, execution_impact, git_commit_hash, author_name, created_at
         FROM requirement_execution
         WHERE id IN ({placeholders})
         ORDER BY id ASC
@@ -126,6 +154,7 @@ def init_history_db() -> None:
                 execution_summary TEXT NOT NULL,
                 execution_impact TEXT NOT NULL,
                 git_commit_hash TEXT,
+                author_name TEXT,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (requirement_id) REFERENCES project_requirements(id)
             )
@@ -141,6 +170,29 @@ def init_history_db() -> None:
                 ALTER TABLE requirement_execution
                 ADD COLUMN git_commit_hash TEXT
                 """
+            )
+        if "author_name" not in execution_columns:
+            connection.execute(
+                """
+                ALTER TABLE requirement_execution
+                ADD COLUMN author_name TEXT
+                """
+            )
+        execution_rows_needing_author = connection.execute(
+            """
+            SELECT id, git_commit_hash
+            FROM requirement_execution
+            WHERE author_name IS NULL OR TRIM(author_name) = ''
+            """
+        ).fetchall()
+        for row in execution_rows_needing_author:
+            connection.execute(
+                """
+                UPDATE requirement_execution
+                SET author_name = ?
+                WHERE id = ?
+                """,
+                (_author_name_for_commit_hash(row["git_commit_hash"]), row["id"]),
             )
         connection.execute(
             """
@@ -164,12 +216,24 @@ def init_history_db() -> None:
                 statement TEXT NOT NULL,
                 why_it_matters TEXT NOT NULL,
                 status TEXT NOT NULL CHECK (status IN ('proposed', 'validated', 'obsolete')),
+                author_name TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 FOREIGN KEY (requirement_id) REFERENCES project_requirements(id)
             )
             """
         )
+        lesson_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(lessons_learned)").fetchall()
+        }
+        if "author_name" not in lesson_columns:
+            connection.execute(
+                """
+                ALTER TABLE lessons_learned
+                ADD COLUMN author_name TEXT
+                """
+            )
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS lesson_execution_links (
@@ -220,6 +284,38 @@ def init_history_db() -> None:
                 "Lessons learned repository and project memory requirements.",
             ),
         )
+
+        lesson_rows_needing_author = connection.execute(
+            """
+            SELECT ll.id, ll.author_name, MIN(re.id) AS first_execution_id
+            FROM lessons_learned ll
+            LEFT JOIN lesson_execution_links lel ON lel.lesson_id = ll.id
+            LEFT JOIN requirement_execution re ON re.id = lel.execution_id
+            WHERE ll.author_name IS NULL OR TRIM(ll.author_name) = ''
+            GROUP BY ll.id, ll.author_name
+            """
+        ).fetchall()
+        for row in lesson_rows_needing_author:
+            author_name = _default_author_name()
+            if row["first_execution_id"] is not None:
+                author_row = connection.execute(
+                    """
+                    SELECT author_name
+                    FROM requirement_execution
+                    WHERE id = ?
+                    """,
+                    (row["first_execution_id"],),
+                ).fetchone()
+                if author_row and isinstance(author_row["author_name"], str) and author_row["author_name"].strip():
+                    author_name = author_row["author_name"].strip()
+            connection.execute(
+                """
+                UPDATE lessons_learned
+                SET author_name = ?
+                WHERE id = ?
+                """,
+                (author_name, row["id"]),
+            )
         connection.commit()
 
 
@@ -332,11 +428,17 @@ def create_requirement_execution(
     execution_summary: str,
     execution_impact: str,
     git_commit_hash: str | None = None,
+    author_name: str | None = None,
 ) -> dict:
     normalized_prompt_text = _normalize_required_text(prompt_text, "prompt_text")
     normalized_summary = _normalize_required_text(execution_summary, "execution_summary")
     normalized_impact = _normalize_required_text(execution_impact, "execution_impact")
     normalized_commit_hash = git_commit_hash.strip() if isinstance(git_commit_hash, str) and git_commit_hash.strip() else None
+    normalized_author_name = (
+        _normalize_required_text(author_name, "author_name")
+        if isinstance(author_name, str) and author_name.strip()
+        else _author_name_for_commit_hash(normalized_commit_hash)
+    )
 
     with _connect() as connection:
         requirement_row = _requirement_row_by_code(connection, req_code)
@@ -352,9 +454,10 @@ def create_requirement_execution(
                     execution_summary,
                     execution_impact,
                     git_commit_hash,
+                    author_name,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     requirement_row["id"],
@@ -362,6 +465,7 @@ def create_requirement_execution(
                     normalized_summary,
                     normalized_impact,
                     normalized_commit_hash,
+                    normalized_author_name,
                     _utc_now(),
                 ),
             )
@@ -371,7 +475,7 @@ def create_requirement_execution(
 
         row = connection.execute(
             """
-            SELECT id, requirement_id, prompt_text, execution_summary, execution_impact, git_commit_hash, created_at
+            SELECT id, requirement_id, prompt_text, execution_summary, execution_impact, git_commit_hash, author_name, created_at
             FROM requirement_execution
             WHERE id = ?
             """,
@@ -445,7 +549,7 @@ def list_requirement_execution(req_code: str) -> list[dict]:
 
         rows = connection.execute(
             """
-            SELECT id, requirement_id, prompt_text, execution_summary, execution_impact, git_commit_hash, created_at
+            SELECT id, requirement_id, prompt_text, execution_summary, execution_impact, git_commit_hash, author_name, created_at
             FROM requirement_execution
             WHERE requirement_id = ?
             ORDER BY id ASC, created_at ASC
@@ -467,6 +571,7 @@ def list_execution_history_with_labels(*, req_code: str | None = None) -> list[d
             re.execution_impact,
             re.prompt_text,
             re.git_commit_hash,
+            re.author_name,
             re.created_at
         FROM requirement_execution re
         INNER JOIN project_requirements pr ON pr.id = re.requirement_id
@@ -491,6 +596,7 @@ def create_lesson_learned(
     why_it_matters: str,
     source_execution_ids: list[int],
     status: str = "validated",
+    author_name: str | None = None,
 ) -> dict:
     normalized_lesson_code = _normalize_required_text(lesson_code, "lesson_code")
     normalized_title = _normalize_required_text(title, "title")
@@ -513,6 +619,15 @@ def create_lesson_learned(
         requirement_ids = {row["requirement_id"] for row in execution_rows}
         if len(requirement_ids) != 1:
             raise ValueError("All source execution ids must belong to the same requirement.")
+        normalized_author_name = (
+            _normalize_required_text(author_name, "author_name")
+            if isinstance(author_name, str) and author_name.strip()
+            else (
+                execution_rows[0]["author_name"].strip()
+                if isinstance(execution_rows[0]["author_name"], str) and execution_rows[0]["author_name"].strip()
+                else _default_author_name()
+            )
+        )
 
         existing_row = connection.execute(
             """
@@ -533,10 +648,11 @@ def create_lesson_learned(
                 statement,
                 why_it_matters,
                 status,
+                author_name,
                 created_at,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 normalized_lesson_code,
@@ -545,6 +661,7 @@ def create_lesson_learned(
                 normalized_statement,
                 normalized_why,
                 normalized_status,
+                normalized_author_name,
                 now,
                 now,
             ),
@@ -564,7 +681,7 @@ def create_lesson_learned(
 
         lesson_row = connection.execute(
             """
-            SELECT id, lesson_code, requirement_id, title, statement, why_it_matters, status, created_at, updated_at
+            SELECT id, lesson_code, requirement_id, title, statement, why_it_matters, status, author_name, created_at, updated_at
             FROM lessons_learned
             WHERE id = ?
             """,
@@ -582,6 +699,7 @@ def list_lessons_with_labels(*, lesson_code: str | None = None) -> list[dict]:
             ll.statement,
             ll.why_it_matters,
             ll.status AS lesson_status,
+            ll.author_name,
             pr.req_code AS requirement_code,
             pr.title AS requirement_title,
             rc.code AS category_code,
@@ -606,6 +724,7 @@ def list_lessons_with_labels(*, lesson_code: str | None = None) -> list[dict]:
             ll.statement,
             ll.why_it_matters,
             ll.status,
+            ll.author_name,
             pr.req_code,
             pr.title,
             rc.code,
@@ -674,6 +793,7 @@ def commit_requirement_execution(
         execution_summary=execution_summary,
         execution_impact=execution_impact,
         git_commit_hash=commit_hash,
+        author_name=_author_name_for_commit_hash(commit_hash),
     )
 
     return {

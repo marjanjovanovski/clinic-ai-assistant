@@ -100,6 +100,7 @@ def test_multiple_execution_rows_are_preserved_in_order(isolated_history_db):
     assert executions[1]["execution_impact"] == "Artifact became more operational."
     assert all(item["created_at"] for item in executions)
     assert executions[0]["git_commit_hash"] is None
+    assert executions[0]["author_name"]
 
 
 def test_create_lesson_links_multiple_execution_rows(isolated_history_db):
@@ -134,9 +135,11 @@ def test_create_lesson_links_multiple_execution_rows(isolated_history_db):
     lessons = isolated_history_db.list_lessons_with_labels(lesson_code="LESSON-REQ-001")
 
     assert lesson["lesson_code"] == "LESSON-REQ-001"
+    assert lesson["author_name"] == first["author_name"]
     assert lessons[0]["requirement_code"] == "REQ-LESSON-001"
     assert lessons[0]["category_code"] == "lessons_learned_repo"
     assert lessons[0]["source_execution_ids"] == f"{first['id']}, {second['id']}"
+    assert lessons[0]["author_name"] == first["author_name"]
 
 
 def test_execution_history_with_labels_includes_git_commit_hash(isolated_history_db):
@@ -158,3 +161,73 @@ def test_execution_history_with_labels_includes_git_commit_hash(isolated_history
     history = isolated_history_db.list_execution_history_with_labels(req_code="REQ-HASH-001")
 
     assert history[0]["git_commit_hash"] == "abc123hash"
+    assert history[0]["author_name"]
+
+
+def test_init_history_db_backfills_missing_author_name_columns(tmp_path, monkeypatch):
+    db_path = tmp_path / "project_history.db"
+    monkeypatch.setattr(history_store, "DB_PATH", db_path)
+
+    history_store.init_history_db()
+    with history_store._connect() as connection:
+        requirement_id = connection.execute(
+            """
+            INSERT INTO project_requirements (
+                req_code, title, category_id, description, status, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "REQ-BACKFILL-001",
+                "Backfill author names",
+                5,
+                "Verify author backfill logic.",
+                "active",
+                "2026-03-24T00:00:00+00:00",
+                "2026-03-24T00:00:00+00:00",
+            ),
+        ).lastrowid
+        execution_id = connection.execute(
+            """
+            INSERT INTO requirement_execution (
+                requirement_id, prompt_text, execution_summary, execution_impact, git_commit_hash, author_name, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (requirement_id, "Prompt", "Summary", "Impact", None, "", "2026-03-24T00:00:00+00:00"),
+        ).lastrowid
+        lesson_id = connection.execute(
+            """
+            INSERT INTO lessons_learned (
+                lesson_code, requirement_id, title, statement, why_it_matters, status, author_name, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "LESSON-BACKFILL-001",
+                requirement_id,
+                "Backfill lesson author",
+                "Statement",
+                "Matters",
+                "validated",
+                "",
+                "2026-03-24T00:00:00+00:00",
+                "2026-03-24T00:00:00+00:00",
+            ),
+        ).lastrowid
+        connection.execute(
+            """
+            INSERT INTO lesson_execution_links (lesson_id, execution_id, created_at)
+            VALUES (?, ?, ?)
+            """,
+            (lesson_id, execution_id, "2026-03-24T00:00:00+00:00"),
+        )
+        connection.commit()
+
+    history_store.init_history_db()
+
+    executions = history_store.list_requirement_execution("REQ-BACKFILL-001")
+    lessons = history_store.list_lessons_with_labels(lesson_code="LESSON-BACKFILL-001")
+
+    assert executions[0]["author_name"]
+    assert lessons[0]["author_name"] == executions[0]["author_name"]
