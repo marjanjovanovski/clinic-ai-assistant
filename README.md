@@ -50,6 +50,23 @@
 - In this service-account mode, booking creates a Google Calendar event without attendee invites or Google email updates.
 - That behavior is intentional because Google blocks attendee invites for service accounts without Domain-Wide Delegation.
 
+## Test Execution Hygiene
+
+- Do not use repo-local pytest temp folders such as `.pytest_*`, `_codex_pytest_tmp`, ad hoc `pytest_*` folders, or similar writable fallbacks under `clinic-ai-assistant-src/backend/`.
+- Do not rely on Python bytecode caches inside the repo as a normal test side effect. Prefer running test commands with `PYTHONDONTWRITEBYTECODE=1` so repeated test runs do not keep generating `__pycache__/` trees in project folders.
+- For backend pytest runs, always prefer an external temp root outside the repo and pin all temp behavior there with `TMP`, `TEMP`, and `--basetemp`.
+- Known-good temp root for this workspace: `F:\temp\clinic-ai-assistant`
+- Known-good backend integration command pattern:
+
+```powershell
+$env:TMP='F:\temp\clinic-ai-assistant'
+$env:TEMP='F:\temp\clinic-ai-assistant'
+$env:PYTHONDONTWRITEBYTECODE='1'
+.\.venv\Scripts\python.exe -m pytest .\tests\integration\test_req_booking_flow.py .\tests\integration\test_frontend_booking_ui.py -vv --basetemp="F:\temp\clinic-ai-assistant\pytest-integration-codex"
+```
+
+- If an external temp path fails, do not fall back to creating new temp folders inside the repo. Stop, report the temp-path failure, and reuse or repair the external temp location instead.
+
 ## Architecture Rule
 
 ### ARCHITECTURE RULE - CONFIGURATION SEPARATION

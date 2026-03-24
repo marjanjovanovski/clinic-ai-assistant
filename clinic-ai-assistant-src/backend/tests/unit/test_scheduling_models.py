@@ -1,3 +1,4 @@
+# TEST EXECUTION MANIFESTO: Before running tests, follow clinic-ai-assistant-src/backend/pytest.ini and never create repo-local pytest temp folders; use external TMP/TEMP plus --basetemp.
 from app.services.scheduling.models import (
     AvailabilityRequest,
     AvailabilityResult,
@@ -67,4 +68,3 @@ def test_booking_models_serialize_to_stable_dicts():
     assert result.to_dict()["status"] == "confirmed"
     assert result.to_dict()["source_payload"]["slot_id"] == request.slot_id
     assert public_config.to_dict()["booking_enabled"] is True
-
