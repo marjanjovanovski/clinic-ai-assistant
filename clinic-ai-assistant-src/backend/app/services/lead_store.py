@@ -36,14 +36,59 @@ def _table_columns(connection, table_name: str) -> set[str]:
     }
 
 
+def _tenant_row_by_name(connection, tenant: str):
+    return connection.execute(
+        """
+        SELECT id, unique_identifier, name
+        FROM tenants
+        WHERE name = ?
+        ORDER BY id ASC
+        LIMIT 1
+        """,
+        (tenant,),
+    ).fetchone()
+
+
+def _ensure_tenant_row(connection, tenant: str):
+    tenant_row = _tenant_row_by_name(connection, tenant)
+    if tenant_row:
+        return tenant_row
+
+    connection.execute(
+        """
+        INSERT INTO tenants (
+            unique_identifier,
+            name,
+            comment,
+            phone,
+            email,
+            primary_contact_name,
+            secondary_contact_name,
+            date_registered
+        )
+        VALUES (?, ?, NULL, NULL, NULL, NULL, NULL, ?)
+        """,
+        (
+            tenant,
+            tenant,
+            datetime.now(timezone.utc).isoformat(),
+        ),
+    )
+    return _tenant_row_by_name(connection, tenant)
+
+
 def _fetch_persisted_lead(connection, tenant: str, session_id: str):
+    tenant_row = _tenant_row_by_name(connection, tenant)
+    if not tenant_row:
+        return None
+
     return connection.execute(
         """
         SELECT contact_name, contact_phone, contact_email, collected_data_json
         FROM leads
-        WHERE tenant = ? AND session_id = ?
+        WHERE tenant_id = ? AND session_id = ?
         """,
-        (tenant, session_id),
+        (tenant_row["id"], session_id),
     ).fetchone()
 
 
@@ -76,6 +121,120 @@ def _hydrate_state_from_row(row):
     return state
 
 
+def _seed_default_tenant(connection) -> None:
+    connection.execute(
+        """
+        INSERT INTO tenants (
+            unique_identifier,
+            name,
+            comment,
+            phone,
+            email,
+            primary_contact_name,
+            secondary_contact_name,
+            date_registered
+        )
+        SELECT ?, ?, NULL, NULL, NULL, NULL, NULL, ?
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM tenants
+            WHERE name = ?
+        )
+        """,
+        (
+            DEFAULT_TENANT_UNIQUE_IDENTIFIER,
+            DEFAULT_TENANT_NAME,
+            datetime.now(timezone.utc).isoformat(),
+            DEFAULT_TENANT_NAME,
+        ),
+    )
+
+
+def _backfill_lead_tenant_ids(connection) -> None:
+    lead_columns = _table_columns(connection, "leads")
+    if "tenant_id" not in lead_columns or "tenant" not in lead_columns:
+        return
+
+    connection.execute(
+        """
+        UPDATE leads
+        SET tenant_id = (
+            SELECT tenants.id
+            FROM tenants
+            WHERE tenants.name = leads.tenant
+            ORDER BY tenants.id ASC
+            LIMIT 1
+        )
+        WHERE tenant_id IS NULL
+        """
+    )
+
+    missing_count = connection.execute(
+        """
+        SELECT COUNT(*)
+        FROM leads
+        WHERE tenant_id IS NULL
+        """
+    ).fetchone()[0]
+    if missing_count:
+        raise RuntimeError(
+            f"Lead migration halted: {missing_count} lead rows could not be matched to a tenant_id."
+        )
+
+
+def _rebuild_leads_table_without_legacy_tenant(connection) -> None:
+    lead_columns = _table_columns(connection, "leads")
+    if "tenant" not in lead_columns:
+        return
+
+    connection.execute("DROP TABLE IF EXISTS leads__new")
+    connection.execute(
+        """
+        CREATE TABLE leads__new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id INTEGER NOT NULL,
+            session_id TEXT NOT NULL,
+            contact_name TEXT,
+            contact_phone TEXT,
+            contact_email TEXT,
+            collected_data_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(tenant_id, session_id),
+            FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+        )
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO leads__new (
+            id,
+            tenant_id,
+            session_id,
+            contact_name,
+            contact_phone,
+            contact_email,
+            collected_data_json,
+            created_at,
+            updated_at
+        )
+        SELECT
+            id,
+            tenant_id,
+            session_id,
+            contact_name,
+            contact_phone,
+            contact_email,
+            collected_data_json,
+            created_at,
+            updated_at
+        FROM leads
+        """
+    )
+    connection.execute("DROP TABLE leads")
+    connection.execute("ALTER TABLE leads__new RENAME TO leads")
+
+
 def init_leads_db():
     with _connect() as connection:
         connection.execute("PRAGMA foreign_keys = ON")
@@ -100,11 +259,12 @@ def init_leads_db():
             ON tenants(unique_identifier)
             """
         )
+        _seed_default_tenant(connection)
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS leads (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                tenant TEXT NOT NULL,
+                tenant_id INTEGER NOT NULL,
                 session_id TEXT NOT NULL,
                 contact_name TEXT,
                 contact_phone TEXT,
@@ -112,7 +272,8 @@ def init_leads_db():
                 collected_data_json TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                UNIQUE(tenant, session_id)
+                UNIQUE(tenant_id, session_id),
+                FOREIGN KEY (tenant_id) REFERENCES tenants(id)
             )
             """
         )
@@ -130,32 +291,21 @@ def init_leads_db():
             ON leads(tenant_id)
             """
         )
+        _backfill_lead_tenant_ids(connection)
+        _rebuild_leads_table_without_legacy_tenant(connection)
         connection.execute(
             """
-            INSERT INTO tenants (
-                unique_identifier,
-                name,
-                comment,
-                phone,
-                email,
-                primary_contact_name,
-                secondary_contact_name,
-                date_registered
-            )
-            SELECT ?, ?, NULL, NULL, NULL, NULL, NULL, ?
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM tenants
-                WHERE name = ?
-            )
-            """,
-            (
-                DEFAULT_TENANT_UNIQUE_IDENTIFIER,
-                DEFAULT_TENANT_NAME,
-                datetime.now(timezone.utc).isoformat(),
-                DEFAULT_TENANT_NAME,
-            ),
+            CREATE INDEX IF NOT EXISTS idx_leads_tenant_id
+            ON leads(tenant_id)
+            """
         )
+        foreign_key_violations = connection.execute(
+            "PRAGMA foreign_key_check"
+        ).fetchall()
+        if foreign_key_violations:
+            raise RuntimeError(
+                f"Lead migration halted: foreign key integrity check failed with {len(foreign_key_violations)} violation(s)."
+            )
         connection.commit()
 
 
@@ -182,10 +332,11 @@ def save_lead_checkpoint(tenant: str, session_id: str, state: dict, required_fie
 
     try:
         with _connect() as connection:
+            tenant_row = _ensure_tenant_row(connection, tenant)
             connection.execute(
                 """
                 INSERT INTO leads (
-                    tenant,
+                    tenant_id,
                     session_id,
                     contact_name,
                     contact_phone,
@@ -195,7 +346,7 @@ def save_lead_checkpoint(tenant: str, session_id: str, state: dict, required_fie
                     updated_at
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(tenant, session_id) DO UPDATE SET
+                ON CONFLICT(tenant_id, session_id) DO UPDATE SET
                     contact_name = excluded.contact_name,
                     contact_phone = excluded.contact_phone,
                     contact_email = excluded.contact_email,
@@ -203,7 +354,7 @@ def save_lead_checkpoint(tenant: str, session_id: str, state: dict, required_fie
                     updated_at = excluded.updated_at
                 """,
                 (
-                    tenant,
+                    tenant_row["id"],
                     session_id,
                     data.get("name"),
                     data.get("phone"),

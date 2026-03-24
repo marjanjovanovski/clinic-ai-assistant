@@ -35,7 +35,7 @@ Update rules:
 
 - Prompt 1 - Completed
 - Prompt 2 - Completed
-- Prompt 3 - Pending
+- Prompt 3 - Completed
 - Prompt 4 - Pending
 - Prompt 5 - Pending
 - Prompt 6 - Pending
@@ -212,7 +212,7 @@ Explicitly not done in this prompt:
 - no removal of the legacy `tenant` text column
 - no runtime refactor of read/write paths to use `tenant_id`
 
-## Prompt 3 - Pending
+## Prompt 3 - Completed
 
 ### Goal
 
@@ -238,6 +238,23 @@ Important:
 ### Required Outcome
 
 All existing lead data is intact, linked to the correct tenant via `tenant_id`, and the legacy `tenant` text column no longer exists.
+
+### Completion Note
+
+Prompt 3 was completed in `clinic-ai-assistant-src/backend/app/services/lead_store.py`.
+
+Implemented outcomes:
+- existing `leads` rows are backfilled from tenant name to `tenant_id`
+- migration halts if any lead row cannot be matched to a tenant
+- the legacy `tenant` column is removed through a SQLite table rebuild
+- the rebuilt `leads` table now uses `UNIQUE(tenant_id, session_id)`
+- a foreign key integrity check runs after migration
+- `lead_store` now resolves tenant names to `tenant_id` internally so the application remains compatible after the legacy column removal
+
+Explicitly not done in this prompt:
+- no broader runtime cleanup outside `lead_store.py`
+- no test updates yet
+- no chat transcript schema work yet
 
 ## Prompt 4 - Pending
 
