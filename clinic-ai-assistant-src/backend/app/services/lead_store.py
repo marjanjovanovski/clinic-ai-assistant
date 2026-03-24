@@ -9,10 +9,11 @@ from app.services.session_trace_logger import trace_event
 
 logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-DB_PATH = BASE_DIR / "clinic_ai_assistant.db"
+DB_PATH = BASE_DIR / "db" / "assistant_velika.db"
 
 
 def _connect():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
     connection.row_factory = sqlite3.Row
     return connection

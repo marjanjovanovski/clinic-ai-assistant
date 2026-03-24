@@ -4,7 +4,7 @@ __pycache__/
 .env
 .vscode/
 *.db
-clinic-ai-assistant-src/backend/clinic_ai_assistant.db
+clinic-ai-assistant-src/backend/db/assistant_velika.db
 .pytest_cache/
 _pytest_tmp_backend/
 **/.pytest_tmp/

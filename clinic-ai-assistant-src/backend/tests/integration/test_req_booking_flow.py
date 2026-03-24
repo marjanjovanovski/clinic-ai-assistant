@@ -89,7 +89,7 @@ def _build_booking_ctx(monkeypatch, tmp_path):
     from app.services import ai_agent, lead_store, session_trace_logger
     from app.services.config_loader import load_profile_config
 
-    monkeypatch.setattr(lead_store, "DB_PATH", tmp_path / "clinic_ai_assistant.db")
+    monkeypatch.setattr(lead_store, "DB_PATH", tmp_path / "assistant_velika.db")
     monkeypatch.setattr(session_trace_logger, "TRACE_DIR", tmp_path / "runtime_traces")
     monkeypatch.setattr(session_trace_logger, "SETTINGS_PATH", tmp_path / "settings.env")
     monkeypatch.setattr(session_trace_logger, "is_session_trace_enabled", lambda: False)
