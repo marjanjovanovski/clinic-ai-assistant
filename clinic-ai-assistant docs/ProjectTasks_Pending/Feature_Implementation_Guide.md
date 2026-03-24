@@ -124,6 +124,24 @@ If no prompt remains pending, the agent must explicitly say that no pending prom
 
 If no prompt remains pending and the final commit is complete, the agent must archive the feature-specific master prompt file by moving it from `ProjectTasks_Pending` to `ProjectTasks_Done`.
 
+## History DB Author Rule
+
+Every history database entry created after a commit must explicitly set the `author_name` field to the agent that performed the work and recorded the entry.
+
+This author value must represent the acting AI agent, not the git commit identity and not the human repository owner by default.
+
+Required behavior:
+- always set `author_name` deliberately when creating a `requirement_execution` entry
+- always set `author_name` deliberately when creating a `lessons_learned` entry
+- never leave author attribution to implicit fallback behavior if the active agent identity is known
+- never use `Marjan Jovanovski` as the history DB author for agent-executed work unless the user explicitly instructs that exact attribution
+
+Examples:
+- if Codex performs the work, set `author_name` to `Kai - Codex`
+- if Claude performs the work, set `author_name` to `Claude`
+
+This rule applies even if the git commit author remains a different value.
+
 ## No Auto-Advance Rule
 
 - The agent must not begin the next prompt immediately after committing.
@@ -142,7 +160,7 @@ Example flow after a prompt is completed:
    `Commit changes?`
 3. User approves commit.
 4. Agent commits with a descriptive message.
-5. Agent updates the history database according to project rules.
+5. Agent updates the history database according to project rules, including explicit `author_name` attribution to the acting agent.
 6. Agent responds with a short completion note and:
    `Continue with Prompt X`
 
