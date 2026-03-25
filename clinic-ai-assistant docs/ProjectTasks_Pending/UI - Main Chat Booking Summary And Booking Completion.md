@@ -46,14 +46,14 @@ Update rules:
 
 ## Current Active Prompt
 
-- `Prompt 3 - Completed`
+- `Manual Verification / Merge`
 
 ## Global Status Summary
 
 - Prompt 1 - Completed
 - Prompt 2 - Completed
 - Prompt 3 - Completed
-- Prompt 4 - Pending
+- Prompt 4 - Completed
 
 ## Working Rules For The Implementing AI Agent
 
@@ -264,7 +264,7 @@ What remains intentionally different between `cal.html` and `index.html`:
 Follow-up cleanup result:
 - no additional safe refactor was necessary in `index.html` for this prompt because the main maintainability hotspot was in backend summary/booking projection logic
 
-## Prompt 4 - Pending
+## Prompt 4 - Completed
 
 ### Goal
 
@@ -295,3 +295,22 @@ Final note for this prompt:
 ### Required Outcome
 
 A separate new markdown proposal task file exists for overlapping slot handling, and this master file references it without implementing the proposal.
+
+### Prompt 4 Completion Note
+
+What changed:
+- created the proposal-only follow-up task file [API - Slot Overlap Conflict Handling Proposal.md](./API%20-%20Slot%20Overlap%20Conflict%20Handling%20Proposal.md)
+- the new file documents:
+  - current overlap risk in main chat and `cal.html`
+  - a simple backend-authoritative stale-slot rejection strategy
+  - expected outcomes for the winning and losing user
+  - recommended UI recovery behavior
+  - future implementation prompts without executing them
+
+Proposal outcome:
+- overlap handling remains unimplemented in code
+- the repo now has a dedicated pending proposal artifact that can be implemented later under normal task-branch workflow
+
+Files changed for Prompt 4:
+- `clinic-ai-assistant docs/ProjectTasks_Pending/API - Slot Overlap Conflict Handling Proposal.md`
+- `clinic-ai-assistant docs/ProjectTasks_Pending/UI - Main Chat Booking Summary And Booking Completion.md`
