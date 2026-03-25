@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/frontend/chat/chat-shell.css" />
   <link rel="stylesheet" href="/frontend/widgets/booking-progress/booking-progress.css" />
   <link rel="stylesheet" href="/frontend/widgets/booking-summary/booking-summary.css" />
+  <link rel="stylesheet" href="/frontend/widgets/slot-list/slot-list.css" />
   <title id="pageTitle">Се вчитува...</title>
   <style>
     * {
@@ -165,6 +166,7 @@
     import { bindTextInputSubmission, setInputBusyState } from "/frontend/chat/chat-input.js";
     import { createBookingSummaryHistory } from "/frontend/widgets/booking-summary/booking-summary.js";
     import {
+      addSlotListConversationWidget,
       createConversationWidgetDispatcher,
       createConversationWidgetRegistry,
       registerDefaultConversationWidgets,
@@ -240,6 +242,23 @@
       return conversationDispatcher.addTextMessage(text, sender);
     }
 
+    function addResponseWidget(widgetPayload) {
+      if (!widgetPayload || widgetPayload.type !== "slot-list") {
+        return null;
+      }
+
+      const slots = Array.isArray(widgetPayload.slots) ? widgetPayload.slots : [];
+      if (!slots.length) {
+        return null;
+      }
+
+      return addSlotListConversationWidget(conversationDispatcher, {
+        title: widgetPayload.title || "Изберете термин:",
+        slots,
+        readOnly: true,
+      }, { sender: "bot" });
+    }
+
     async function performSend(userMessage, options = {}) {
       const { showUserMessage = true } = options;
 
@@ -283,6 +302,7 @@
         }
         updateBookingProgress(data.booking_progress);
         addMessage(data.reply || "Нема одговор од серверот.", "bot");
+        addResponseWidget(data.widget_payload);
         statusText.textContent = data.session_status === "completed"
           ? "Барањето е завршено."
           : data.session_status === "collecting_contact"

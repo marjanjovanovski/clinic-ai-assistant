@@ -182,6 +182,29 @@ def assessment_reply_text(assessment: SchedulingCapabilityAssessment) -> str | N
     return reply_text.strip() if isinstance(reply_text, str) and reply_text.strip() else None
 
 
+def assessment_widget_payload(assessment: SchedulingCapabilityAssessment) -> dict | None:
+    if assessment.operation != OPERATION_AVAILABILITY or assessment.status != "completed":
+        return None
+
+    output_payload = assessment.output_payload if isinstance(assessment.output_payload, dict) else None
+    result_payload = output_payload.get("result") if isinstance(output_payload, dict) else None
+    slots = result_payload.get("slots") if isinstance(result_payload, dict) else None
+    capability_state = assessment.capability_state if isinstance(assessment.capability_state, dict) else None
+    if not isinstance(slots, list) or not slots:
+        return None
+
+    title = output_payload.get("reply_text") if isinstance(output_payload, dict) else None
+    if isinstance(title, str) and title.strip():
+        title = title.split("\n\n", 1)[0].strip()
+
+    return {
+        "type": "slot-list",
+        "title": title.strip() if isinstance(title, str) and title.strip() else None,
+        "service_id": capability_state.get("service_id") if isinstance(capability_state, dict) else None,
+        "slots": slots,
+    }
+
+
 def _resolved_timezone(context: CapabilityContext, snapshot: SchedulingCapabilitySnapshot) -> str:
     if isinstance(context.timezone, str) and context.timezone.strip():
         return context.timezone.strip()

@@ -492,6 +492,7 @@
     import { bindTextInputSubmission, setInputBusyState } from "/frontend/chat/chat-input.js";
     import { createBookingSummaryHistory } from "/frontend/widgets/booking-summary/booking-summary.js";
     import {
+      addSlotListConversationWidget,
       createConversationWidgetDispatcher,
       createConversationWidgetRegistry,
       registerDefaultConversationWidgets,
@@ -616,7 +617,7 @@
     }
 
     function addSlotChoices(slots, serviceId) {
-      return conversationDispatcher.addWidget("slot-list", {
+      return addSlotListConversationWidget(conversationDispatcher, {
         title: "Изберете термин за sandbox booking:",
         slots,
         onSelect: (slot, widget) => bookSelectedSlot(slot, serviceId, widget),
@@ -667,6 +668,13 @@
 
         updateBookingProgress(data.booking_progress);
         addMessage(data.reply || "Нема одговор од серверот.", "bot");
+        if (data.widget_payload?.type === "slot-list") {
+          addSlotListConversationWidget(conversationDispatcher, {
+            title: data.widget_payload.title,
+            slots: data.widget_payload.slots,
+            readOnly: true,
+          }, { sender: "bot" });
+        }
         setInspector("Last chat response", data);
 
         statusText.textContent = data.session_status === "completed"

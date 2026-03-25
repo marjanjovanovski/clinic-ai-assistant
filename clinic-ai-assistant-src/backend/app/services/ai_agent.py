@@ -1068,7 +1068,8 @@ def _finalize_reply(
     services: list[dict],
     profile: dict,
     stage_after: str | None,
-) -> str:
+    widget_payload: dict | None = None,
+) -> dict:
     final_reply = reply
     reformulated = _repetition_reformulation(
         message=message,
@@ -1082,7 +1083,10 @@ def _finalize_reply(
     _record_interaction(session_key, message, final_reply, response_type)
     log_chat_message(tenant, session_id, "assistant", final_reply)
     _trace_response(tenant, session_id, final_reply, stage_after)
-    return final_reply
+    return {
+        "reply": final_reply,
+        "widget_payload": widget_payload,
+    }
 
 
 def _trace_response(
@@ -1382,7 +1386,7 @@ def get_booking_progress(tenant: str, session_id: str | None) -> dict | None:
 # region Main Orchestration Entry Point
 # The request lifecycle coordinator: bootstrap, deterministic gates, model call, and capability routing.
 
-def generate_reply(tenant: str, message: str, session_id: str | None = None) -> tuple[str, str]:
+def generate_reply(tenant: str, message: str, session_id: str | None = None) -> tuple[dict, str]:
     original_session_id = session_id
     profile = load_profile_config(tenant)
     api_key = os.getenv("OPENAI_API_KEY")
@@ -1677,6 +1681,9 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 services=services,
                 profile=profile,
                 stage_after=_stage_name(SESSION_STATE.get(session_key)),
+                widget_payload=scheduling_capability.assessment_widget_payload(
+                    scheduling_result.assessment,
+                ),
             )
             return final_reply, session_id
     if scheduling_result.next_action == scheduling_capability.CAPABILITY_NEXT_RETURN:
@@ -1975,6 +1982,9 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                         services=services,
                         profile=profile,
                         stage_after=_stage_name(SESSION_STATE.get(session_key)),
+                        widget_payload=scheduling_capability.assessment_widget_payload(
+                            scheduling_result.assessment,
+                        ),
                     )
                     return final_reply, session_id
 

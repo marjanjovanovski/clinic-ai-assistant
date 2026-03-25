@@ -79,6 +79,10 @@ def test_availability_intent_triggers_scheduling_without_starting_booking(monkey
     assert payload["booking_progress"] is None
     assert "слободни термини" in payload["reply"]
     assert "09:00" in payload["reply"]
+    assert payload["widget_payload"]["type"] == "slot-list"
+    assert payload["widget_payload"]["service_id"] == "consultation"
+    assert payload["widget_payload"]["title"] == payload["reply"].split("\n\n", 1)[0]
+    assert payload["widget_payload"]["slots"][0]["slot_id"].startswith("mock|")
 
     session_key = ai_agent._session_key("milena_dental", payload["session_id"])
     scheduling_state = ai_agent.SESSION_STATE[session_key]["scheduling"]
@@ -106,6 +110,7 @@ def test_availability_confirmation_hands_off_into_booking_collection(monkeypatch
     second_payload = second.json()
     assert second_payload["session_status"] == "collecting_contact"
     assert second_payload["booking_progress"]["next_field"] == "name"
+    assert second_payload["widget_payload"] is None
 
     session_key = ai_agent._session_key("milena_dental", first_payload["session_id"])
     state = ai_agent.SESSION_STATE[session_key]
@@ -135,3 +140,15 @@ def test_normal_booking_path_still_starts_contact_collection(monkeypatch, tmp_pa
     second_payload = second.json()
     assert second_payload["session_status"] == "collecting_contact"
     assert second_payload["booking_progress"]["next_field"] == "name"
+    assert second_payload["widget_payload"] is None
+
+
+def test_non_availability_responses_keep_widget_payload_empty(monkeypatch, tmp_path):
+    client, _ = _build_client(monkeypatch, tmp_path)
+
+    response = client.post("/chat?tenant=milena_dental", json={"message": "Ð±Ð¾Ð»ÐºÐ° Ð¸ Ð¿Ð»Ð¾Ð¼Ð±Ð°"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["session_status"] == "active"
+    assert payload["widget_payload"] is None

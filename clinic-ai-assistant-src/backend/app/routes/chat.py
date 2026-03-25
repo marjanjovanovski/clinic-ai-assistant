@@ -32,7 +32,7 @@ class ChatRequest(BaseModel):
 @router.post("/chat")
 def chat(payload: ChatRequest, tenant: str = Query(...)):
     try:
-        reply, session_id = generate_reply(tenant, payload.message, payload.session_id)
+        response_payload, session_id = generate_reply(tenant, payload.message, payload.session_id)
         session_status = get_session_status(tenant, session_id)
         booking_progress = get_booking_progress(tenant, session_id)
     except TenantNotFoundError:
@@ -48,5 +48,6 @@ def chat(payload: ChatRequest, tenant: str = Query(...)):
         "session_id": session_id,
         "session_status": session_status,
         "booking_progress": booking_progress,
-        "reply": reply
+        "reply": response_payload.get("reply"),
+        "widget_payload": response_payload.get("widget_payload"),
     }

@@ -121,6 +121,30 @@
   box-shadow: none;
 }
 
+.slot-list-button--read-only:disabled {
+  cursor: default;
+  opacity: 1;
+  color: #1d4ed8;
+  background: #ffffff;
+  border-color: #bfdbfe;
+}
+
+.slot-list-button--read-only:disabled {
+  cursor: default;
+  opacity: 1;
+  color: #1d4ed8;
+  background: #ffffff;
+  border-color: #bfdbfe;
+}
+
+.slot-list-button--read-only:disabled {
+  cursor: default;
+  opacity: 1;
+  color: #1d4ed8;
+  background: #ffffff;
+  border-color: #bfdbfe;
+}
+
 @media (min-width: 900px) {
   .slot-list-actions {
     grid-template-columns: repeat(3, minmax(0, 1fr));

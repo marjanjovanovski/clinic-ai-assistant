@@ -47,6 +47,7 @@ def test_completed_booking_summary_is_appended_from_template(monkeypatch, tmp_pa
     assert "bookingSummary.remove();" in response.text
     assert 'import { createBookingSummaryHistory } from "/frontend/widgets/booking-summary/booking-summary.js";' in response.text
     assert 'from "/frontend/widgets/widget-registry.js";' in response.text
+    assert "addSlotListConversationWidget," in response.text
     assert "const widgetRegistry = registerDefaultConversationWidgets(" in response.text
     assert "const conversationDispatcher = createConversationWidgetDispatcher({" in response.text
     assert "const bookingSummaryHistory = createBookingSummaryHistory({" in response.text
@@ -105,6 +106,35 @@ def test_frontend_uses_internal_booking_edit_message(monkeypatch, tmp_path):
     assert 'registry.register("booking-progress"' in registry_js.text
     assert 'registry.register("booking-summary"' in registry_js.text
     assert 'registry.register("slot-list"' in registry_js.text
+
+
+def test_agent_page_mounts_slot_list_widget_from_chat_response(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+
+    response = client.get("/agent/milena_dental")
+
+    assert response.status_code == 200
+    assert 'href="/frontend/widgets/slot-list/slot-list.css"' in response.text
+    assert 'function addResponseWidget(widgetPayload)' in response.text
+    assert 'widgetPayload.type !== "slot-list"' in response.text
+    assert 'addSlotListConversationWidget(conversationDispatcher, {' in response.text
+    assert "readOnly: true," in response.text
+    assert 'addResponseWidget(data.widget_payload);' in response.text
+
+
+def test_slot_list_widget_supports_read_only_mode(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+
+    widget_js = client.get("/frontend/widgets/slot-list/slot-list.js")
+    widget_css = client.get("/frontend/widgets/slot-list/slot-list.css")
+
+    assert widget_js.status_code == 200
+    assert widget_css.status_code == 200
+    assert "readOnly = false," in widget_js.text
+    assert 'buttonEl.classList.toggle("slot-list-button--read-only", readOnly);' in widget_js.text
+    assert "buttonEl.disabled = readOnly;" in widget_js.text
+    assert "if (readOnly) {" in widget_js.text
+    assert ".slot-list-button--read-only:disabled {" in widget_css.text
 
 
 def test_reset_behavior_is_local_session_rollover_only(monkeypatch, tmp_path):

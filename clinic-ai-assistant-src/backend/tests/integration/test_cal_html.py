@@ -43,11 +43,14 @@ def test_cal_html_wires_slot_buttons_and_booking_request(monkeypatch, tmp_path):
     assert 'href="/frontend/widgets/slot-list/slot-list.css"' in response.text
     assert 'import { resolveTenantFromPath } from "/frontend/chat/chat-shell.js";' in response.text
     assert 'from "/frontend/widgets/widget-registry.js";' in response.text
-    assert "const widgetRegistry = registerDefaultConversationWidgets(createConversationWidgetRegistry());" in response.text
-    assert 'return conversationDispatcher.addWidget("slot-list", {' in response.text
+    assert "addSlotListConversationWidget," in response.text
+    assert "const widgetRegistry = registerDefaultConversationWidgets(" in response.text
+    assert 'return addSlotListConversationWidget(conversationDispatcher, {' in response.text
+    assert 'if (data.widget_payload?.type === "slot-list") {' in response.text
+    assert "readOnly: true," in response.text
     assert "slotListWidget.disableAll()" in response.text
     assert "/scheduling/book?tenant=" in response.text
-    assert "Booked from cal.html sandbox" in response.text
+    assert "Booked from cal.html scheduling sandbox" in response.text
 
 
 def test_slot_list_widget_assets_are_served_for_scheduling_ui(monkeypatch, tmp_path):
@@ -68,6 +71,7 @@ def test_slot_list_widget_assets_are_served_for_scheduling_ui(monkeypatch, tmp_p
     assert ".slot-list-button:disabled {" in widget_css.text
     assert "export function createConversationWidgetRegistry()" in registry_js.text
     assert "export function createConversationWidgetDispatcher({" in registry_js.text
+    assert "export function addSlotListConversationWidget(" in registry_js.text
     assert 'import { createChatTranscript } from "/frontend/chat/chat-shell.js";' in registry_js.text
     assert 'registry.register("slot-list"' in registry_js.text
     assert 'href="/frontend/widgets/slot-list/slot-list.css"' in demo_html.text

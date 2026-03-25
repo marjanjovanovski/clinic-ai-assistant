@@ -148,6 +148,31 @@ export function createConversationWidgetDispatcher({
   };
 }
 
+export function addSlotListConversationWidget(
+  conversationDispatcher,
+  {
+    title = null,
+    slots = [],
+    onSelect = null,
+    readOnly = false,
+  } = {},
+  {
+    sender = "bot",
+  } = {},
+) {
+  const normalizedSlots = Array.isArray(slots) ? slots : [];
+  if (!conversationDispatcher || !normalizedSlots.length) {
+    return null;
+  }
+
+  return conversationDispatcher.addWidget("slot-list", {
+    title: title || "Select a time slot:",
+    slots: normalizedSlots,
+    onSelect,
+    readOnly,
+  }, { sender });
+}
+
 function wrapWidgetElement(element, sender, type = null) {
   const messageEl = document.createElement("div");
   messageEl.classList.add("message", sender);

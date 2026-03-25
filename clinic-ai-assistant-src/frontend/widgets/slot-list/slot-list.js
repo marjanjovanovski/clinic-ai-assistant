@@ -77,6 +77,7 @@ export function createSlotListWidget({
   title = "Select a time slot:",
   slots = [],
   onSelect,
+  readOnly = false,
   getSlotLabel = defaultSlotLabel,
 }) {
   const root = document.createElement("div");
@@ -135,9 +136,14 @@ export function createSlotListWidget({
       const buttonEl = document.createElement("button");
       buttonEl.type = "button";
       buttonEl.className = "slot-list-button";
+      buttonEl.classList.toggle("slot-list-button--read-only", readOnly);
       buttonEl.textContent = formatTimeLabel(slot);
       buttonEl.title = getSlotLabel(slot);
+      buttonEl.disabled = readOnly;
       buttonEl.addEventListener("click", () => {
+        if (readOnly) {
+          return;
+        }
         markSelected(buttonEl);
         if (typeof onSelect === "function") {
           onSelect(slot, api);

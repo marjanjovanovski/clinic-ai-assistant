@@ -41,15 +41,15 @@ Update rules:
 
 ## Current Active Prompt
 
-- `Prompt 2 - Pending`
+- `Prompt 5 - Completed`
 
 ## Global Status Summary
 
 - Prompt 1 - Completed
-- Prompt 2 - Pending
-- Prompt 3 - Pending
-- Prompt 4 - Pending
-- Prompt 5 - Pending
+- Prompt 2 - Completed
+- Prompt 3 - Completed
+- Prompt 4 - Completed
+- Prompt 5 - Completed
 
 ## Working Rules For The Implementing AI Agent
 
@@ -163,7 +163,7 @@ Most likely implementation direction for later prompts:
 - let `index.html` mount the existing shared `slot-list` widget inline when that payload is present
 - keep slot interaction minimal/safe until backend workflow boundaries are confirmed in later prompts
 
-## Prompt 2 - Pending
+## Prompt 2 - Completed
 
 ### Goal
 
@@ -192,7 +192,39 @@ The contract must be explicit enough to carry:
 
 Availability-related chat responses can carry structured widget-ready slot data without breaking existing non-availability chat flows.
 
-## Prompt 3 - Pending
+### Prompt 2 Completion Note
+
+Implemented the minimum explicit shared contract for availability-capable `/chat` responses:
+- backend availability replies still return human-readable `reply`
+- `/chat` now also returns optional `widget_payload`
+- `widget_payload` is only populated for completed availability responses that actually include slots
+- the payload shape is intentionally small and explicit:
+  - `type`
+  - `title`
+  - `service_id`
+  - `slots`
+
+Contract behavior after implementation:
+- availability chat replies return:
+  - `reply`
+  - `widget_payload.type = "slot-list"`
+  - `widget_payload.slots = [...]`
+  - `widget_payload.service_id`
+  - optional `widget_payload.title`
+- non-availability chat replies continue returning normal text behavior with:
+  - `widget_payload = null`
+
+Files changed for Prompt 2:
+- `clinic-ai-assistant-src/backend/app/services/scheduling_capability.py`
+- `clinic-ai-assistant-src/backend/app/services/ai_agent.py`
+- `clinic-ai-assistant-src/backend/app/routes/chat.py`
+- `clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py`
+
+Verification completed for Prompt 2:
+- added/updated integration assertions confirming availability responses expose widget-ready slot data
+- added/updated integration assertions confirming booking and non-availability flows keep `widget_payload` empty
+
+## Prompt 3 - Completed
 
 ### Goal
 
@@ -220,7 +252,29 @@ Expected behavior:
 
 The main chat page uses the shared `slot-list` widget for availability results instead of plain text slot lines.
 
-## Prompt 4 - Pending
+### Prompt 3 Completion Note
+
+Implemented inline shared widget rendering in the main chat page:
+- the main chat page now loads the shared `slot-list` stylesheet
+- the main chat page now inspects `/chat` `widget_payload`
+- when `widget_payload.type === "slot-list"` and slots are present, the page mounts the shared `slot-list` widget inline in the transcript
+- normal text reply rendering remains intact and still appears before the widget
+- existing booking progress and booking summary widget behavior remains on the existing shared dispatcher path
+
+Behavior after Prompt 3:
+- user sends availability question in main chat
+- assistant text reply is appended as a normal bot message
+- shared `slot-list` widget is appended immediately after that reply in the transcript when slot data is present
+- non-widget chat replies continue rendering as normal text only
+
+Files changed for Prompt 3:
+- `clinic-ai-assistant-src/frontend/index.html`
+- `clinic-ai-assistant-src/backend/tests/integration/test_frontend_booking_ui.py`
+
+Verification completed for Prompt 3:
+- added frontend integration assertions covering slot-list asset loading and inline widget mounting path in the main chat page
+
+## Prompt 4 - Completed
 
 ### Goal
 
@@ -245,7 +299,38 @@ Requirements:
 
 The inline slot widget in the main chat is either safely interactive or intentionally display-only with a documented reason, based on current backend boundaries.
 
-## Prompt 5 - Pending
+### Prompt 4 Completion Note
+
+Implemented the safest current interaction level as intentionally display-only in the main chat.
+
+Reason for choosing display-only:
+- current main-chat `/chat` flow does not yet expose a dedicated authoritative slot-selection transition
+- the existing scheduling and booking boundaries still require backend-owned handoff into contact collection
+- allowing the main page to treat a slot click as a booking action right now would make the frontend invent workflow state that the backend has not explicitly authorized for this path
+
+What changed:
+- shared `slot-list` widget now supports a `readOnly` mode
+- in `index.html`, inline availability widgets are mounted with `readOnly: true`
+- read-only slot buttons remain visually clear for browsing, but are non-clickable in the main chat page
+- `cal.html` sandbox behavior remains unchanged and can still use interactive slot selection where that page explicitly wires controlled actions
+
+Behavior after Prompt 4:
+- main chat availability widget is present inline in the transcript
+- users can view the available slots clearly
+- users cannot click a slot in the main chat to force a workflow transition
+- backend remains authoritative for booking/contact progression
+
+Files changed for Prompt 4:
+- `clinic-ai-assistant-src/frontend/widgets/slot-list/slot-list.js`
+- `clinic-ai-assistant-src/frontend/widgets/slot-list/slot-list.css`
+- `clinic-ai-assistant-src/frontend/index.html`
+- `clinic-ai-assistant-src/backend/tests/integration/test_frontend_booking_ui.py`
+
+Verification completed for Prompt 4:
+- added assertions covering main-chat read-only slot widget wiring
+- added assertions covering shared `slot-list` read-only support
+
+## Prompt 5 - Completed
 
 ### Goal
 
@@ -276,3 +361,29 @@ Final summary for this prompt must cover:
 ### Required Outcome
 
 The shared `slot-list` widget is cleanly integrated into the main chat page, the relevant tests are updated or added, and the feature is ready for later reuse and iteration.
+
+### Prompt 5 Completion Note
+
+What changed:
+- extracted shared slot-list conversation mounting into `widget-registry.js` via a reusable helper
+- updated `index.html` to use the shared slot-list mounting helper for chat response widgets
+- updated `cal.html` to use the same shared helper for sandbox slot rendering
+- updated `cal.html` to render read-only slot widgets when `/chat` itself returns `widget_payload`
+- preserved explicit interactive sandbox booking flow for manually loaded scheduling slots in `cal.html`
+- expanded focused integration coverage for:
+  - backend availability widget contract
+  - main chat inline widget rendering and read-only mode
+  - `cal.html` shared slot-list helper usage and chat-response widget rendering path
+
+What was verified:
+- availability contract tests pass
+- main chat frontend integration tests pass
+- `cal.html` integration tests pass
+
+What remains intentionally different between `cal.html` and the main chat usage:
+- main chat uses read-only slot widgets for backend-authoritative safety
+- `cal.html` still supports interactive slot selection for explicit sandbox scheduling and booking endpoint testing
+- both pages now share the same slot-list conversation mounting helper even though their interaction level is intentionally different
+
+Follow-up cleanup candidates discovered:
+- if a future backend-authoritative slot-selection contract is added for `/chat`, the main page can reuse the shared helper and switch from `readOnly: true` to a controlled `onSelect` path without rebuilding the widget integration
