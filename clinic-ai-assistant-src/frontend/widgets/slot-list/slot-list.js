@@ -118,19 +118,12 @@ export function createSlotListWidget({
     dayTitleEl.textContent = dayGroup.dayLabel.primary;
     dayTopRowEl.appendChild(dayTitleEl);
 
-    const dayMetaEl = document.createElement("div");
-    dayMetaEl.className = "slot-day-meta";
-    dayMetaEl.textContent = `${dayGroup.slots.length} слободни`;
-    dayTopRowEl.appendChild(dayMetaEl);
+    const dayWeekdayEl = document.createElement("div");
+    dayWeekdayEl.className = "slot-day-weekday";
+    dayWeekdayEl.textContent = dayGroup.dayLabel.secondary || "";
+    dayTopRowEl.appendChild(dayWeekdayEl);
 
     dayHeaderEl.appendChild(dayTopRowEl);
-
-    if (dayGroup.dayLabel.secondary) {
-      const daySubtitleEl = document.createElement("div");
-      daySubtitleEl.className = "slot-day-subtitle";
-      daySubtitleEl.textContent = dayGroup.dayLabel.secondary;
-      dayHeaderEl.appendChild(daySubtitleEl);
-    }
 
     dayCardEl.appendChild(dayHeaderEl);
 
