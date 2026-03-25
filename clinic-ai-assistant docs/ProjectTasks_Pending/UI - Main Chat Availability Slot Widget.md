@@ -41,11 +41,11 @@ Update rules:
 
 ## Current Active Prompt
 
-- `Prompt 1 - Pending`
+- `Prompt 2 - Pending`
 
 ## Global Status Summary
 
-- Prompt 1 - Pending
+- Prompt 1 - Completed
 - Prompt 2 - Pending
 - Prompt 3 - Pending
 - Prompt 4 - Pending
@@ -84,7 +84,7 @@ Update rules:
 - The shared chat shell is used by both the main chat page and `cal.html`.
 - The current problem is that the main chat page still surfaces availability results as plain text instead of rendering the shared `slot-list` widget inline in the transcript.
 
-## Prompt 1 - Pending
+## Prompt 1 - Completed
 
 ### Goal
 
@@ -121,6 +121,47 @@ A structured table listing every file that will likely need to change. For each 
 ### Required Outcome
 
 A precise Change Map that later prompts can execute without re-exploring the whole repo. No code changes in this prompt.
+
+---
+
+### Output - Availability Widget Change Map
+
+| File path | Why it matters | Functions / modules likely to change | Layer | Risk |
+|---|---|---|---|---|
+| `clinic-ai-assistant-src/backend/app/routes/chat.py` | Owns the public `/chat` response shape that the main frontend consumes. | `chat` route return payload | backend, shared_contract | **High** - any response-shape change affects the main chat page directly and must remain backward compatible for non-widget flows |
+| `clinic-ai-assistant-src/backend/app/services/ai_agent.py` | Owns the main orchestration path and currently decides when availability replies are returned back to `/chat`. | `generate_reply`, scheduling-first availability branches, any final response payload shaping used by `/chat` | backend, shared_contract | **High** - this is the orchestration hotspot and availability behavior already passes through it |
+| `clinic-ai-assistant-src/backend/app/services/scheduling_capability.py` | Already produces structured slot data internally but currently exposes only reply text outward through the main chat path. | `handle_scheduling_capability`, `_availability_reply_text`, `assessment_reply_text`, `SchedulingCapabilityAssessment.output_payload` usage | backend, shared_contract | **High** - the slot data already exists here, so the contract likely needs to expose it safely without breaking current reply text behavior |
+| `clinic-ai-assistant-src/frontend/index.html` | Owns the main chat page transcript behavior and currently always appends `data.reply` as plain text. | `performSend`, `conversationDispatcher` usage, widget mounting around availability replies | frontend | **High** - this is the page that must switch from plain text slot dumping to inline widget rendering |
+| `clinic-ai-assistant-src/frontend/widgets/widget-registry.js` | Already registers the shared `slot-list` widget and defines the main widget dispatch contract. | `registerDefaultConversationWidgets`, `createConversationWidgetDispatcher`, possible helper shape expectations for widget payload mounting | frontend, shared_contract | **Medium** - the registry is already capable, but the main page may need a small extension or a cleaner shared helper path for response-driven widget insertion |
+| `clinic-ai-assistant-src/frontend/widgets/slot-list/slot-list.js` | Provides the shared slot widget that should be reused in the main chat instead of text lines. | `createSlotListWidget` only if payload assumptions or interaction wiring need a minimal adjustment | frontend | **Low** - the widget already works in `cal.html`, so it likely needs reuse rather than redesign |
+| `clinic-ai-assistant-src/frontend/cal.html` | Serves as the working reference implementation for inline `slot-list` widget rendering in a chat-like flow. | `conversationDispatcher.addWidget("slot-list", ...)`, `addSlotChoices`, any reuse-worthy mounting pattern | frontend | **Low** - likely no direct feature change required, but it is the strongest repo-truth reference for how the shared widget should be mounted |
+| `clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py` | Validates current availability behavior and shows that backend state already contains structured slot results while the reply remains plain text. | `test_availability_intent_triggers_scheduling_without_starting_booking` and related assertions | test | **Medium** - these tests may need extension to cover any new `/chat` contract fields while preserving current scheduling-first behavior |
+| `clinic-ai-assistant-src/backend/tests/integration/test_frontend_booking_ui.py` | Covers the main chat page widget wiring and is the closest existing integration guard for transcript widget behavior in `index.html`. | main page HTML assertions and any new widget-rendering expectations | test | **Medium** - this suite already validates booking widgets and is the natural place to extend expectations for availability widget support |
+| `clinic-ai-assistant-src/backend/tests/integration/test_cal_html.py` | Covers the sandbox/widget surface and helps preserve parity between the sandbox and shared widget infrastructure. | slot-list wiring assertions, existing brittle widget-registry expectation | test | **Low** - not the main feature target, but useful for protecting the shared widget path and avoiding regressions in the sandbox reference implementation |
+
+### Prompt 1 Completion Note
+
+Repo truth after inspection:
+- the main chat page is served from `clinic-ai-assistant-src/frontend/index.html`
+- `index.html` already uses the shared widget registry and dispatcher for booking progress and booking summary widgets
+- the main chat page currently always appends only `data.reply` as plain text after `/chat`
+- the `/chat` route currently returns only:
+  - `received_message`
+  - `tenant`
+  - `session_id`
+  - `session_status`
+  - `booking_progress`
+  - `reply`
+- the backend already has structured slot data during availability handling inside `scheduling_capability.py` under `assessment.output_payload.result.slots`
+- that structured slot data does not currently cross the `/chat` response boundary into `index.html`
+- `cal.html` already demonstrates the correct shared-widget mounting pattern by calling `conversationDispatcher.addWidget("slot-list", ...)`
+- the likely missing feature is a small shared contract addition plus main-page response handling, not a new slot widget
+
+Most likely implementation direction for later prompts:
+- keep human-readable `reply`
+- add a small structured widget payload to `/chat` for availability-capable responses
+- let `index.html` mount the existing shared `slot-list` widget inline when that payload is present
+- keep slot interaction minimal/safe until backend workflow boundaries are confirmed in later prompts
 
 ## Prompt 2 - Pending
 
