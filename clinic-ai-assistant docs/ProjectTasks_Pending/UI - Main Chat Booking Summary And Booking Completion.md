@@ -42,11 +42,11 @@ Update rules:
 
 ## Current Active Prompt
 
-- `Prompt 1 - Pending`
+- `Prompt 1 - Completed`
 
 ## Global Status Summary
 
-- Prompt 1 - Pending
+- Prompt 1 - Completed
 - Prompt 2 - Pending
 - Prompt 3 - Pending
 - Prompt 4 - Pending
@@ -105,7 +105,7 @@ Update rules:
 - Keep provider-specific booking behavior inside the scheduling subsystem.
 - If proposal work is produced for overlapping slot conflicts, it must be documented in a separate new markdown file and must not silently expand into implementation.
 
-## Prompt 1 - Pending
+## Prompt 1 - Completed
 
 ### Goal
 
@@ -128,6 +128,30 @@ Requirements:
 ### Required Outcome
 
 The main chat no longer shows dummy booking-summary values, and the selected slot displayed to the user reflects the real slot they clicked.
+
+### Prompt 1 Completion Note
+
+What changed:
+- removed the hard-coded appointment placeholder from the booking summary payload in `clinic-ai-assistant-src/backend/app/services/booking_credentials.py`
+- booking summaries now read the real selected slot from `state["scheduling_handoff"]["selected_slot"]` when the booking flow was started from scheduling-first slot selection
+- removed hard-coded fallback service/date values from `clinic-ai-assistant-src/frontend/widgets/booking-summary/booking-summary.js` so the UI no longer invents dummy values when the payload is empty
+
+Behavior after Prompt 1:
+- the transcript confirmation line still shows the exact clicked slot label from the widget selection
+- a completed scheduling-first booking summary now shows the same real selected slot instead of the previous placeholder date
+- booking-first flows no longer show a fake appointment time in the summary when no real slot has been selected yet
+
+Files changed for Prompt 1:
+- `clinic-ai-assistant-src/backend/app/services/booking_credentials.py`
+- `clinic-ai-assistant-src/frontend/widgets/booking-summary/booking-summary.js`
+- `clinic-ai-assistant-src/backend/tests/integration/test_req_booking_flow.py`
+- `clinic-ai-assistant-src/backend/tests/integration/test_frontend_booking_ui.py`
+- `clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py`
+
+Verification completed for Prompt 1:
+- `tests/integration/test_availability_intent_gating.py` passed
+- `tests/integration/test_req_booking_flow.py` passed
+- `tests/integration/test_frontend_booking_ui.py` passed
 
 ## Prompt 2 - Pending
 

@@ -69,6 +69,18 @@ def booking_summary_payload(
     service = service_by_id(services, service_id) or consultation_service(services)
     service_name = service_display_name(service) if isinstance(service, dict) else "Стоматолошка консултација"
 
+    scheduling_handoff = state.get("scheduling_handoff")
+    selected_slot = scheduling_handoff.get("selected_slot") if isinstance(scheduling_handoff, dict) else None
+    appointment_display = ""
+    appointment_status = "Привремен термин"
+    appointment_source = None
+
+    if isinstance(selected_slot, dict):
+        raw_display_label = selected_slot.get("display_label")
+        if isinstance(raw_display_label, str) and raw_display_label.strip():
+            appointment_display = raw_display_label.strip()
+        appointment_source = "selected_slot"
+
     summary_fields = []
     for field_name in collect_fields:
         raw_value = data.get(field_name)
@@ -85,9 +97,9 @@ def booking_summary_payload(
         "title": "Резиме на барањето",
         "subtitle": "Подготвено за идно поврзување со календар и реален термин.",
         "service_name": service_name,
-        "appointment_display": "21 MAR 2026 во 14:00",
-        "appointment_status": "Привремен термин",
-        "appointment_source": "placeholder",
+        "appointment_display": appointment_display,
+        "appointment_status": appointment_status,
+        "appointment_source": appointment_source,
         "fields": summary_fields,
     }
 
