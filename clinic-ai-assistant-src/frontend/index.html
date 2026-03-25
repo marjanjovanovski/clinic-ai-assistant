@@ -242,7 +242,29 @@
       return conversationDispatcher.addTextMessage(text, sender);
     }
 
-    function addResponseWidget(widgetPayload) {
+    function isSlotListWidgetPayload(widgetPayload) {
+      return Boolean(
+        widgetPayload &&
+        widgetPayload.type === "slot-list" &&
+        Array.isArray(widgetPayload.slots) &&
+        widgetPayload.slots.length
+      );
+    }
+
+    function getPrimaryReplyText(replyText, widgetPayload) {
+      if (typeof replyText !== "string" || !replyText.trim()) {
+        return "";
+      }
+
+      if (!isSlotListWidgetPayload(widgetPayload)) {
+        return replyText.trim();
+      }
+
+      const [primaryReply] = replyText.split(/\n\s*\n/, 1);
+      return String(primaryReply || "").trim();
+    }
+
+    function addResponseWidget(widgetPayload, options = {}) {
       if (!widgetPayload || widgetPayload.type !== "slot-list") {
         return null;
       }
@@ -252,8 +274,10 @@
         return null;
       }
 
+      const { hideTitle = false } = options;
+
       return addSlotListConversationWidget(conversationDispatcher, {
-        title: widgetPayload.title || "Изберете термин:",
+        title: hideTitle ? null : (widgetPayload.title || "Изберете термин:"),
         slots,
         readOnly: true,
       }, { sender: "bot" });
@@ -301,8 +325,9 @@
           window.localStorage.setItem(sessionStorageKey, sessionId);
         }
         updateBookingProgress(data.booking_progress);
-        addMessage(data.reply || "Нема одговор од серверот.", "bot");
-        addResponseWidget(data.widget_payload);
+        const primaryReplyText = getPrimaryReplyText(data.reply, data.widget_payload);
+        addMessage(primaryReplyText || "Нема одговор од серверот.", "bot");
+        addResponseWidget(data.widget_payload, { hideTitle: Boolean(primaryReplyText) });
         statusText.textContent = data.session_status === "completed"
           ? "Барањето е завршено."
           : data.session_status === "collecting_contact"

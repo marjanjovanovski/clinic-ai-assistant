@@ -83,10 +83,13 @@ export function createSlotListWidget({
   const root = document.createElement("div");
   root.className = "slot-list-widget";
 
-  const titleEl = document.createElement("div");
-  titleEl.className = "slot-list-title";
-  titleEl.textContent = title;
-  root.appendChild(titleEl);
+  const normalizedTitle = typeof title === "string" ? title.trim() : "";
+  if (normalizedTitle) {
+    const titleEl = document.createElement("div");
+    titleEl.className = "slot-list-title";
+    titleEl.textContent = normalizedTitle;
+    root.appendChild(titleEl);
+  }
 
   const daysEl = document.createElement("div");
   daysEl.className = "slot-list-days";

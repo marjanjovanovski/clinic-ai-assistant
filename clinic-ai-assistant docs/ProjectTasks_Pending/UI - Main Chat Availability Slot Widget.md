@@ -41,7 +41,7 @@ Update rules:
 
 ## Current Active Prompt
 
-- `Prompt 5 - Completed`
+- `Prompt 6 - Completed`
 
 ## Global Status Summary
 
@@ -50,6 +50,7 @@ Update rules:
 - Prompt 3 - Completed
 - Prompt 4 - Completed
 - Prompt 5 - Completed
+- Prompt 6 - Completed
 
 ## Working Rules For The Implementing AI Agent
 
@@ -71,6 +72,26 @@ Update rules:
 - booking summary widget rendering
 - current `cal.html` sandbox behavior
 - current `/chat` response compatibility for non-availability flows
+
+## Review Notes
+
+### Follow-up Issue - Duplicate Availability Text In Main Chat
+
+Observed issue from UI review:
+- the main chat transcript still shows duplicated availability information as plain text before the shared `slot-list` widget
+- one duplicated block appears as a full assistant text message with slot lines
+- another duplicated line appears immediately above the widget as a compressed/plain slot summary
+- the shared widget then renders the same slots again visually
+
+Current concern:
+- this weakens the intended widget-first transcript experience
+- it is not yet clear whether the extra text comes from backend `reply`, frontend `index.html` transcript rendering, shared widget helper usage, or a combined formatting path
+
+Required investigation direction:
+- inspect what `/chat` reply content is actually returned for the availability flow used by `index.html`
+- inspect exactly what `index.html` appends to the transcript before and after `widget_payload` handling
+- isolate the specific code path that produces the extra plain-text availability message before changing behavior
+- preserve human-readable non-widget chat replies and avoid breaking backend-authoritative workflow boundaries
 
 ## Current Repo Truth
 
@@ -387,3 +408,61 @@ What remains intentionally different between `cal.html` and the main chat usage:
 
 Follow-up cleanup candidates discovered:
 - if a future backend-authoritative slot-selection contract is added for `/chat`, the main page can reuse the shared helper and switch from `readOnly: true` to a controlled `onSelect` path without rebuilding the widget integration
+
+## Prompt 6 - Completed
+
+### Goal
+
+Investigate and remove the duplicated plain-text availability output in the main chat transcript while preserving the intended inline shared widget experience.
+
+### Instructions
+
+Start by checking exactly what the main chat page currently returns and renders in `clinic-ai-assistant-src/frontend/index.html`.
+
+You must first inspect and isolate the code path that produces the duplicate message shown in the UI review before implementing any fix.
+
+Investigation requirements:
+- inspect what `/chat` availability responses currently place into `reply`
+- inspect how `index.html` renders assistant text replies for availability flows
+- inspect how `index.html` handles `widget_payload`
+- identify whether the duplicated text comes from:
+  - backend-generated availability prose
+  - frontend transcript append logic
+  - shared widget helper mounting
+  - duplicate rendering across more than one of the above
+- isolate the exact function or code block responsible for the extra availability text in the main chat flow
+
+Implementation requirements:
+- remove only the redundant availability text that conflicts with the widget-first experience
+- preserve normal assistant text rendering for non-availability chat flows
+- keep the shared `slot-list` widget inline in the transcript
+- do not break `cal.html` sandbox behavior
+- do not remove backend-human-readable text unless investigation confirms that `index.html` should suppress or transform it specifically for widget-backed availability replies
+- prefer the smallest safe fix once the true source is confirmed
+
+Verification requirements:
+- add or update focused coverage proving the main chat does not duplicate availability text when the slot widget is rendered
+- preserve existing coverage for booking widgets and non-availability replies where applicable
+
+### Required Outcome
+
+The main chat transcript shows the shared `slot-list` widget without redundant duplicated availability text, and the code path that previously produced the extra message is clearly identified and safely corrected.
+
+### Prompt 6 Completion Note
+
+Investigation result:
+- `index.html` always appended the full `data.reply` bot message even when `data.widget_payload.type === "slot-list"`
+- the backend availability reply still contains human-readable slot lines in `reply`
+- the main chat then mounted the shared slot widget immediately after that text reply
+- this produced duplicated availability content in the transcript: one plain-text slot dump plus the structured widget
+- the extra compressed line near the widget came from the widget title path, so the duplication was caused by a combined backend-plus-frontend presentation path rather than a second backend response
+
+What changed:
+- added main-chat reply shaping in `index.html` so widget-backed availability replies only append the primary intro paragraph as bot text
+- updated the main chat widget mount path to hide the slot widget title when that intro text is already shown in the transcript
+- updated the shared `slot-list` widget to support title-less rendering when `title` is omitted or empty
+- preserved non-availability reply rendering, shared widget reuse, and read-only main-chat safety
+
+What was verified:
+- updated focused frontend integration assertions for main-chat widget-backed reply shaping
+- updated shared widget assertions confirming title-less slot-list rendering support

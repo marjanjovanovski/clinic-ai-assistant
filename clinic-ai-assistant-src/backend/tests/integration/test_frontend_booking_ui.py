@@ -115,11 +115,16 @@ def test_agent_page_mounts_slot_list_widget_from_chat_response(monkeypatch, tmp_
 
     assert response.status_code == 200
     assert 'href="/frontend/widgets/slot-list/slot-list.css"' in response.text
-    assert 'function addResponseWidget(widgetPayload)' in response.text
+    assert 'function isSlotListWidgetPayload(widgetPayload)' in response.text
+    assert 'function getPrimaryReplyText(replyText, widgetPayload)' in response.text
+    assert 'const [primaryReply] = replyText.split(/\\n\\s*\\n/, 1);' in response.text
+    assert 'function addResponseWidget(widgetPayload, options = {})' in response.text
     assert 'widgetPayload.type !== "slot-list"' in response.text
-    assert 'addSlotListConversationWidget(conversationDispatcher, {' in response.text
+    assert 'const { hideTitle = false } = options;' in response.text
+    assert 'title: hideTitle ? null : (widgetPayload.title || "Изберете термин:")' in response.text
     assert "readOnly: true," in response.text
-    assert 'addResponseWidget(data.widget_payload);' in response.text
+    assert 'const primaryReplyText = getPrimaryReplyText(data.reply, data.widget_payload);' in response.text
+    assert 'addResponseWidget(data.widget_payload, { hideTitle: Boolean(primaryReplyText) });' in response.text
 
 
 def test_slot_list_widget_supports_read_only_mode(monkeypatch, tmp_path):
@@ -131,6 +136,8 @@ def test_slot_list_widget_supports_read_only_mode(monkeypatch, tmp_path):
     assert widget_js.status_code == 200
     assert widget_css.status_code == 200
     assert "readOnly = false," in widget_js.text
+    assert 'const normalizedTitle = typeof title === "string" ? title.trim() : "";' in widget_js.text
+    assert "if (normalizedTitle) {" in widget_js.text
     assert 'buttonEl.classList.toggle("slot-list-button--read-only", readOnly);' in widget_js.text
     assert "buttonEl.disabled = readOnly;" in widget_js.text
     assert "if (readOnly) {" in widget_js.text
