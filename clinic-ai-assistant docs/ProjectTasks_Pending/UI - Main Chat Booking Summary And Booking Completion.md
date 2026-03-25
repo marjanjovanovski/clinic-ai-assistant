@@ -46,13 +46,13 @@ Update rules:
 
 ## Current Active Prompt
 
-- `Prompt 3 - Pending`
+- `Prompt 3 - Completed`
 
 ## Global Status Summary
 
 - Prompt 1 - Completed
 - Prompt 2 - Completed
-- Prompt 3 - Pending
+- Prompt 3 - Completed
 - Prompt 4 - Pending
 
 ## Working Rules For The Implementing AI Agent
@@ -214,7 +214,7 @@ Verification completed for Prompt 2:
 - `tests/integration/test_scheduling_api.py` passed
 - `tests/integration/test_cal_html.py` passed
 
-## Prompt 3 - Pending
+## Prompt 3 - Completed
 
 ### Goal
 
@@ -237,6 +237,32 @@ Requirements:
 ### Required Outcome
 
 The repaired main-chat booking completion flow is verified, maintainable, and clearly documented in this file.
+
+### Prompt 3 Completion Note
+
+What changed:
+- cleaned up `clinic-ai-assistant-src/backend/app/services/booking_credentials.py` by extracting appointment-summary state projection into a focused helper so the logic for:
+  - selected slot display
+  - confirmed booking display
+  - badge state
+  - summary subtitle
+  now lives in one place
+- added a new focused unit suite in `clinic-ai-assistant-src/backend/tests/unit/test_booking_credentials.py`
+- tightened the frontend integration assertions in `clinic-ai-assistant-src/backend/tests/integration/test_frontend_booking_ui.py` so the summary widget contract explicitly covers appointment status display handling
+
+What was verified:
+- `tests/unit/test_booking_credentials.py` passed
+- `tests/integration/test_availability_intent_gating.py` passed
+- `tests/integration/test_req_booking_flow.py` passed
+- `tests/integration/test_frontend_booking_ui.py` passed
+
+What remains intentionally different between `cal.html` and `index.html`:
+- `cal.html` still performs direct explicit booking through `/scheduling/book`
+- `index.html` still completes booking through the chat session flow and lets the backend bridge into scheduling-owned booking logic internally
+- both surfaces now converge on the same provider-backed booking behavior, but they still use different frontend interaction models by design
+
+Follow-up cleanup result:
+- no additional safe refactor was necessary in `index.html` for this prompt because the main maintainability hotspot was in backend summary/booking projection logic
 
 ## Prompt 4 - Pending
 

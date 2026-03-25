@@ -81,6 +81,7 @@ def test_completed_booking_summary_shell_is_calendar_ready(monkeypatch, tmp_path
     assert summary_js.status_code == 200
     assert summary_css.status_code == 200
     assert 'summary.appointment_display || ""' in summary_js.text
+    assert 'summary.appointment_status || ""' in summary_js.text
     assert 'summary.service_name || ""' in summary_js.text
     assert 'const summaryNote = String(summary.patient_note || summary.note || summary.notes || "").trim();' in summary_js.text
     assert 'noteContainer.classList.add("visible");' in summary_js.text

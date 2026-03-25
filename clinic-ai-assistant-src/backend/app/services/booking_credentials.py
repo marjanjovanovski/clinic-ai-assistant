@@ -50,25 +50,7 @@ class CapabilityResult:
 ProfileText = Callable[..., str | None]
 
 
-def booking_summary_payload(
-    profile: dict,
-    state: dict,
-    collect_fields: list[str],
-    data: dict,
-    services: list[dict],
-    *,
-    field_prompt: Callable[[dict, str], str],
-    service_by_id: Callable[[list[dict], str | None], dict | None],
-    consultation_service: Callable[[list[dict]], dict | None],
-    service_display_name: Callable[[dict], str],
-) -> dict | None:
-    if state.get("stage") != "completed":
-        return None
-
-    service_id = state.get("service_id")
-    service = service_by_id(services, service_id) or consultation_service(services)
-    service_name = service_display_name(service) if isinstance(service, dict) else "Стоматолошка консултација"
-
+def _appointment_summary_projection(state: dict) -> tuple[str, str, str | None, str]:
     scheduling_handoff = state.get("scheduling_handoff")
     selected_slot = scheduling_handoff.get("selected_slot") if isinstance(scheduling_handoff, dict) else None
     booking_result = state.get("booking_result") if isinstance(state.get("booking_result"), dict) else None
@@ -92,6 +74,30 @@ def booking_summary_payload(
         confirmation_message = booking_result.get("confirmation_message")
         if isinstance(confirmation_message, str) and confirmation_message.strip():
             subtitle = confirmation_message.strip()
+
+    return appointment_display, appointment_status, appointment_source, subtitle
+
+
+def booking_summary_payload(
+    profile: dict,
+    state: dict,
+    collect_fields: list[str],
+    data: dict,
+    services: list[dict],
+    *,
+    field_prompt: Callable[[dict, str], str],
+    service_by_id: Callable[[list[dict], str | None], dict | None],
+    consultation_service: Callable[[list[dict]], dict | None],
+    service_display_name: Callable[[dict], str],
+) -> dict | None:
+    if state.get("stage") != "completed":
+        return None
+
+    service_id = state.get("service_id")
+    service = service_by_id(services, service_id) or consultation_service(services)
+    service_name = service_display_name(service) if isinstance(service, dict) else "Стоматолошка консултација"
+
+    appointment_display, appointment_status, appointment_source, subtitle = _appointment_summary_projection(state)
 
     summary_fields = []
     for field_name in collect_fields:
