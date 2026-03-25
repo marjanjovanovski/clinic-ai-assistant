@@ -178,6 +178,7 @@ def test_main_booking_path_requires_explicit_confirmation_and_persisted_completi
     assert fifth["booking_progress"]["summary"]["service_name"] == "Стоматолошка консултација"
     assert fifth["booking_progress"]["summary"]["appointment_display"] == ""
     assert fifth["booking_progress"]["summary"]["appointment_source"] is None
+    assert fifth["booking_progress"]["summary"]["appointment_status"] == "Привремен термин"
     assert len(fifth["booking_progress"]["summary"]["fields"]) == 3
 
     stored = booking_ctx.lead_store.load_lead_checkpoint("milena_dental", session_id)

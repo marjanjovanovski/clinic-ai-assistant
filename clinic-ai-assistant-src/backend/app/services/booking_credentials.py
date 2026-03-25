@@ -71,15 +71,27 @@ def booking_summary_payload(
 
     scheduling_handoff = state.get("scheduling_handoff")
     selected_slot = scheduling_handoff.get("selected_slot") if isinstance(scheduling_handoff, dict) else None
+    booking_result = state.get("booking_result") if isinstance(state.get("booking_result"), dict) else None
     appointment_display = ""
     appointment_status = "Привремен термин"
     appointment_source = None
+    subtitle = "Подготвено за идно поврзување со календар и реален термин."
 
     if isinstance(selected_slot, dict):
         raw_display_label = selected_slot.get("display_label")
         if isinstance(raw_display_label, str) and raw_display_label.strip():
             appointment_display = raw_display_label.strip()
         appointment_source = "selected_slot"
+
+    if isinstance(booking_result, dict):
+        booked_display_label = booking_result.get("display_label")
+        if isinstance(booked_display_label, str) and booked_display_label.strip():
+            appointment_display = booked_display_label.strip()
+        appointment_status = "Потврден термин"
+        appointment_source = "calendar_booking"
+        confirmation_message = booking_result.get("confirmation_message")
+        if isinstance(confirmation_message, str) and confirmation_message.strip():
+            subtitle = confirmation_message.strip()
 
     summary_fields = []
     for field_name in collect_fields:
@@ -95,13 +107,57 @@ def booking_summary_payload(
 
     return {
         "title": "Резиме на барањето",
-        "subtitle": "Подготвено за идно поврзување со календар и реален термин.",
+        "subtitle": subtitle,
         "service_name": service_name,
         "appointment_display": appointment_display,
         "appointment_status": appointment_status,
         "appointment_source": appointment_source,
         "fields": summary_fields,
     }
+
+
+def _complete_selected_slot_booking_if_ready(
+    *,
+    tenant: str,
+    state: dict,
+    data: dict,
+) -> dict | None:
+    scheduling_handoff = state.get("scheduling_handoff")
+    if not isinstance(scheduling_handoff, dict):
+        return None
+
+    selected_slot = scheduling_handoff.get("selected_slot")
+    if not isinstance(selected_slot, dict):
+        return None
+
+    existing_booking_result = state.get("booking_result")
+    if isinstance(existing_booking_result, dict) and existing_booking_result.get("booking_id"):
+        return existing_booking_result
+
+    service_id = state.get("service_id") or scheduling_handoff.get("service_id")
+    slot_id = selected_slot.get("slot_id")
+    patient_name = data.get("name")
+    if not isinstance(service_id, str) or not service_id.strip():
+        return None
+    if not isinstance(slot_id, str) or not slot_id.strip():
+        return None
+    if not isinstance(patient_name, str) or not patient_name.strip():
+        return None
+
+    from app.services import scheduling_capability
+
+    booking_result = scheduling_capability.book_selected_slot(
+        tenant=tenant,
+        service_id=service_id.strip(),
+        slot_id=slot_id.strip(),
+        patient_name=patient_name.strip(),
+        patient_phone=data.get("phone"),
+        patient_email=data.get("email"),
+        note="Booked from main chat scheduling flow",
+    )
+    booking_payload = booking_result.to_dict()
+    state["booking_result"] = booking_payload
+    return booking_payload
 
 
 def get_booking_progress(
@@ -1340,6 +1396,14 @@ def maybe_handle_booking_turn(
                 stage_after="collecting_contact",
             )
             return final_reply, session_id
+        booking_result = _complete_selected_slot_booking_if_ready(
+            tenant=tenant,
+            state=state,
+            data=state["data"],
+        )
+        if booking_result:
+            save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
+
         SESSION_STATE.pop(session_key, None)
         trace_stage_transition(
             tenant,
@@ -1356,6 +1420,10 @@ def maybe_handle_booking_turn(
             stage_after="completed",
         )
         reply = profile_text(profile, "reply_texts", "booking_completed")
+        if isinstance(booking_result, dict):
+            confirmation_message = booking_result.get("confirmation_message")
+            if isinstance(confirmation_message, str) and confirmation_message.strip():
+                reply = confirmation_message.strip()
         final_reply = finalize_reply(
             tenant=tenant,
             session_id=session_id,

@@ -192,8 +192,11 @@ def test_selected_slot_flow_uses_real_slot_label_in_completed_booking_summary(mo
 
     assert payload["session_status"] == "completed"
     assert payload["booking_progress"]["reservation_status"] == "complete"
+    assert payload["reply"] == "Терминот е резервиран во mock режим."
     assert payload["booking_progress"]["summary"]["appointment_display"] == chosen_slot["display_label"]
-    assert payload["booking_progress"]["summary"]["appointment_source"] == "selected_slot"
+    assert payload["booking_progress"]["summary"]["appointment_source"] == "calendar_booking"
+    assert payload["booking_progress"]["summary"]["appointment_status"] == "Потврден термин"
+    assert payload["booking_progress"]["summary"]["subtitle"] == "Терминот е резервиран во mock режим."
 
 
 def test_normal_booking_path_still_starts_contact_collection(monkeypatch, tmp_path):

@@ -40,14 +40,18 @@ Update rules:
 
 - `2026-03-25`
 
+## Merge To Main
+
+- `Pending`
+
 ## Current Active Prompt
 
-- `Prompt 1 - Completed`
+- `Prompt 3 - Pending`
 
 ## Global Status Summary
 
 - Prompt 1 - Completed
-- Prompt 2 - Pending
+- Prompt 2 - Completed
 - Prompt 3 - Pending
 - Prompt 4 - Pending
 
@@ -153,7 +157,7 @@ Verification completed for Prompt 1:
 - `tests/integration/test_req_booking_flow.py` passed
 - `tests/integration/test_frontend_booking_ui.py` passed
 
-## Prompt 2 - Pending
+## Prompt 2 - Completed
 
 ### Goal
 
@@ -180,6 +184,35 @@ Requirements:
 ### Required Outcome
 
 The main chat completes the real booking transaction through scheduling-owned backend logic instead of stopping after contact collection.
+
+### Prompt 2 Completion Note
+
+What changed:
+- restored the missing scheduling-first booking transaction inside `clinic-ai-assistant-src/backend/app/services/booking_credentials.py`
+- when the final contact field completes a main-chat scheduling flow, the backend now detects `scheduling_handoff.selected_slot` and internally calls the existing scheduling booking service through `scheduling_capability.book_selected_slot(...)`
+- the completed session now stores `booking_result` in state, which feeds the booking summary with:
+  - confirmed appointment label
+  - confirmed badge state
+  - provider confirmation subtitle
+- the final assistant reply for scheduling-first completion now uses the provider confirmation message when booking succeeds
+
+Architecture outcome:
+- the browser still finishes the conversation through `/chat`
+- `index.html` does not rebuild booking requests on its own
+- the real booking execution remains in scheduling-owned backend logic and still reuses the existing provider-backed booking path behind `book_selected_slot(...)`
+- `cal.html` continues to use the explicit `/scheduling/book` sandbox flow
+
+Files changed for Prompt 2:
+- `clinic-ai-assistant-src/backend/app/services/booking_credentials.py`
+- `clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py`
+- `clinic-ai-assistant-src/backend/tests/integration/test_req_booking_flow.py`
+
+Verification completed for Prompt 2:
+- `tests/integration/test_availability_intent_gating.py` passed
+- `tests/integration/test_req_booking_flow.py` passed
+- `tests/integration/test_frontend_booking_ui.py` passed
+- `tests/integration/test_scheduling_api.py` passed
+- `tests/integration/test_cal_html.py` passed
 
 ## Prompt 3 - Pending
 
