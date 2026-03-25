@@ -42,7 +42,7 @@ Update rules:
 
 ## Current Active Prompt
 
-- `Prompt 5 - Completed`
+- `None - Feature Completed`
 
 ## Global Status Summary
 
