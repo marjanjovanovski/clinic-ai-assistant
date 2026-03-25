@@ -11,6 +11,9 @@ Architecture manifest for this file:
   not by raw message phrasing.
 """
 
+# region Imports and Shared Constants
+# Module-level setup for orchestration-owned dependencies, shared constants, and intent aliases.
+
 import json
 import logging
 import os
@@ -99,6 +102,12 @@ INTENT_ALIASES = {
 }
 
 
+# endregion Imports and Shared Constants
+
+
+# region Module Exceptions and Trace Helpers
+# Lightweight orchestration-local exceptions and operational tracing helpers.
+
 class AIInferenceError(Exception):
     pass
 
@@ -148,6 +157,12 @@ def _trace_stage_transition(
         reason=reason,
     )
 
+
+# endregion Module Exceptions and Trace Helpers
+
+
+# region LLM Input Shaping and Internal Intent Markers
+# Prompt-bounding, interaction-history shaping, and model-output normalization helpers.
 
 def _is_availability_intent_output(intent: str | None) -> bool:
     if not isinstance(intent, str):
@@ -276,6 +291,12 @@ def _bounded_ai_input(
     prompt_input.append({"role": "user", "content": message})
     return prompt_input
 
+
+# endregion LLM Input Shaping and Internal Intent Markers
+
+
+# region Contact Collection and Booking Guidance Kept Local
+# These helpers still live here because orchestration depends on their exact guidance and gating behavior.
 
 def _is_broad_pricing_request(message: str, profile: dict) -> bool:
     normalized_message = _normalize_lookup_text(message)
@@ -926,6 +947,12 @@ def _booking_guidance_reply(
     return fallback_reply
 
 
+# endregion Contact Collection and Booking Guidance Kept Local
+
+
+# region Reply Quality and Response Finalization
+# Final reply shaping, repetition control, interaction recording, and response tracing.
+
 def _edit_record_confirmation_reply() -> str:
     return "Дали сакате да направите промена на записот?"
 
@@ -1074,6 +1101,12 @@ def _trace_response(
     )
 
 
+# endregion Reply Quality and Response Finalization
+
+
+# region Booking Capability Adapters
+# Thin wrappers that keep orchestration readable while delegating workflow details to booking_credentials.
+
 def _start_collecting_contact(
     tenant: str,
     session_id: str,
@@ -1119,6 +1152,12 @@ def _recover_from_persistence_failure(
 ) -> str:
     return booking_credentials._recover_from_persistence_failure(state, collect_fields, save_result, fallback_field)
 
+
+# endregion Booking Capability Adapters
+
+
+# region Intent Normalization and Deterministic Routing Shortcuts
+# Backend-safe intent collapsing plus rule-based shortcuts that can answer before the main LLM path.
 
 def _is_booking_confirmation(message: str, profile: dict) -> bool:
     return booking_credentials.is_booking_confirmation(
@@ -1291,6 +1330,12 @@ def _is_global_service_intent(message: str, services: list[dict], profile: dict)
     )
 
 
+# endregion Intent Normalization and Deterministic Routing Shortcuts
+
+
+# region Session Status and Progress Projections
+# Public helpers used by the chat surface to summarize current session and booking state.
+
 def get_session_status(tenant: str, session_id: str | None) -> str:
     if not session_id:
         return "active"
@@ -1330,6 +1375,12 @@ def get_booking_progress(tenant: str, session_id: str | None) -> dict | None:
         service_display_name=_service_display_name,
     )
 
+
+# endregion Session Status and Progress Projections
+
+
+# region Main Orchestration Entry Point
+# The request lifecycle coordinator: bootstrap, deterministic gates, model call, and capability routing.
 
 def generate_reply(tenant: str, message: str, session_id: str | None = None) -> tuple[str, str]:
     original_session_id = session_id
@@ -2185,3 +2236,6 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             error=str(exc),
         )
         raise
+
+
+# endregion Main Orchestration Entry Point

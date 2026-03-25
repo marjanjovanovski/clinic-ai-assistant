@@ -3,18 +3,21 @@
 ## Scope
 
 - Target file: `clinic-ai-assistant-src/backend/app/services/ai_agent.py`
-- Current measured size: 1839 lines
+- Current measured size: 2187 lines
 - Purpose of this note: explain what the file owns at a high level, how its logic is grouped, and which parts are currently doing LLM orchestration versus deterministic backend control
 
 ## High-Level Category Map
 
-| Category | Approx. logic LOC | What it owns |
-|---|---:|---|
-| LLM prompt / inference orchestration | 898 | prompt construction, context bounding, model call, structured output handling, final orchestration |
-| Booking flow / contact collection / edit flow | 676 | booking state guidance, validation boundaries, unknown-name handling, persistence-gated collection flow |
-| Catalog / service / intent routing | 181 | rule-based routing before the model call and service-oriented fallback shaping |
-| Repetition / fallback shaping | 97 | repeated-message handling, fallback reformulation, and final reply shaping |
-| Logging / tracing / session bookkeeping | 69 | trace events, chat-state logging, response tracing, session status helpers |
+Percent coverage below is measured against the current 2187-line file size, so it shows how much of the file each category occupies today.
+
+| Category | Approx. logic LOC | % Coverage | Description | What it owns |
+|---|---:|---:|---|---|
+| LLM prompt / inference orchestration | 898 | 41.1% | The orchestration core that builds prompt context, calls the model, normalizes model output, and routes results into backend-safe branches. | prompt construction, context bounding, model call, structured output handling, final orchestration |
+| Booking flow / contact collection / edit flow | 676 | 30.9% | Deterministic booking workflow control for confirmation, contact collection, edit handling, and persistence-aware progression rules. | booking state guidance, validation boundaries, unknown-name handling, persistence-gated collection flow |
+| Catalog / service / intent routing | 181 | 8.3% | Rule-based routing and service-aware response shaping that can answer common requests before the LLM is used. | rule-based routing before the model call and service-oriented fallback shaping |
+| Repetition / fallback shaping | 97 | 4.4% | Reply-quality control logic that detects repetition, reformulates weak outputs, and keeps final replies usable. | repeated-message handling, fallback reformulation, and final reply shaping |
+| Logging / tracing / session bookkeeping | 69 | 3.2% | Operational support logic for trace events, chat-state logging, response tracing, and lightweight session status helpers. | trace events, chat-state logging, response tracing, session status helpers |
+| Supporting scaffolding / imports / constants / glue | 266 | 12.2% | Module setup and connective tissue that supports all categories without fitting neatly into one behavior slice. | imports, constants, docstring/header, small wrappers, and uncategorized glue code |
 
 ## 1. LLM Prompt / Inference Orchestration
 
