@@ -193,6 +193,7 @@
 
     const API_URL = `/chat?tenant=${encodeURIComponent(tenant)}`;
     const CONFIG_URL = `/config/${encodeURIComponent(tenant)}`;
+    const SELECT_SLOT_URL = `/scheduling/select-slot?tenant=${encodeURIComponent(tenant)}`;
 
     const widgetRegistry = registerDefaultConversationWidgets(
       createConversationWidgetRegistry(),
@@ -264,6 +265,84 @@
       return String(primaryReply || "").trim();
     }
 
+    function syncSessionId(nextSessionId) {
+      if (!nextSessionId) {
+        return;
+      }
+
+      sessionId = nextSessionId;
+      window.localStorage.setItem(sessionStorageKey, sessionId);
+    }
+
+    function updateStatusFromSessionStatus(nextSessionStatus, fallbackText = "Подготвено") {
+      statusText.textContent = nextSessionStatus === "completed"
+        ? "Барањето е завршено."
+        : nextSessionStatus === "collecting_contact"
+          ? "Се собираат контакт податоци."
+          : fallbackText;
+    }
+
+    function applyBackendConversationUpdate(data, options = {}) {
+      const {
+        fallbackReply = "Нема одговор од серверот.",
+        fallbackStatus = "Подготвено",
+        includeWidget = false,
+      } = options;
+
+      syncSessionId(data.session_id);
+      updateBookingProgress(data.booking_progress);
+
+      const primaryReplyText = getPrimaryReplyText(data.reply, includeWidget ? data.widget_payload : null);
+      addMessage(primaryReplyText || fallbackReply, "bot");
+
+      if (includeWidget) {
+        addResponseWidget(data.widget_payload, { hideTitle: Boolean(primaryReplyText) });
+      }
+
+      updateStatusFromSessionStatus(data.session_status, fallbackStatus);
+    }
+
+    async function handleSlotSelection(slot, widgetPayload, slotListWidget) {
+      if (!sessionId) {
+        addMessage("Нема активна chat сесија за избор на термин.", "bot");
+        statusText.textContent = "Недостасува chat сесија.";
+        slotListWidget.enableAll();
+        return;
+      }
+
+      slotListWidget.disableAll();
+      addMessage(`Го избирам овој термин: ${slot.display_label}`, "user");
+      statusText.textContent = "Се испраќа изборот на термин...";
+
+      try {
+        const response = await fetch(SELECT_SLOT_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            session_id: sessionId,
+            service_id: widgetPayload.service_id,
+            slot_id: slot.slot_id
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || `HTTP error: ${response.status}`);
+        }
+
+        applyBackendConversationUpdate(data, {
+          fallbackReply: "Изборот на термин е примен.",
+          fallbackStatus: "Терминот е избран.",
+        });
+      } catch (error) {
+        addMessage(`Неуспешен избор на термин. ${error.message}`, "bot");
+        statusText.textContent = `Грешка: ${error.message}`;
+        slotListWidget.enableAll();
+      }
+    }
+
     function addResponseWidget(widgetPayload, options = {}) {
       if (!widgetPayload || widgetPayload.type !== "slot-list") {
         return null;
@@ -279,7 +358,8 @@
       return addSlotListConversationWidget(conversationDispatcher, {
         title: hideTitle ? null : (widgetPayload.title || "Изберете термин:"),
         slots,
-        readOnly: true,
+        onSelect: (slot, slotListWidget) => handleSlotSelection(slot, widgetPayload, slotListWidget),
+        readOnly: false,
       }, { sender: "bot" });
     }
 
@@ -320,19 +400,11 @@
         }
 
         const data = await response.json();
-        if (data.session_id) {
-          sessionId = data.session_id;
-          window.localStorage.setItem(sessionStorageKey, sessionId);
-        }
-        updateBookingProgress(data.booking_progress);
-        const primaryReplyText = getPrimaryReplyText(data.reply, data.widget_payload);
-        addMessage(primaryReplyText || "Нема одговор од серверот.", "bot");
-        addResponseWidget(data.widget_payload, { hideTitle: Boolean(primaryReplyText) });
-        statusText.textContent = data.session_status === "completed"
-          ? "Барањето е завршено."
-          : data.session_status === "collecting_contact"
-            ? "Се собираат контакт податоци."
-            : "Подготвено";
+        applyBackendConversationUpdate(data, {
+          fallbackReply: "Нема одговор од серверот.",
+          fallbackStatus: "Подготвено",
+          includeWidget: true,
+        });
       } catch (error) {
         addMessage("Настана грешка при поврзување со системот.", "bot");
         statusText.textContent = `Грешка: ${error.message}`;

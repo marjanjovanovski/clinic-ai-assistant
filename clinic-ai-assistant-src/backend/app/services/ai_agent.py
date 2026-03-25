@@ -1380,6 +1380,46 @@ def get_booking_progress(tenant: str, session_id: str | None) -> dict | None:
     )
 
 
+def get_runtime_session_state(tenant: str, session_id: str | None) -> dict | None:
+    if not session_id:
+        return None
+    return _load_session_state(tenant, session_id)
+
+
+def start_contact_collection_from_scheduling_handoff(
+    tenant: str,
+    session_id: str,
+    scheduling_handoff: dict,
+) -> dict:
+    if not isinstance(scheduling_handoff, dict) or not scheduling_handoff:
+        raise ValueError("A scheduling handoff payload is required")
+
+    profile = load_profile_config(tenant)
+    collect_fields = _profile_list(profile, "actions", "collect_contact_fields")
+    if not collect_fields:
+        collect_fields = ["name", "phone", "email"]
+
+    session_key = _session_key(tenant, session_id)
+    service_id = scheduling_handoff.get("service_id") if isinstance(scheduling_handoff.get("service_id"), str) else None
+    reply, session_id = _start_collecting_contact(
+        tenant=tenant,
+        session_id=session_id,
+        session_key=session_key,
+        service_id=service_id,
+        collect_fields=collect_fields,
+        profile=profile,
+        scheduling_handoff=scheduling_handoff,
+    )
+    return {
+        "reply": reply,
+        "session_id": session_id,
+        "session_status": get_session_status(tenant, session_id),
+        "booking_progress": get_booking_progress(tenant, session_id),
+        "selected_slot": scheduling_handoff.get("selected_slot"),
+        "next_action": "collect_contact",
+    }
+
+
 # endregion Session Status and Progress Projections
 
 

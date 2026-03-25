@@ -115,15 +115,30 @@ def test_agent_page_mounts_slot_list_widget_from_chat_response(monkeypatch, tmp_
 
     assert response.status_code == 200
     assert 'href="/frontend/widgets/slot-list/slot-list.css"' in response.text
+    assert 'const SELECT_SLOT_URL = `/scheduling/select-slot?tenant=${encodeURIComponent(tenant)}`;' in response.text
     assert 'function isSlotListWidgetPayload(widgetPayload)' in response.text
     assert 'function getPrimaryReplyText(replyText, widgetPayload)' in response.text
+    assert 'function syncSessionId(nextSessionId)' in response.text
+    assert 'function updateStatusFromSessionStatus(nextSessionStatus, fallbackText = "Подготвено")' in response.text
+    assert 'function applyBackendConversationUpdate(data, options = {})' in response.text
+    assert 'async function handleSlotSelection(slot, widgetPayload, slotListWidget)' in response.text
     assert 'const [primaryReply] = replyText.split(/\\n\\s*\\n/, 1);' in response.text
     assert 'function addResponseWidget(widgetPayload, options = {})' in response.text
     assert 'widgetPayload.type !== "slot-list"' in response.text
     assert 'const { hideTitle = false } = options;' in response.text
+    assert 'slotListWidget.disableAll();' in response.text
+    assert 'const response = await fetch(SELECT_SLOT_URL, {' in response.text
+    assert 'session_id: sessionId,' in response.text
+    assert 'service_id: widgetPayload.service_id,' in response.text
+    assert 'slot_id: slot.slot_id' in response.text
+    assert 'syncSessionId(data.session_id);' in response.text
+    assert 'updateBookingProgress(data.booking_progress);' in response.text
+    assert 'slotListWidget.enableAll();' in response.text
+    assert 'onSelect: (slot, slotListWidget) => handleSlotSelection(slot, widgetPayload, slotListWidget),' in response.text
     assert 'title: hideTitle ? null : (widgetPayload.title || "Изберете термин:")' in response.text
-    assert "readOnly: true," in response.text
-    assert 'const primaryReplyText = getPrimaryReplyText(data.reply, data.widget_payload);' in response.text
+    assert "readOnly: false," in response.text
+    assert 'const primaryReplyText = getPrimaryReplyText(data.reply, includeWidget ? data.widget_payload : null);' in response.text
+    assert 'applyBackendConversationUpdate(data, {' in response.text
     assert 'addResponseWidget(data.widget_payload, { hideTitle: Boolean(primaryReplyText) });' in response.text
 
 

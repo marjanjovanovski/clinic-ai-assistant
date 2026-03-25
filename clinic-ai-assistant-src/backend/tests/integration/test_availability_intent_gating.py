@@ -123,6 +123,36 @@ def test_availability_confirmation_hands_off_into_booking_collection(monkeypatch
     assert state["scheduling_handoff"]["availability_result"]["slots"][0]["slot_id"].startswith("mock|")
 
 
+def test_selected_slot_endpoint_hands_off_chat_session_into_contact_collection(monkeypatch, tmp_path):
+    client, ai_agent = _build_client(monkeypatch, tmp_path)
+
+    first = client.post("/chat?tenant=milena_dental", json={"message": "check availability"})
+    assert first.status_code == 200
+    first_payload = first.json()
+
+    selection = client.post(
+        "/scheduling/select-slot?tenant=milena_dental",
+        json={
+            "session_id": first_payload["session_id"],
+            "service_id": "consultation",
+            "slot_id": first_payload["widget_payload"]["slots"][0]["slot_id"],
+        },
+    )
+
+    assert selection.status_code == 200
+    selection_payload = selection.json()
+    assert selection_payload["next_action"] == "collect_contact"
+    assert selection_payload["session_status"] == "collecting_contact"
+    assert selection_payload["booking_progress"]["next_field"] == "name"
+    assert selection_payload["selected_slot"]["slot_id"] == first_payload["widget_payload"]["slots"][0]["slot_id"]
+
+    session_key = ai_agent._session_key("milena_dental", first_payload["session_id"])
+    state = ai_agent.SESSION_STATE[session_key]
+    assert state["stage"] == "collecting_contact"
+    assert state["scheduling_handoff"]["reason"] == "selected_slot_from_main_chat"
+    assert state["scheduling_handoff"]["selected_slot"]["slot_id"] == first_payload["widget_payload"]["slots"][0]["slot_id"]
+
+
 def test_normal_booking_path_still_starts_contact_collection(monkeypatch, tmp_path):
     client, _ = _build_client(monkeypatch, tmp_path)
 

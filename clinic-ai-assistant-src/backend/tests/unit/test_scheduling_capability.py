@@ -295,3 +295,72 @@ def test_book_selected_slot_builds_booking_request_and_delegates(monkeypatch):
     assert captured["request"].patient_phone == "070000000"
     assert captured["request"].patient_email == "mail@test.mk"
     assert captured["request"].note == "Booked from orchestration bridge"
+
+
+def test_selected_slot_handoff_payload_uses_authoritative_scheduling_state():
+    state = {
+        "stage": "active",
+        "scheduling": {
+            "operation": scheduling_capability.OPERATION_AVAILABILITY,
+            "status": "completed",
+            "reason": "availability_lookup_completed",
+            "capability_state": {
+                "service_id": "consultation",
+            },
+            "output_payload": {
+                "result": {
+                    "provider": "mock",
+                    "slots": [
+                        {
+                            "slot_id": "mock|slot-1",
+                            "display_label": "23 Mar 2026 во 09:00",
+                        },
+                        {
+                            "slot_id": "mock|slot-2",
+                            "display_label": "23 Mar 2026 во 09:30",
+                        },
+                    ],
+                },
+            },
+            "booking_handoff_ready": True,
+        },
+    }
+
+    payload = scheduling_capability.selected_slot_handoff_payload(
+        state,
+        service_id="consultation",
+        slot_id="mock|slot-2",
+    )
+
+    assert payload["reason"] == "selected_slot_from_main_chat"
+    assert payload["service_id"] == "consultation"
+    assert payload["slot_count"] == 2
+    assert payload["selected_slot"]["slot_id"] == "mock|slot-2"
+
+
+def test_selected_slot_handoff_payload_rejects_slot_not_in_active_result():
+    state = {
+        "scheduling": {
+            "capability_state": {
+                "service_id": "consultation",
+            },
+            "output_payload": {
+                "result": {
+                    "provider": "mock",
+                    "slots": [{"slot_id": "mock|slot-1"}],
+                },
+            },
+            "booking_handoff_ready": True,
+        },
+    }
+
+    try:
+        scheduling_capability.selected_slot_handoff_payload(
+            state,
+            service_id="consultation",
+            slot_id="mock|slot-9",
+        )
+    except ValueError as exc:
+        assert "Selected slot is not part of the active availability result" in str(exc)
+    else:
+        raise AssertionError("Expected selected_slot_handoff_payload to reject an unknown slot_id")

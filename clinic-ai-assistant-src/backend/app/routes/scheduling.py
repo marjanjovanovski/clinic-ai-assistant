@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 
+from app.services.ai_agent import get_runtime_session_state, start_contact_collection_from_scheduling_handoff
 from app.services.config_loader import TenantConfigError, TenantNotFoundError
+from app.services.scheduling_capability import selected_slot_handoff_payload
 from app.services.scheduling.models import AvailabilityRequest, BookingRequest
 from app.services.scheduling.service import (
     book_slot,
@@ -53,6 +55,20 @@ class SlotBookingRequest(BaseModel):
             return None
         trimmed = value.strip()
         return trimmed or None
+
+
+class SessionSlotSelectionRequest(BaseModel):
+    session_id: str = Field(..., max_length=128)
+    service_id: str = Field(..., max_length=128)
+    slot_id: str = Field(..., max_length=256)
+
+    @field_validator("session_id", "service_id", "slot_id")
+    @classmethod
+    def validate_selection_fields(cls, value: str) -> str:
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("field must not be empty")
+        return trimmed
 
 
 @router.get("/scheduling/config/{tenant}")
@@ -123,3 +139,25 @@ def scheduling_book(payload: SlotBookingRequest, tenant: str = Query(...)):
         raise HTTPException(status_code=503, detail=str(exc))
 
     return result.to_dict()
+
+
+@router.post("/scheduling/select-slot")
+def scheduling_select_slot(payload: SessionSlotSelectionRequest, tenant: str = Query(...)):
+    try:
+        state = get_runtime_session_state(tenant, payload.session_id)
+        scheduling_handoff = selected_slot_handoff_payload(
+            state,
+            service_id=payload.service_id,
+            slot_id=payload.slot_id,
+        )
+        return start_contact_collection_from_scheduling_handoff(
+            tenant,
+            payload.session_id,
+            scheduling_handoff,
+        )
+    except TenantNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found")
+    except TenantConfigError:
+        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid")
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))

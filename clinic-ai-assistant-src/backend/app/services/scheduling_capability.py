@@ -176,6 +176,55 @@ def scheduling_handoff_payload(state: dict | None) -> dict | None:
     }
 
 
+def selected_slot_handoff_payload(
+    state: dict | None,
+    *,
+    service_id: str,
+    slot_id: str,
+) -> dict:
+    if not isinstance(state, dict):
+        raise ValueError("Chat session was not found for slot selection")
+
+    scheduling_state = state.get("scheduling")
+    if not isinstance(scheduling_state, dict) or not scheduling_state.get("booking_handoff_ready"):
+        raise ValueError("No active availability result is ready for slot selection in this chat session")
+
+    capability_state = scheduling_state.get("capability_state")
+    resolved_service_id = (
+        capability_state.get("service_id")
+        if isinstance(capability_state, dict) and isinstance(capability_state.get("service_id"), str)
+        else None
+    )
+    if resolved_service_id and resolved_service_id != service_id:
+        raise ValueError("Selected slot service_id does not match the active scheduling session")
+
+    base_payload = scheduling_handoff_payload(state)
+    if not isinstance(base_payload, dict):
+        raise ValueError("Unable to build scheduling handoff payload for the selected slot")
+
+    availability_result = base_payload.get("availability_result")
+    slots = availability_result.get("slots") if isinstance(availability_result, dict) else None
+    if not isinstance(slots, list) or not slots:
+        raise ValueError("No authoritative slots are available for selection in this chat session")
+
+    selected_slot = next(
+        (
+            slot for slot in slots
+            if isinstance(slot, dict) and slot.get("slot_id") == slot_id
+        ),
+        None,
+    )
+    if not isinstance(selected_slot, dict):
+        raise ValueError("Selected slot is not part of the active availability result")
+
+    return {
+        **base_payload,
+        "reason": "selected_slot_from_main_chat",
+        "service_id": resolved_service_id or service_id,
+        "selected_slot": selected_slot,
+    }
+
+
 def assessment_reply_text(assessment: SchedulingCapabilityAssessment) -> str | None:
     output_payload = assessment.output_payload if isinstance(assessment.output_payload, dict) else None
     reply_text = output_payload.get("reply_text") if isinstance(output_payload, dict) else None
