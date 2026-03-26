@@ -217,6 +217,8 @@ Only after merge is complete:
 - set `Merge To Main - Completed`
 - merge the branch into `main`
 - move the task file from `ProjectTasks_Pending` to `ProjectTasks_Done`
+- switch the working branch back to `main` if needed and treat that state as the new clean baseline
+- start any new implementation task from a fresh dedicated branch created from the updated `main`
 
 ## Commit Gate Example
 
