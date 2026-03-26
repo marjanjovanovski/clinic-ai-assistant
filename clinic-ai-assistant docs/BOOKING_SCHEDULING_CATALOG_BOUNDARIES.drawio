@@ -1,0 +1,194 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.1 Chrome/142.0.7444.265 Electron/39.8.0 Safari/537.36" version="29.6.1">
+  <diagram id="current-future-boundaries" name="Current and Future Boundaries">
+    <mxGraphModel dx="4078" dy="765" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;fontColor=#111827;" value="Clinic AI Assistant: Booking, Scheduling, and Catalogue Boundaries" vertex="1">
+          <mxGeometry height="30" width="900" x="30" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;fontColor=#4B5563;" value="Blue = current implemented architecture | Amber = future improvement / target boundary" vertex="1">
+          <mxGeometry height="20" width="700" x="30" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="current-bg" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#93C5FD;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="1180" width="1820" x="-690" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="current-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=20;fontStyle=1;fontColor=#1D4ED8;" value="Current Implemented Architecture" vertex="1">
+          <mxGeometry height="30" width="420" x="-120" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="future-bg" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#F59E0B;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="1180" width="1080" x="1970" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="future-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=20;fontStyle=1;fontColor=#B45309;" value="Future Improvement / Target Segmentation" vertex="1">
+          <mxGeometry height="30" width="500" x="1990" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="user" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6B7280;fontSize=14;fontStyle=1;" value="User" vertex="1">
+          <mxGeometry height="50" width="110" x="-575" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="index" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#3B82F6;fontSize=13;" value="Main Chat UI&#xa;frontend/index.html&#xa;&#xa;- calls /chat&#xa;- renders widgets&#xa;- calls /scheduling/select-slot" vertex="1">
+          <mxGeometry height="100" width="220" x="-340" y="155" as="geometry" />
+        </mxCell>
+        <mxCell id="cal" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#3B82F6;fontSize=13;" value="Sandbox UI&#xa;frontend/cal.html&#xa;&#xa;- calls /chat&#xa;- calls /scheduling/availability&#xa;- calls /scheduling/book directly" vertex="1">
+          <mxGeometry height="110" width="220" x="-630" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="chat-route" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2FE;strokeColor=#0284C7;fontSize=13;fontStyle=1;" value="/chat route&#xa;backend/app/routes/chat.py" vertex="1">
+          <mxGeometry height="60" width="200" x="-10" y="175" as="geometry" />
+        </mxCell>
+        <mxCell id="sched-route" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2FE;strokeColor=#0284C7;fontSize=13;fontStyle=1;" value="/scheduling routes&#xa;backend/app/routes/scheduling.py" vertex="1">
+          <mxGeometry height="70" width="220" x="-340" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="agent" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BFDBFE;strokeColor=#2563EB;fontSize=13;fontStyle=1;" value="Main Orchestrator&#xa;backend/app/services/ai_agent.py&#xa;&#xa;- loads profile/config&#xa;- builds model prompt&#xa;- owns session transitions&#xa;- invokes booking then scheduling capability" vertex="1">
+          <mxGeometry height="160" width="220" x="310" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="catalog" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#3B82F6;fontSize=13;" value="Catalogue / Service Helpers&#xa;agent_service_helpers.py&#xa;&#xa;- service match&#xa;- list services&#xa;- business overview&#xa;- price/orientation text" vertex="1">
+          <mxGeometry height="110" width="240" x="300" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="booking" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#3B82F6;fontSize=13;" value="Booking Workflow&#xa;booking_credentials.py&#xa;&#xa;- confirm booking&#xa;- collect contact fields&#xa;- build booking progress/summary&#xa;- complete scheduling-first booking after contact collection" vertex="1">
+          <mxGeometry height="120" width="240" x="650" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="sched-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#3B82F6;fontSize=13;" value="Scheduling Service&#xa;services/scheduling/service.py&#xa;&#xa;- get_availability(...)&#xa;- book_slot(...)&#xa;- provider-facing execution" vertex="1">
+          <mxGeometry height="105" width="240" x="650" y="810" as="geometry" />
+        </mxCell>
+        <mxCell id="provider" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#64748B;fontSize=13;" value="Scheduling Providers&#xa;Google Calendar / Mock Provider" vertex="1">
+          <mxGeometry height="60" width="220" x="660" y="990" as="geometry" />
+        </mxCell>
+        <mxCell id="leadstore" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#64748B;fontSize=13;" value="Lead Store / Session Persistence&#xa;&#xa;- saved checkpoints&#xa;- persisted contact fields&#xa;- session state hydration" vertex="1">
+          <mxGeometry height="90" width="220" x="900" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="widgets" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#64748B;fontSize=13;" value="Shared Widgets&#xa;&#xa;- booking-progress&#xa;- booking-summary&#xa;- slot-list" vertex="1">
+          <mxGeometry height="90" width="220" x="220" y="635" as="geometry" />
+        </mxCell>
+        <mxCell id="note-main" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#60A5FA;dashed=1;fontSize=12;" value="Main chat scheduling-first flow:&#xa;/chat -&gt; ai_agent -&gt; scheduling_capability -&gt; slot widget -&gt; /scheduling/select-slot -&gt; booking_credentials -&gt; scheduling_capability.book_selected_slot -&gt; scheduling service -&gt; provider" vertex="1">
+          <mxGeometry height="95" width="450" x="60" y="1080" as="geometry" />
+        </mxCell>
+        <mxCell id="note-cal" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#60A5FA;dashed=1;fontSize=12;" value="Sandbox flow:&#xa;cal.html -&gt; /scheduling/availability -&gt; select slot -&gt; /scheduling/book -&gt; scheduling service -&gt; provider" vertex="1">
+          <mxGeometry height="95" width="450" x="540" y="1080" as="geometry" />
+        </mxCell>
+        <mxCell id="f-user" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6B7280;fontSize=14;fontStyle=1;" value="User" vertex="1">
+          <mxGeometry height="50" width="110" x="2010" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="f-ui" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=13;" value="Chat / UI Surfaces&#xa;&#xa;- index.html&#xa;- cal.html&#xa;- future clients" vertex="1">
+          <mxGeometry height="90" width="220" x="2180" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="f-agent" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDE68A;strokeColor=#D97706;fontSize=13;fontStyle=1;" value="Slim Orchestrator&#xa;ai_agent.py&#xa;&#xa;- intent routing&#xa;- transition control&#xa;- chooses capability&#xa;- no deep domain logic" vertex="1">
+          <mxGeometry height="110" width="220" x="2480" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="f-catalog" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDE68A;strokeColor=#D97706;fontSize=13;fontStyle=1;" value="Catalogue-Services Capability&#xa;proposed first-class boundary&#xa;&#xa;- list services&#xa;- service details&#xa;- business overview&#xa;- price guidance&#xa;- normalized service match" vertex="1">
+          <mxGeometry height="130" width="320" x="2430" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="f-booking" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=13;" value="Booking Flow Capability&#xa;&#xa;- confirm booking&#xa;- contact collection&#xa;- summary/progress state&#xa;- completion gating&#xa;- does not own provider logic" vertex="1">
+          <mxGeometry height="120" width="260" x="2090" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="f-schedcap" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=13;" value="Scheduling Capability&#xa;&#xa;- availability&#xa;- slot handoff&#xa;- hold/conflict contract later&#xa;- final booking contract" vertex="1">
+          <mxGeometry height="120" width="260" x="2430" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="f-schedsvc" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=13;" value="Scheduling Service + Providers&#xa;&#xa;- authoritative availability&#xa;- authoritative booking&#xa;- provider integrations only here" vertex="1">
+          <mxGeometry height="110" width="240" x="2750" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="f-lead" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#92400E;fontSize=13;" value="Lead / Session Persistence" vertex="1">
+          <mxGeometry height="60" width="220" x="2090" y="760" as="geometry" />
+        </mxCell>
+        <mxCell id="f-rulebox" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#F59E0B;dashed=1;fontSize=12;" value="Proposed Rules&#xa;&#xa;1. catalogue-services is read-only&#xa;2. booking owns contact workflow&#xa;3. scheduling owns provider calls&#xa;4. ai_agent orchestrates, but stays thinner&#xa;5. UI must not invent backend transitions" vertex="1">
+          <mxGeometry height="150" width="560" x="2030" y="920" as="geometry" />
+        </mxCell>
+        <mxCell id="f-note" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#F59E0B;dashed=1;fontSize=12;" value="Target idea: make catalogue/services a first-class capability like scheduling, instead of keeping it only as helper functions behind ai_agent.py." vertex="1">
+          <mxGeometry height="70" width="720" x="2030" y="1100" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="user" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;endArrow=block;endFill=1;" target="index">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="user" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;endArrow=block;endFill=1;" target="cal">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="index" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;endArrow=block;endFill=1;" target="chat-route" value="/chat">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="cal" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;endArrow=block;endFill=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="chat-route" value="/chat">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-520" y="590" />
+              <mxPoint x="-660" y="590" />
+              <mxPoint x="-660" y="130" />
+              <mxPoint x="90" y="130" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="cal" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;endArrow=block;endFill=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="sched-route" value="/scheduling/availability and /scheduling/book">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="index" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;endArrow=block;endFill=1;" target="sched-route" value="/scheduling/select-slot">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="chat-route" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284C7;endArrow=block;endFill=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="agent">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="agent" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284C7;endArrow=block;endFill=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="catalog" value="catalog replies">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="agent" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284C7;endArrow=block;endFill=1;" target="booking" value="booking capability">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="booking" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3B82F6;endArrow=block;endFill=1;" target="leadstore" value="persist fields">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="sched-cap" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3B82F6;endArrow=block;endFill=1;" target="widgets" value="booking_progress / summary">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" edge="1" parent="1" source="sched-cap" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3B82F6;endArrow=block;endFill=1;" target="widgets" value="slot-list payload">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" edge="1" parent="1" source="sched-route" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284C7;endArrow=block;endFill=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="sched-cap" value="handoff state validation">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" edge="1" parent="1" source="sched-route" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284C7;endArrow=block;endFill=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="agent" value="start contact collection from selected slot">
+          <mxGeometry relative="1" x="-0.0709" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="-120" y="405" />
+              <mxPoint x="-50" y="405" />
+              <mxPoint x="-50" y="340" />
+              <mxPoint x="260" y="340" />
+              <mxPoint x="260" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e16" edge="1" parent="1" source="sched-cap" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3B82F6;endArrow=block;endFill=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="sched-service" value="availability / booking">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" edge="1" parent="1" source="sched-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748B;endArrow=block;endFill=1;" target="provider" value="provider calls">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fe1" edge="1" parent="1" source="f-user" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#D97706;endArrow=block;endFill=1;" target="f-ui">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fe2" edge="1" parent="1" source="f-ui" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#D97706;endArrow=block;endFill=1;" target="f-agent">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fe3" edge="1" parent="1" source="f-agent" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#D97706;endArrow=block;endFill=1;" target="f-catalog" value="read-only catalog capability">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fe4" edge="1" parent="1" source="f-agent" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#D97706;endArrow=block;endFill=1;" target="f-booking" value="booking workflow">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fe5" edge="1" parent="1" source="f-agent" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#D97706;endArrow=block;endFill=1;" target="f-schedcap" value="availability / booking contracts">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fe6" edge="1" parent="1" source="f-schedcap" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#D97706;endArrow=block;endFill=1;" target="f-schedsvc" value="provider authority only here">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fe7" edge="1" parent="1" source="f-booking" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#92400E;endArrow=block;endFill=1;" target="f-lead" value="contact persistence">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Mj7ihz3XQ5ORZ-XVr8HR-3" edge="1" parent="1" source="booking" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3B82F6;endArrow=block;endFill=1;" target="sched-cap" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="620" y="620" as="sourcePoint" />
+            <mxPoint x="490" y="850" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="sched-cap" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#3B82F6;fontSize=13;" value="Scheduling Capability Bridge&#xa;scheduling_capability.py&#xa;&#xa;- availability contract&#xa;- stores scheduling state&#xa;- slot-list widget payload&#xa;- selected-slot handoff" vertex="1">
+          <mxGeometry height="120" width="240" x="650" y="620" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
