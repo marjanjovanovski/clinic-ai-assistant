@@ -40,16 +40,20 @@ Update rules:
 
 - `2026-03-25`
 
+## Merge To Main
+
+- `Pending`
+
 ## Current Active Prompt
 
-- `Prompt 1 - Pending`
+- `Manual Verification / Merge`
 
 ## Global Status Summary
 
-- Prompt 1 - Pending
-- Prompt 2 - Pending
-- Prompt 3 - Pending
-- Prompt 4 - Pending
+- Prompt 1 - Completed
+- Prompt 2 - Completed
+- Prompt 3 - Completed
+- Prompt 4 - Completed
 
 ## Working Rules For The Implementing AI Agent
 
@@ -105,7 +109,7 @@ Update rules:
 - Keep provider-specific booking behavior inside the scheduling subsystem.
 - If proposal work is produced for overlapping slot conflicts, it must be documented in a separate new markdown file and must not silently expand into implementation.
 
-## Prompt 1 - Pending
+## Prompt 1 - Completed
 
 ### Goal
 
@@ -129,7 +133,31 @@ Requirements:
 
 The main chat no longer shows dummy booking-summary values, and the selected slot displayed to the user reflects the real slot they clicked.
 
-## Prompt 2 - Pending
+### Prompt 1 Completion Note
+
+What changed:
+- removed the hard-coded appointment placeholder from the booking summary payload in `clinic-ai-assistant-src/backend/app/services/booking_credentials.py`
+- booking summaries now read the real selected slot from `state["scheduling_handoff"]["selected_slot"]` when the booking flow was started from scheduling-first slot selection
+- removed hard-coded fallback service/date values from `clinic-ai-assistant-src/frontend/widgets/booking-summary/booking-summary.js` so the UI no longer invents dummy values when the payload is empty
+
+Behavior after Prompt 1:
+- the transcript confirmation line still shows the exact clicked slot label from the widget selection
+- a completed scheduling-first booking summary now shows the same real selected slot instead of the previous placeholder date
+- booking-first flows no longer show a fake appointment time in the summary when no real slot has been selected yet
+
+Files changed for Prompt 1:
+- `clinic-ai-assistant-src/backend/app/services/booking_credentials.py`
+- `clinic-ai-assistant-src/frontend/widgets/booking-summary/booking-summary.js`
+- `clinic-ai-assistant-src/backend/tests/integration/test_req_booking_flow.py`
+- `clinic-ai-assistant-src/backend/tests/integration/test_frontend_booking_ui.py`
+- `clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py`
+
+Verification completed for Prompt 1:
+- `tests/integration/test_availability_intent_gating.py` passed
+- `tests/integration/test_req_booking_flow.py` passed
+- `tests/integration/test_frontend_booking_ui.py` passed
+
+## Prompt 2 - Completed
 
 ### Goal
 
@@ -157,7 +185,36 @@ Requirements:
 
 The main chat completes the real booking transaction through scheduling-owned backend logic instead of stopping after contact collection.
 
-## Prompt 3 - Pending
+### Prompt 2 Completion Note
+
+What changed:
+- restored the missing scheduling-first booking transaction inside `clinic-ai-assistant-src/backend/app/services/booking_credentials.py`
+- when the final contact field completes a main-chat scheduling flow, the backend now detects `scheduling_handoff.selected_slot` and internally calls the existing scheduling booking service through `scheduling_capability.book_selected_slot(...)`
+- the completed session now stores `booking_result` in state, which feeds the booking summary with:
+  - confirmed appointment label
+  - confirmed badge state
+  - provider confirmation subtitle
+- the final assistant reply for scheduling-first completion now uses the provider confirmation message when booking succeeds
+
+Architecture outcome:
+- the browser still finishes the conversation through `/chat`
+- `index.html` does not rebuild booking requests on its own
+- the real booking execution remains in scheduling-owned backend logic and still reuses the existing provider-backed booking path behind `book_selected_slot(...)`
+- `cal.html` continues to use the explicit `/scheduling/book` sandbox flow
+
+Files changed for Prompt 2:
+- `clinic-ai-assistant-src/backend/app/services/booking_credentials.py`
+- `clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py`
+- `clinic-ai-assistant-src/backend/tests/integration/test_req_booking_flow.py`
+
+Verification completed for Prompt 2:
+- `tests/integration/test_availability_intent_gating.py` passed
+- `tests/integration/test_req_booking_flow.py` passed
+- `tests/integration/test_frontend_booking_ui.py` passed
+- `tests/integration/test_scheduling_api.py` passed
+- `tests/integration/test_cal_html.py` passed
+
+## Prompt 3 - Completed
 
 ### Goal
 
@@ -181,7 +238,33 @@ Requirements:
 
 The repaired main-chat booking completion flow is verified, maintainable, and clearly documented in this file.
 
-## Prompt 4 - Pending
+### Prompt 3 Completion Note
+
+What changed:
+- cleaned up `clinic-ai-assistant-src/backend/app/services/booking_credentials.py` by extracting appointment-summary state projection into a focused helper so the logic for:
+  - selected slot display
+  - confirmed booking display
+  - badge state
+  - summary subtitle
+  now lives in one place
+- added a new focused unit suite in `clinic-ai-assistant-src/backend/tests/unit/test_booking_credentials.py`
+- tightened the frontend integration assertions in `clinic-ai-assistant-src/backend/tests/integration/test_frontend_booking_ui.py` so the summary widget contract explicitly covers appointment status display handling
+
+What was verified:
+- `tests/unit/test_booking_credentials.py` passed
+- `tests/integration/test_availability_intent_gating.py` passed
+- `tests/integration/test_req_booking_flow.py` passed
+- `tests/integration/test_frontend_booking_ui.py` passed
+
+What remains intentionally different between `cal.html` and `index.html`:
+- `cal.html` still performs direct explicit booking through `/scheduling/book`
+- `index.html` still completes booking through the chat session flow and lets the backend bridge into scheduling-owned booking logic internally
+- both surfaces now converge on the same provider-backed booking behavior, but they still use different frontend interaction models by design
+
+Follow-up cleanup result:
+- no additional safe refactor was necessary in `index.html` for this prompt because the main maintainability hotspot was in backend summary/booking projection logic
+
+## Prompt 4 - Completed
 
 ### Goal
 
@@ -212,3 +295,22 @@ Final note for this prompt:
 ### Required Outcome
 
 A separate new markdown proposal task file exists for overlapping slot handling, and this master file references it without implementing the proposal.
+
+### Prompt 4 Completion Note
+
+What changed:
+- created the proposal-only follow-up task file [API - Slot Overlap Conflict Handling Proposal.md](./API%20-%20Slot%20Overlap%20Conflict%20Handling%20Proposal.md)
+- the new file documents:
+  - current overlap risk in main chat and `cal.html`
+  - a simple backend-authoritative stale-slot rejection strategy
+  - expected outcomes for the winning and losing user
+  - recommended UI recovery behavior
+  - future implementation prompts without executing them
+
+Proposal outcome:
+- overlap handling remains unimplemented in code
+- the repo now has a dedicated pending proposal artifact that can be implemented later under normal task-branch workflow
+
+Files changed for Prompt 4:
+- `clinic-ai-assistant docs/ProjectTasks_Pending/API - Slot Overlap Conflict Handling Proposal.md`
+- `clinic-ai-assistant docs/ProjectTasks_Pending/UI - Main Chat Booking Summary And Booking Completion.md`

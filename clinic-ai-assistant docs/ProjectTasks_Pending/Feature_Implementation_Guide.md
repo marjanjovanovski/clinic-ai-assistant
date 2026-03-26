@@ -82,6 +82,9 @@ Each feature-specific master prompt document should also contain:
 - a reference to this guide as the workflow authority
 - the global prompt status summary
 - prompt sections with their own local status
+- a top-level merge status line:
+  - `Merge To Main - Pending`
+  - or `Merge To Main - Completed`
 
 ## Rules For Multi-Prompt Feature Work
 
@@ -93,6 +96,49 @@ Each feature-specific master prompt document should also contain:
 - After finishing any prompt, the agent must update the tracking document before moving on.
 - Any prompt not yet executed must remain marked as `Pending`.
 - If work cannot continue, mark the prompt as `Blocked` and include the reason directly under that prompt.
+
+## Branch Workflow Rule
+
+Every new feature-specific task file created in `ProjectTasks_Pending` must be executed on its own dedicated git branch.
+
+This branch should represent the whole task, similar to a normal professional feature branch or pull-request branch.
+
+Required behavior:
+- when starting work on a new pending task file, create or switch to a dedicated branch for that task before making implementation changes
+- keep all prompts for that task on the same branch unless the user explicitly asks for a different branching strategy
+- prefer one branch per task and multiple commits inside that branch, rather than creating a new branch for every prompt
+- each prompt may still be committed separately, but those commits should normally stay on the same task branch
+- if Prompt 1 was already started without a dedicated branch, move the remaining work onto a dedicated branch as early as possible and keep the rest of the task there
+- if multiple task files are being implemented in parallel, each task file should get its own branch when practical
+
+Recommended branch naming style:
+- use a short task-oriented branch name
+- examples:
+  - `task-main-chat-booking-completion`
+  - `ui-slot-overlap-proposal`
+  - `api-scheduling-hardening`
+
+The purpose of this rule is:
+- to keep each pending task isolated
+- to make review and rollback easier
+- to match normal pull-request-oriented git workflow
+- to avoid mixing unrelated feature work in the same branch
+
+## Merge Tracking Rule
+
+Every feature-specific task file must track merge readiness explicitly.
+
+Required behavior:
+- each task file must include a top-level line for:
+  - `Merge To Main - Pending`
+  - or `Merge To Main - Completed`
+- when implementation prompts are complete but the branch has not yet been manually verified and merged, the task file must remain in `ProjectTasks_Pending`
+- the task file should act as the final source of truth for whether the feature is only implemented on a branch or is actually merged into `main`
+- when all prompts are complete but merge is still pending, it is recommended to set:
+  - `Current Active Prompt` to `Manual Verification / Merge`
+  - `Merge To Main` to `Pending`
+
+This rule exists so that implementation completion and merge completion are not treated as the same event.
 
 ## Prompt Completion Stop Rule
 
@@ -122,7 +168,7 @@ In that response, `X` must be the next prompt that is still marked as `Pending` 
 
 If no prompt remains pending, the agent must explicitly say that no pending prompts remain.
 
-If no prompt remains pending and the final commit is complete, the agent must archive the feature-specific master prompt file by moving it from `ProjectTasks_Pending` to `ProjectTasks_Done`.
+If no prompt remains pending, the agent must not automatically move the task file to `ProjectTasks_Done` until merge to `main` is actually completed.
 
 ## History DB Author Rule
 
@@ -193,6 +239,29 @@ When a new agent joins and asks where the commit-history database lives or how i
 - If a prompt is finished but not committed, execution must still remain stopped.
 - If the user discusses the result after a prompt is finished, the agent must still wait for explicit instruction before resuming implementation.
 
+## Merge To Main Rule
+
+Merging a task branch into `main` is a separate approval step from committing prompt work on the branch.
+
+Required behavior:
+- prompt commits save progress on the task branch only
+- merge to `main` must happen only after the user performs manual testing and decides the branch is ready
+- the agent must not assume that `Commit changes?` means approval to merge the branch
+- merge readiness should be discussed only after implementation prompts are complete or the user explicitly asks about merge readiness
+
+Minimum merge readiness conditions:
+- implementation prompts are completed, or any blocked items are explicitly accepted by the user
+- the task file statuses are updated
+- required automated tests were run, or blockers were documented clearly
+- the user has performed manual verification on the branch
+- the user has decided the branch is ready for merge
+- the history database has been updated for committed work on the branch
+
+Only after merge is complete:
+- set `Merge To Main - Completed`
+- merge the branch into `main`
+- move the task file from `ProjectTasks_Pending` to `ProjectTasks_Done`
+
 ## Commit Gate Example
 
 Example flow after a prompt is completed:
@@ -214,7 +283,9 @@ Example final response when no pending prompts remain:
 
 `Changes committed with a descriptive message and history database updated. No pending prompts remain.`
 
-After that final completion state, the agent must archive the feature-specific master prompt file into `ProjectTasks_Done`.
+If no prompts remain but merge is still pending, the task file must stay in `ProjectTasks_Pending` with `Merge To Main - Pending`.
+
+Only after the branch is merged into `main` should the task file be archived into `ProjectTasks_Done`.
 
 ## Master Prompt Authoring Rule
 

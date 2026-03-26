@@ -153,6 +153,52 @@ def test_selected_slot_endpoint_hands_off_chat_session_into_contact_collection(m
     assert state["scheduling_handoff"]["selected_slot"]["slot_id"] == first_payload["widget_payload"]["slots"][0]["slot_id"]
 
 
+def test_selected_slot_flow_uses_real_slot_label_in_completed_booking_summary(monkeypatch, tmp_path):
+    client, _ = _build_client(monkeypatch, tmp_path)
+
+    first = client.post("/chat?tenant=milena_dental", json={"message": "check availability"})
+    assert first.status_code == 200
+    first_payload = first.json()
+    chosen_slot = first_payload["widget_payload"]["slots"][0]
+
+    selection = client.post(
+        "/scheduling/select-slot?tenant=milena_dental",
+        json={
+            "session_id": first_payload["session_id"],
+            "service_id": "consultation",
+            "slot_id": chosen_slot["slot_id"],
+        },
+    )
+    assert selection.status_code == 200
+
+    third = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "Marjan", "session_id": first_payload["session_id"]},
+    )
+    assert third.status_code == 200
+
+    fourth = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "070000000", "session_id": first_payload["session_id"]},
+    )
+    assert fourth.status_code == 200
+
+    fifth = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "mail@test.mk", "session_id": first_payload["session_id"]},
+    )
+    assert fifth.status_code == 200
+    payload = fifth.json()
+
+    assert payload["session_status"] == "completed"
+    assert payload["booking_progress"]["reservation_status"] == "complete"
+    assert payload["reply"] == "Терминот е резервиран во mock режим."
+    assert payload["booking_progress"]["summary"]["appointment_display"] == chosen_slot["display_label"]
+    assert payload["booking_progress"]["summary"]["appointment_source"] == "calendar_booking"
+    assert payload["booking_progress"]["summary"]["appointment_status"] == "Потврден термин"
+    assert payload["booking_progress"]["summary"]["subtitle"] == "Терминот е резервиран во mock режим."
+
+
 def test_normal_booking_path_still_starts_contact_collection(monkeypatch, tmp_path):
     client, _ = _build_client(monkeypatch, tmp_path)
 

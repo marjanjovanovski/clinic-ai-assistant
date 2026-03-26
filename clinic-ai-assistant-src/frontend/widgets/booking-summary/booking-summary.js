@@ -11,9 +11,9 @@ export function createBookingSummaryElement({ template, summary, labelForField }
   element.classList.add("visible");
   element.querySelector("#bookingSummaryTitle").textContent = summary.title || "Резиме на барањето";
   element.querySelector("#bookingSummarySubtitle").textContent = summary.subtitle || "";
-  element.querySelector("#bookingSummaryBadge").textContent = summary.appointment_status || "Привремен термин";
-  element.querySelector("#bookingSummaryService").textContent = summary.service_name || "Стоматолошка консултација";
-  element.querySelector("#bookingSummaryAppointment").textContent = summary.appointment_display || "21 MAR 2026 во 14:00";
+  element.querySelector("#bookingSummaryBadge").textContent = summary.appointment_status || "";
+  element.querySelector("#bookingSummaryService").textContent = summary.service_name || "";
+  element.querySelector("#bookingSummaryAppointment").textContent = summary.appointment_display || "";
 
   const fieldsContainer = element.querySelector("#bookingSummaryFields");
   fieldsContainer.innerHTML = "";

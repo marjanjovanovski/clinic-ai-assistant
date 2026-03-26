@@ -1,0 +1,112 @@
+# TEST EXECUTION MANIFESTO: Before running tests, follow clinic-ai-assistant-src/backend/pytest.ini and never create repo-local pytest temp folders; use external TMP/TEMP plus --basetemp.
+from app.services import booking_credentials
+
+
+def test_appointment_summary_projection_uses_selected_slot_before_calendar_booking():
+    state = {
+        "stage": "completed",
+        "scheduling_handoff": {
+            "selected_slot": {
+                "slot_id": "mock|slot-1",
+                "display_label": "26 Mar 2026 во 16:00",
+            }
+        },
+    }
+
+    appointment_display, appointment_status, appointment_source, subtitle = (
+        booking_credentials._appointment_summary_projection(state)
+    )
+
+    assert appointment_display == "26 Mar 2026 во 16:00"
+    assert appointment_status == "Привремен термин"
+    assert appointment_source == "selected_slot"
+    assert subtitle == "Подготвено за идно поврзување со календар и реален термин."
+
+
+def test_appointment_summary_projection_prefers_confirmed_booking_result():
+    state = {
+        "stage": "completed",
+        "scheduling_handoff": {
+            "selected_slot": {
+                "slot_id": "mock|slot-1",
+                "display_label": "26 Mar 2026 во 16:00",
+            }
+        },
+        "booking_result": {
+            "booking_id": "mock-booking-1",
+            "display_label": "26 Mar 2026 во 16:00",
+            "confirmation_message": "Терминот е резервиран во mock режим.",
+        },
+    }
+
+    appointment_display, appointment_status, appointment_source, subtitle = (
+        booking_credentials._appointment_summary_projection(state)
+    )
+
+    assert appointment_display == "26 Mar 2026 во 16:00"
+    assert appointment_status == "Потврден термин"
+    assert appointment_source == "calendar_booking"
+    assert subtitle == "Терминот е резервиран во mock режим."
+
+
+def test_complete_selected_slot_booking_if_ready_returns_none_without_selected_slot():
+    result = booking_credentials._complete_selected_slot_booking_if_ready(
+        tenant="milena_dental",
+        state={"stage": "completed"},
+        data={"name": "Marjan", "phone": "070000000", "email": "mail@test.mk"},
+    )
+
+    assert result is None
+
+
+def test_complete_selected_slot_booking_if_ready_books_once_and_stores_payload(monkeypatch):
+    captured = {}
+
+    class FakeBookingResult:
+        def to_dict(self):
+            return {
+                "status": "confirmed",
+                "provider": "mock",
+                "booking_id": "mock-booking-1",
+                "display_label": "26 Mar 2026 во 16:00",
+                "confirmation_message": "Терминот е резервиран во mock режим.",
+            }
+
+    def fake_book_selected_slot(**kwargs):
+        captured.update(kwargs)
+        return FakeBookingResult()
+
+    monkeypatch.setattr(
+        "app.services.scheduling_capability.book_selected_slot",
+        fake_book_selected_slot,
+    )
+
+    state = {
+        "stage": "completed",
+        "service_id": "consultation",
+        "scheduling_handoff": {
+            "service_id": "consultation",
+            "selected_slot": {
+                "slot_id": "mock|slot-1",
+                "display_label": "26 Mar 2026 во 16:00",
+            },
+        },
+    }
+
+    result = booking_credentials._complete_selected_slot_booking_if_ready(
+        tenant="milena_dental",
+        state=state,
+        data={"name": "Marjan", "phone": "070000000", "email": "mail@test.mk"},
+    )
+
+    assert result["booking_id"] == "mock-booking-1"
+    assert state["booking_result"]["booking_id"] == "mock-booking-1"
+    assert captured == {
+        "tenant": "milena_dental",
+        "service_id": "consultation",
+        "slot_id": "mock|slot-1",
+        "patient_name": "Marjan",
+        "patient_phone": "070000000",
+        "patient_email": "mail@test.mk",
+        "note": "Booked from main chat scheduling flow",
+    }
