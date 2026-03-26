@@ -36,11 +36,11 @@ Status values allowed in this document:
 
 ## Merge To Main
 
-- `Pending`
+- `Completed`
 
 ## Current Active Prompt
 
-- `Manual Verification / Merge`
+- `Merged To Main`
 
 ## Global Status Summary
 
