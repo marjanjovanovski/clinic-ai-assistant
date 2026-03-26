@@ -1386,6 +1386,82 @@ def get_runtime_session_state(tenant: str, session_id: str | None) -> dict | Non
     return _load_session_state(tenant, session_id)
 
 
+def _runtime_response_type(response_payload: dict | None, session_status: str | None) -> str:
+    widget_payload = response_payload.get("widget_payload") if isinstance(response_payload, dict) else None
+    next_action = response_payload.get("next_action") if isinstance(response_payload, dict) else None
+    if isinstance(widget_payload, dict) and widget_payload.get("type") == "slot-list":
+        return "slot-list"
+    if next_action == "collect_contact" or session_status == "collecting_contact":
+        return "collecting_contact"
+    if session_status == "completed":
+        return "completed"
+    return "message"
+
+
+def build_runtime_inspector_payload(
+    tenant: str,
+    session_id: str | None,
+    *,
+    response_payload: dict | None = None,
+    session_status: str | None = None,
+    booking_progress: dict | None = None,
+    last_user_message: str | None = None,
+    state: dict | None = None,
+) -> dict:
+    runtime_state = state if isinstance(state, dict) else get_runtime_session_state(tenant, session_id)
+    scheduling_handoff = runtime_state.get("scheduling_handoff") if isinstance(runtime_state, dict) else None
+    widget_payload = response_payload.get("widget_payload") if isinstance(response_payload, dict) else None
+    widget_request = widget_payload.get("request") if isinstance(widget_payload, dict) else None
+    selected_slot = response_payload.get("selected_slot") if isinstance(response_payload, dict) else None
+    if not isinstance(selected_slot, dict) and isinstance(scheduling_handoff, dict):
+        selected_slot = scheduling_handoff.get("selected_slot")
+
+    booking_result = runtime_state.get("booking_result") if isinstance(runtime_state, dict) else None
+    summary = booking_progress.get("summary") if isinstance(booking_progress, dict) else None
+
+    scheduling_criteria = {
+        "service_id": (
+            widget_request.get("service_id") if isinstance(widget_request, dict) else None
+        ) or (
+            widget_payload.get("service_id") if isinstance(widget_payload, dict) else None
+        ) or (
+            scheduling_handoff.get("service_id") if isinstance(scheduling_handoff, dict) else None
+        ) or (
+            runtime_state.get("service_id") if isinstance(runtime_state, dict) else None
+        ),
+        "date_from": widget_request.get("date_from") if isinstance(widget_request, dict) else None,
+        "date_to": widget_request.get("date_to") if isinstance(widget_request, dict) else None,
+        "timezone": widget_request.get("timezone") if isinstance(widget_request, dict) else None,
+        "preferred_days": widget_request.get("preferred_days") if isinstance(widget_request, dict) else None,
+        "preferred_time_range": widget_request.get("preferred_time_range") if isinstance(widget_request, dict) else None,
+        "provider": widget_payload.get("provider") if isinstance(widget_payload, dict) else None,
+    }
+
+    return {
+        "session": {
+            "tenant": tenant,
+            "session_id": session_id,
+            "session_status": session_status,
+        },
+        "routing": {
+            "last_user_message": last_user_message,
+            "last_response_type": _runtime_response_type(response_payload, session_status),
+        },
+        "catalog_intent": {
+            "resolved_service_id": runtime_state.get("service_id") if isinstance(runtime_state, dict) else None,
+        },
+        "scheduling_criteria": scheduling_criteria,
+        "selected_slot": selected_slot if isinstance(selected_slot, dict) else None,
+        "booking_result": booking_result if isinstance(booking_result, dict) else None,
+        "booking_summary": summary if isinstance(summary, dict) else None,
+        "widget_payload": {
+            "type": widget_payload.get("type") if isinstance(widget_payload, dict) else None,
+            "service_id": widget_payload.get("service_id") if isinstance(widget_payload, dict) else None,
+            "slot_count": len(widget_payload.get("slots")) if isinstance(widget_payload, dict) and isinstance(widget_payload.get("slots"), list) else 0,
+        },
+    }
+
+
 def start_contact_collection_from_scheduling_handoff(
     tenant: str,
     session_id: str,
@@ -1410,13 +1486,28 @@ def start_contact_collection_from_scheduling_handoff(
         profile=profile,
         scheduling_handoff=scheduling_handoff,
     )
+    session_status = get_session_status(tenant, session_id)
+    booking_progress = get_booking_progress(tenant, session_id)
+    runtime_state = get_runtime_session_state(tenant, session_id)
+
     return {
         "reply": reply,
         "session_id": session_id,
-        "session_status": get_session_status(tenant, session_id),
-        "booking_progress": get_booking_progress(tenant, session_id),
+        "session_status": session_status,
+        "booking_progress": booking_progress,
         "selected_slot": scheduling_handoff.get("selected_slot"),
         "next_action": "collect_contact",
+        "inspector_payload": build_runtime_inspector_payload(
+            tenant,
+            session_id,
+            response_payload={
+                "selected_slot": scheduling_handoff.get("selected_slot"),
+                "next_action": "collect_contact",
+            },
+            session_status=session_status,
+            booking_progress=booking_progress,
+            state=runtime_state,
+        ),
     }
 
 

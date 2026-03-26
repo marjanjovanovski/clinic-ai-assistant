@@ -250,6 +250,8 @@ def assessment_widget_payload(assessment: SchedulingCapabilityAssessment) -> dic
         "type": "slot-list",
         "title": title.strip() if isinstance(title, str) and title.strip() else None,
         "service_id": capability_state.get("service_id") if isinstance(capability_state, dict) else None,
+        "provider": result_payload.get("provider") if isinstance(result_payload, dict) else None,
+        "request": output_payload.get("request") if isinstance(output_payload, dict) else None,
         "slots": slots,
     }
 

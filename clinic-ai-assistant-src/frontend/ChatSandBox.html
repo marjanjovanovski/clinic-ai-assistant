@@ -257,40 +257,67 @@
       padding: 14px 16px 16px 16px;
     }
 
-    .inspector-placeholder-list {
+    .inspector-field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 12px;
+    }
+
+    .inspector-field {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 6px;
     }
 
-    .inspector-placeholder {
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      background: #f8fafc;
-      padding: 10px 12px;
+    .inspector-field.full {
+      grid-column: 1 / -1;
     }
 
-    .inspector-placeholder-label {
+    .inspector-field-label {
       font-size: 12px;
       font-weight: 700;
       color: #475569;
     }
 
-    .inspector-placeholder-value {
-      margin-top: 5px;
-      min-height: 38px;
+    .inspector-field-input,
+    .inspector-field-textarea {
+      width: 100%;
       border: 1px solid var(--accent-border);
       border-radius: 10px;
       background: #ffffff;
       padding: 9px 10px;
       font-size: 13px;
-      color: #94a3b8;
+      color: #334155;
+      font-family: inherit;
+    }
+
+    .inspector-field-input[readonly],
+    .inspector-field-textarea[readonly] {
+      background: #f8fafc;
+    }
+
+    .inspector-field-textarea {
+      min-height: 72px;
+      resize: vertical;
+      line-height: 1.45;
     }
 
     .inspector-footer-note {
       font-size: 12px;
       line-height: 1.55;
       color: var(--text-muted);
+    }
+
+    .config-preview-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .config-preview-block {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
 
     @media (max-width: 1120px) {
@@ -331,6 +358,10 @@
 
       .chat-input-area {
         flex-direction: column;
+      }
+
+      .inspector-field-grid {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -422,18 +453,30 @@
           <div class="inspector-card-header">
             <div class="inspector-card-title">Session And Routing</div>
             <div class="inspector-card-subtitle">
-              Placeholder shell for live session, route, and reply-state variables.
+              Live routing context from the current chat surface.
             </div>
           </div>
           <div class="inspector-card-body">
-            <div class="inspector-placeholder-list">
-              <div class="inspector-placeholder">
-                <div class="inspector-placeholder-label">session_id</div>
-                <div class="inspector-placeholder-value">Will be wired in Prompt 3 / 5</div>
+            <div class="inspector-field-grid">
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="routeTenantInput">tenant</label>
+                <input id="routeTenantInput" class="inspector-field-input" type="text" readonly />
               </div>
-              <div class="inspector-placeholder">
-                <div class="inspector-placeholder-label">session_status</div>
-                <div class="inspector-placeholder-value">Will be wired in Prompt 3 / 5</div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="routeSessionStatusInput">session_status</label>
+                <input id="routeSessionStatusInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field full">
+                <label class="inspector-field-label" for="routeSessionIdInput">session_id</label>
+                <input id="routeSessionIdInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field full">
+                <label class="inspector-field-label" for="routeLastUserMessageInput">last_user_message</label>
+                <textarea id="routeLastUserMessageInput" class="inspector-field-textarea" readonly></textarea>
+              </div>
+              <div class="inspector-field full">
+                <label class="inspector-field-label" for="routeLastResponseTypeInput">last_response_type</label>
+                <input id="routeLastResponseTypeInput" class="inspector-field-input" type="text" readonly />
               </div>
             </div>
           </div>
@@ -443,18 +486,42 @@
           <div class="inspector-card-header">
             <div class="inspector-card-title">Booking Flow</div>
             <div class="inspector-card-subtitle">
-              Reserved panel group for booking stage, next field, progress, and collected data.
+              Readable snapshot of booking progression and collected contact data.
             </div>
           </div>
           <div class="inspector-card-body">
-            <div class="inspector-placeholder-list">
-              <div class="inspector-placeholder">
-                <div class="inspector-placeholder-label">booking_stage</div>
-                <div class="inspector-placeholder-value">Panel shell only in Prompt 2</div>
+            <div class="inspector-field-grid">
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="bookingStageInput">booking_stage</label>
+                <input id="bookingStageInput" class="inspector-field-input" type="text" readonly />
               </div>
-              <div class="inspector-placeholder">
-                <div class="inspector-placeholder-label">next_field</div>
-                <div class="inspector-placeholder-value">Panel shell only in Prompt 2</div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="bookingReservationStatusInput">reservation_status</label>
+                <input id="bookingReservationStatusInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="bookingProgressPercentInput">progress_percent</label>
+                <input id="bookingProgressPercentInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="bookingCollectionStatusInput">collection_status</label>
+                <input id="bookingCollectionStatusInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field full">
+                <label class="inspector-field-label" for="bookingNextFieldInput">next_field</label>
+                <input id="bookingNextFieldInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="bookingNameInput">name</label>
+                <input id="bookingNameInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="bookingPhoneInput">phone</label>
+                <input id="bookingPhoneInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field full">
+                <label class="inspector-field-label" for="bookingEmailInput">email</label>
+                <input id="bookingEmailInput" class="inspector-field-input" type="text" readonly />
               </div>
             </div>
           </div>
@@ -464,14 +531,34 @@
           <div class="inspector-card-header">
             <div class="inspector-card-title">Scheduling Criteria</div>
             <div class="inspector-card-subtitle">
-              Reserved group for service, date range, timezone, and other scheduling request inputs.
+              Editable sandbox criteria for the scheduling-focused part of the flow.
             </div>
           </div>
           <div class="inspector-card-body">
-            <div class="inspector-placeholder-list">
-              <div class="inspector-placeholder">
-                <div class="inspector-placeholder-label">service_id / date_from / date_to</div>
-                <div class="inspector-placeholder-value">Editable controls will be added in Prompt 3</div>
+            <div class="inspector-field-grid">
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="schedulingServiceIdInput">service_id</label>
+                <input id="schedulingServiceIdInput" class="inspector-field-input" type="text" value="consultation" />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="schedulingTimezoneInput">timezone</label>
+                <input id="schedulingTimezoneInput" class="inspector-field-input" type="text" value="Europe/Skopje" />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="schedulingDateFromInput">date_from</label>
+                <input id="schedulingDateFromInput" class="inspector-field-input" type="text" value="" />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="schedulingDateToInput">date_to</label>
+                <input id="schedulingDateToInput" class="inspector-field-input" type="text" value="" />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="schedulingPreferredDaysInput">preferred_days</label>
+                <input id="schedulingPreferredDaysInput" class="inspector-field-input" type="text" value="" placeholder="mon,tue" />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="schedulingPreferredTimeRangeInput">preferred_time_range</label>
+                <input id="schedulingPreferredTimeRangeInput" class="inspector-field-input" type="text" value="" placeholder="morning" />
               </div>
             </div>
           </div>
@@ -481,14 +568,75 @@
           <div class="inspector-card-header">
             <div class="inspector-card-title">Selected Slot And Booking Result</div>
             <div class="inspector-card-subtitle">
-              Reserved area for selected slot state, booking result state, and confirmation details.
+              Observed slot state from selection through booking summary.
             </div>
           </div>
           <div class="inspector-card-body">
-            <div class="inspector-placeholder-list">
-              <div class="inspector-placeholder">
-                <div class="inspector-placeholder-label">selected_slot / booking_result</div>
-                <div class="inspector-placeholder-value">Live values will be connected in Prompt 5</div>
+            <div class="inspector-field-grid">
+              <div class="inspector-field full">
+                <label class="inspector-field-label" for="slotDisplayLabelInput">selected_slot.display_label</label>
+                <input id="slotDisplayLabelInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field full">
+                <label class="inspector-field-label" for="slotIdInput">selected_slot.slot_id</label>
+                <input id="slotIdInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="slotStartInput">selected_slot.start_at</label>
+                <input id="slotStartInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="slotEndInput">selected_slot.end_at</label>
+                <input id="slotEndInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="slotProviderInput">selected_slot.provider</label>
+                <input id="slotProviderInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="bookingAppointmentStatusInput">appointment_status</label>
+                <input id="bookingAppointmentStatusInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field full">
+                <label class="inspector-field-label" for="bookingAppointmentDisplayInput">appointment_display</label>
+                <input id="bookingAppointmentDisplayInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field full">
+                <label class="inspector-field-label" for="bookingConfirmationMessageInput">confirmation_message / subtitle</label>
+                <textarea id="bookingConfirmationMessageInput" class="inspector-field-textarea" readonly></textarea>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="inspector-card">
+          <div class="inspector-card-header">
+            <div class="inspector-card-title">Widget And Payload Snapshot</div>
+            <div class="inspector-card-subtitle">
+              Quick readout of the latest widget and response payload values already available in the frontend.
+            </div>
+          </div>
+          <div class="inspector-card-body">
+            <div class="inspector-field-grid">
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="payloadWidgetTypeInput">widget_payload.type</label>
+                <input id="payloadWidgetTypeInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="payloadWidgetServiceIdInput">widget_payload.service_id</label>
+                <input id="payloadWidgetServiceIdInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="payloadWidgetSlotCountInput">widget_payload.slots.length</label>
+                <input id="payloadWidgetSlotCountInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="payloadReplyLengthInput">reply_length</label>
+                <input id="payloadReplyLengthInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field full">
+                <label class="inspector-field-label" for="payloadSnapshotInput">latest_payload_snapshot</label>
+                <textarea id="payloadSnapshotInput" class="inspector-field-textarea" readonly></textarea>
               </div>
             </div>
           </div>
@@ -498,12 +646,26 @@
           <div class="inspector-card-header">
             <div class="inspector-card-title">Config Preview</div>
             <div class="inspector-card-subtitle">
-              Bottom section reserved for tenant profile and scheduling config previews.
+              Read-only previews of the JSON config artifacts most relevant to this chat and scheduling flow.
             </div>
           </div>
           <div class="inspector-card-body">
+            <div class="config-preview-stack">
+              <div class="config-preview-block">
+                <label class="inspector-field-label" for="configPreviewStatusInput">preview_status</label>
+                <input id="configPreviewStatusInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="config-preview-block">
+                <label class="inspector-field-label" for="tenantConfigPreviewInput">tenant_profile_preview</label>
+                <textarea id="tenantConfigPreviewInput" class="inspector-field-textarea" readonly></textarea>
+              </div>
+              <div class="config-preview-block">
+                <label class="inspector-field-label" for="schedulingConfigPreviewInput">scheduling_public_config_preview</label>
+                <textarea id="schedulingConfigPreviewInput" class="inspector-field-textarea" readonly></textarea>
+              </div>
+            </div>
             <div class="inspector-footer-note">
-              Prompt 2 only creates the Chat SandBox page and inspector shell. Runtime groups, payload details, and config previews will be filled in by later prompts.
+              These previews are scoped for debugging flow decisions and avoid turning the panel into a general config browser.
             </div>
           </div>
         </section>
@@ -538,14 +700,67 @@
     const bookingSummary = document.getElementById("bookingSummary");
     const bookingSummaryTemplate = bookingSummary.cloneNode(true);
     bookingSummary.remove();
+    const routeTenantInput = document.getElementById("routeTenantInput");
+    const routeSessionStatusInput = document.getElementById("routeSessionStatusInput");
+    const routeSessionIdInput = document.getElementById("routeSessionIdInput");
+    const routeLastUserMessageInput = document.getElementById("routeLastUserMessageInput");
+    const routeLastResponseTypeInput = document.getElementById("routeLastResponseTypeInput");
+    const bookingStageInput = document.getElementById("bookingStageInput");
+    const bookingReservationStatusInput = document.getElementById("bookingReservationStatusInput");
+    const bookingProgressPercentInput = document.getElementById("bookingProgressPercentInput");
+    const bookingCollectionStatusInput = document.getElementById("bookingCollectionStatusInput");
+    const bookingNextFieldInput = document.getElementById("bookingNextFieldInput");
+    const bookingNameInput = document.getElementById("bookingNameInput");
+    const bookingPhoneInput = document.getElementById("bookingPhoneInput");
+    const bookingEmailInput = document.getElementById("bookingEmailInput");
+    const schedulingServiceIdInput = document.getElementById("schedulingServiceIdInput");
+    const schedulingTimezoneInput = document.getElementById("schedulingTimezoneInput");
+    const schedulingDateFromInput = document.getElementById("schedulingDateFromInput");
+    const schedulingDateToInput = document.getElementById("schedulingDateToInput");
+    const schedulingPreferredDaysInput = document.getElementById("schedulingPreferredDaysInput");
+    const schedulingPreferredTimeRangeInput = document.getElementById("schedulingPreferredTimeRangeInput");
+    const slotDisplayLabelInput = document.getElementById("slotDisplayLabelInput");
+    const slotIdInput = document.getElementById("slotIdInput");
+    const slotStartInput = document.getElementById("slotStartInput");
+    const slotEndInput = document.getElementById("slotEndInput");
+    const slotProviderInput = document.getElementById("slotProviderInput");
+    const bookingAppointmentStatusInput = document.getElementById("bookingAppointmentStatusInput");
+    const bookingAppointmentDisplayInput = document.getElementById("bookingAppointmentDisplayInput");
+    const bookingConfirmationMessageInput = document.getElementById("bookingConfirmationMessageInput");
+    const payloadWidgetTypeInput = document.getElementById("payloadWidgetTypeInput");
+    const payloadWidgetServiceIdInput = document.getElementById("payloadWidgetServiceIdInput");
+    const payloadWidgetSlotCountInput = document.getElementById("payloadWidgetSlotCountInput");
+    const payloadReplyLengthInput = document.getElementById("payloadReplyLengthInput");
+    const payloadSnapshotInput = document.getElementById("payloadSnapshotInput");
+    const configPreviewStatusInput = document.getElementById("configPreviewStatusInput");
+    const tenantConfigPreviewInput = document.getElementById("tenantConfigPreviewInput");
+    const schedulingConfigPreviewInput = document.getElementById("schedulingConfigPreviewInput");
 
     const tenant = resolveTenantFromPath(window.location.pathname, "generic");
     const sessionStorageKey = `clinic-ai-session:${tenant}:chat-sandbox`;
     let sessionId = window.localStorage.getItem(sessionStorageKey) || null;
     let isSending = false;
+    let lastUserMessage = "";
+    let lastResponseType = "";
+    let latestPayloadSnapshot = null;
+    let latestInspectorPayload = null;
+    let latestSelectedSlot = null;
+    let latestBookingProgress = null;
+    let tenantConfigPreview = "";
+    let schedulingConfigPreview = "";
+    let configPreviewStatus = "Loading config previews...";
+    let schedulingCriteriaState = {
+      service_id: "",
+      timezone: "",
+      date_from: "",
+      date_to: "",
+      preferred_days: "",
+      preferred_time_range: "",
+    };
 
     const API_URL = `/chat?tenant=${encodeURIComponent(tenant)}`;
     const CONFIG_URL = `/config/${encodeURIComponent(tenant)}`;
+    const SCHEDULING_CONFIG_URL = `/scheduling/config/${encodeURIComponent(tenant)}`;
     const SELECT_SLOT_URL = `/scheduling/select-slot?tenant=${encodeURIComponent(tenant)}`;
 
     const widgetRegistry = registerDefaultConversationWidgets(
@@ -596,6 +811,279 @@
       return conversationDispatcher.addTextMessage(text, sender);
     }
 
+    function safeText(value, fallback = "") {
+      if (value === null || value === undefined) {
+        return fallback;
+      }
+      return String(value);
+    }
+
+    function prettyJson(value) {
+      if (value === null || value === undefined || value === "") {
+        return "";
+      }
+      try {
+        return JSON.stringify(value, null, 2);
+      } catch (error) {
+        return safeText(value);
+      }
+    }
+
+    function compactServicePreview(services) {
+      if (!Array.isArray(services)) {
+        return [];
+      }
+      return services.slice(0, 8).map((service) => ({
+        id: service?.id,
+        name: service?.name,
+        duration_minutes: service?.duration_minutes,
+        price: service?.price,
+      }));
+    }
+
+    function buildTenantConfigPreview(config) {
+      if (!config || typeof config !== "object") {
+        return "";
+      }
+      return prettyJson({
+        tenant,
+        business: config.business || null,
+        assistant: config.assistant
+          ? {
+              name: config.assistant.name,
+              goal: config.assistant.goal,
+            }
+          : null,
+        conversation: config.conversation
+          ? {
+              greeting: config.conversation.greeting,
+              allow_booking: config.conversation.allow_booking,
+              allow_scheduling_first: config.conversation.allow_scheduling_first,
+            }
+          : null,
+        scheduling: config.scheduling
+          ? {
+              provider: config.scheduling.provider,
+              timezone: config.scheduling.timezone,
+              slot_duration_minutes: config.scheduling.slot_duration_minutes,
+            }
+          : null,
+        services: compactServicePreview(config.services),
+      });
+    }
+
+    function setConfigPreviewState(partialState = {}) {
+      if (Object.prototype.hasOwnProperty.call(partialState, "tenantConfigPreview")) {
+        tenantConfigPreview = partialState.tenantConfigPreview;
+      }
+      if (Object.prototype.hasOwnProperty.call(partialState, "schedulingConfigPreview")) {
+        schedulingConfigPreview = partialState.schedulingConfigPreview;
+      }
+      if (Object.prototype.hasOwnProperty.call(partialState, "configPreviewStatus")) {
+        configPreviewStatus = partialState.configPreviewStatus;
+      }
+
+      configPreviewStatusInput.value = safeText(configPreviewStatus);
+      tenantConfigPreviewInput.value = safeText(tenantConfigPreview);
+      schedulingConfigPreviewInput.value = safeText(schedulingConfigPreview);
+    }
+
+    function preferredDaysToText(value) {
+      if (Array.isArray(value)) {
+        return value
+          .map((item) => safeText(item).trim())
+          .filter(Boolean)
+          .join(", ");
+      }
+      return safeText(value).trim();
+    }
+
+    function nextDateText(offsetDays = 0) {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() + offsetDays);
+      return date.toISOString().slice(0, 10);
+    }
+
+    function setSchedulingCriteriaState(partialState = {}) {
+      schedulingCriteriaState = {
+        ...schedulingCriteriaState,
+        ...partialState,
+      };
+      schedulingServiceIdInput.value = safeText(schedulingCriteriaState.service_id);
+      schedulingTimezoneInput.value = safeText(schedulingCriteriaState.timezone);
+      schedulingDateFromInput.value = safeText(schedulingCriteriaState.date_from);
+      schedulingDateToInput.value = safeText(schedulingCriteriaState.date_to);
+      schedulingPreferredDaysInput.value = safeText(schedulingCriteriaState.preferred_days);
+      schedulingPreferredTimeRangeInput.value = safeText(schedulingCriteriaState.preferred_time_range);
+    }
+
+    function syncInspectorPayload(data) {
+      const inspectorPayload = data?.inspector_payload;
+      if (!inspectorPayload || typeof inspectorPayload !== "object") {
+        latestInspectorPayload = null;
+        return;
+      }
+
+      latestInspectorPayload = inspectorPayload;
+
+      const routing = inspectorPayload.routing;
+      if (routing && typeof routing === "object") {
+        if (typeof routing.last_user_message === "string") {
+          lastUserMessage = routing.last_user_message;
+        }
+        if (typeof routing.last_response_type === "string" && routing.last_response_type.trim()) {
+          lastResponseType = routing.last_response_type.trim();
+        }
+      }
+
+      const schedulingCriteria = inspectorPayload.scheduling_criteria;
+      if (schedulingCriteria && typeof schedulingCriteria === "object") {
+        setSchedulingCriteriaState({
+          service_id: safeText(schedulingCriteria.service_id),
+          timezone: safeText(schedulingCriteria.timezone),
+          date_from: safeText(schedulingCriteria.date_from),
+          date_to: safeText(schedulingCriteria.date_to),
+          preferred_days: preferredDaysToText(schedulingCriteria.preferred_days),
+          preferred_time_range: safeText(schedulingCriteria.preferred_time_range),
+        });
+      }
+
+      if (inspectorPayload.selected_slot && typeof inspectorPayload.selected_slot === "object") {
+        latestSelectedSlot = inspectorPayload.selected_slot;
+      }
+    }
+
+    function syncSchedulingCriteriaFromPayload(data) {
+      if (!data || typeof data !== "object") {
+        return;
+      }
+
+      const widgetPayload = data.widget_payload && typeof data.widget_payload === "object"
+        ? data.widget_payload
+        : {};
+      const request = widgetPayload.request && typeof widgetPayload.request === "object"
+        ? widgetPayload.request
+        : {};
+      const bookingSummary = data.booking_progress?.summary && typeof data.booking_progress.summary === "object"
+        ? data.booking_progress.summary
+        : {};
+      const nextState = {};
+
+      if (typeof request.service_id === "string" && request.service_id.trim()) {
+        nextState.service_id = request.service_id.trim();
+      } else if (typeof widgetPayload.service_id === "string" && widgetPayload.service_id.trim()) {
+        nextState.service_id = widgetPayload.service_id.trim();
+      } else if (typeof bookingSummary.service_id === "string" && bookingSummary.service_id.trim()) {
+        nextState.service_id = bookingSummary.service_id.trim();
+      }
+
+      if (typeof request.timezone === "string" && request.timezone.trim()) {
+        nextState.timezone = request.timezone.trim();
+      }
+      if (typeof request.date_from === "string" && request.date_from.trim()) {
+        nextState.date_from = request.date_from.trim();
+      }
+      if (typeof request.date_to === "string" && request.date_to.trim()) {
+        nextState.date_to = request.date_to.trim();
+      }
+
+      const preferredDaysText = preferredDaysToText(request.preferred_days);
+      if (preferredDaysText) {
+        nextState.preferred_days = preferredDaysText;
+      }
+      if (typeof request.preferred_time_range === "string" && request.preferred_time_range.trim()) {
+        nextState.preferred_time_range = request.preferred_time_range.trim();
+      }
+
+      if (Object.keys(nextState).length) {
+        setSchedulingCriteriaState(nextState);
+      }
+    }
+
+    function summarizeResponseType(data) {
+      if (!data || typeof data !== "object") {
+        return "";
+      }
+      if (data.widget_payload?.type === "slot-list") {
+        return "slot-list";
+      }
+      if (data.session_status === "collecting_contact") {
+        return "collecting_contact";
+      }
+      if (data.session_status === "completed") {
+        return "completed";
+      }
+      return "message";
+    }
+
+    function updateInspectorFields() {
+      routeTenantInput.value = tenant;
+      routeSessionIdInput.value = safeText(sessionId);
+      routeSessionStatusInput.value = safeText(
+        latestInspectorPayload?.session?.session_status ?? latestPayloadSnapshot?.session_status
+      );
+      routeLastUserMessageInput.value = safeText(lastUserMessage);
+      routeLastResponseTypeInput.value = safeText(lastResponseType);
+      schedulingServiceIdInput.value = safeText(schedulingCriteriaState.service_id);
+      schedulingTimezoneInput.value = safeText(schedulingCriteriaState.timezone);
+      schedulingDateFromInput.value = safeText(schedulingCriteriaState.date_from);
+      schedulingDateToInput.value = safeText(schedulingCriteriaState.date_to);
+      schedulingPreferredDaysInput.value = safeText(schedulingCriteriaState.preferred_days);
+      schedulingPreferredTimeRangeInput.value = safeText(schedulingCriteriaState.preferred_time_range);
+
+      const progress = latestBookingProgress || {};
+      bookingStageInput.value = safeText(progress.booking_stage);
+      bookingReservationStatusInput.value = safeText(progress.reservation_status);
+      bookingProgressPercentInput.value = progress.progress_percent === undefined ? "" : `${progress.progress_percent}%`;
+      bookingCollectionStatusInput.value = (
+        progress.collection_status === undefined || progress.collection_total === undefined
+          ? ""
+          : `${progress.collection_status} / ${progress.collection_total}`
+      );
+      bookingNextFieldInput.value = safeText(progress.next_field);
+
+      const fieldValues = new Map();
+      for (const item of progress.fields || []) {
+        if (item?.field) {
+          fieldValues.set(item.field, item.value || "");
+        }
+      }
+      bookingNameInput.value = safeText(fieldValues.get("name"));
+      bookingPhoneInput.value = safeText(fieldValues.get("phone"));
+      bookingEmailInput.value = safeText(fieldValues.get("email"));
+
+      slotDisplayLabelInput.value = safeText(latestSelectedSlot?.display_label);
+      slotIdInput.value = safeText(latestSelectedSlot?.slot_id);
+      slotStartInput.value = safeText(latestSelectedSlot?.start_at);
+      slotEndInput.value = safeText(latestSelectedSlot?.end_at);
+      slotProviderInput.value = safeText(latestSelectedSlot?.provider);
+
+      const summary = progress.summary || {};
+      bookingAppointmentStatusInput.value = safeText(summary.appointment_status);
+      bookingAppointmentDisplayInput.value = safeText(summary.appointment_display);
+      bookingConfirmationMessageInput.value = safeText(summary.subtitle);
+
+      payloadWidgetTypeInput.value = safeText(latestPayloadSnapshot?.widget_payload?.type);
+      payloadWidgetServiceIdInput.value = safeText(
+        latestInspectorPayload?.widget_payload?.service_id ?? latestPayloadSnapshot?.widget_payload?.service_id
+      );
+      payloadWidgetSlotCountInput.value = latestInspectorPayload?.widget_payload?.slot_count !== undefined
+        ? String(latestInspectorPayload.widget_payload.slot_count)
+        : Array.isArray(latestPayloadSnapshot?.widget_payload?.slots)
+          ? String(latestPayloadSnapshot.widget_payload.slots.length)
+          : "";
+      payloadReplyLengthInput.value = latestPayloadSnapshot?.reply
+        ? String(String(latestPayloadSnapshot.reply).length)
+        : "";
+      payloadSnapshotInput.value = latestPayloadSnapshot
+        ? JSON.stringify(latestPayloadSnapshot, null, 2)
+        : "";
+      configPreviewStatusInput.value = safeText(configPreviewStatus);
+      tenantConfigPreviewInput.value = safeText(tenantConfigPreview);
+      schedulingConfigPreviewInput.value = safeText(schedulingConfigPreview);
+    }
+
     function isSlotListWidgetPayload(widgetPayload) {
       return Boolean(
         widgetPayload &&
@@ -625,6 +1113,7 @@
 
       sessionId = nextSessionId;
       window.localStorage.setItem(sessionStorageKey, sessionId);
+      updateInspectorFields();
     }
 
     function updateStatusFromSessionStatus(nextSessionStatus, fallbackText = "Подготвено") {
@@ -644,6 +1133,19 @@
 
       syncSessionId(data.session_id);
       updateBookingProgress(data.booking_progress);
+      latestPayloadSnapshot = data;
+      latestBookingProgress = data.booking_progress || null;
+      lastResponseType = summarizeResponseType(data);
+      syncInspectorPayload(data);
+      syncSchedulingCriteriaFromPayload(data);
+
+      const summary = data.booking_progress?.summary;
+      if (summary?.appointment_source === "selected_slot" || summary?.appointment_source === "calendar_booking") {
+        latestSelectedSlot = {
+          ...latestSelectedSlot,
+          display_label: summary.appointment_display || latestSelectedSlot?.display_label || "",
+        };
+      }
 
       const primaryReplyText = getPrimaryReplyText(data.reply, includeWidget ? data.widget_payload : null);
       addMessage(primaryReplyText || fallbackReply, "bot");
@@ -653,6 +1155,7 @@
       }
 
       updateStatusFromSessionStatus(data.session_status, fallbackStatus);
+      updateInspectorFields();
     }
 
     async function handleSlotSelection(slot, widgetPayload, slotListWidget) {
@@ -666,6 +1169,8 @@
       slotListWidget.disableAll();
       addMessage(`Го избирам овој термин: ${slot.display_label}`, "user");
       statusText.textContent = "Се испраќа изборот на термин...";
+      latestSelectedSlot = slot;
+      updateInspectorFields();
 
       try {
         const response = await fetch(SELECT_SLOT_URL, {
@@ -729,6 +1234,8 @@
       }
 
       isSending = true;
+      lastUserMessage = trimmedMessage;
+      updateInspectorFields();
       if (showUserMessage) {
         addMessage(trimmedMessage, "user");
       }
@@ -784,6 +1291,12 @@
       window.localStorage.removeItem(sessionStorageKey);
       bookingSummaryHistory.reset();
       bookingProgressWidget.reset();
+      latestPayloadSnapshot = null;
+      latestInspectorPayload = null;
+      latestSelectedSlot = null;
+      latestBookingProgress = null;
+      lastUserMessage = "";
+      lastResponseType = "";
       statusText.textContent = "Подготвено";
       messageInput.value = "";
       await loadTenantConfig();
@@ -801,7 +1314,58 @@
       bookingProgressWidget.update(progress);
     }
 
+    async function loadConfigPreviews() {
+      setConfigPreviewState({
+        configPreviewStatus: `Loading previews for ${tenant}...`,
+      });
+
+      const [tenantConfigResult, schedulingConfigResult] = await Promise.allSettled([
+        fetch(CONFIG_URL),
+        fetch(SCHEDULING_CONFIG_URL),
+      ]);
+
+      let nextTenantConfigPreview = "";
+      let nextSchedulingConfigPreview = "";
+      const statusParts = [];
+
+      if (tenantConfigResult.status === "fulfilled") {
+        if (!tenantConfigResult.value.ok) {
+          statusParts.push(`tenant profile HTTP ${tenantConfigResult.value.status}`);
+        } else {
+          const tenantConfig = await tenantConfigResult.value.json();
+          nextTenantConfigPreview = buildTenantConfigPreview(tenantConfig);
+          statusParts.push("tenant profile loaded");
+        }
+      } else {
+        statusParts.push("tenant profile unavailable");
+      }
+
+      if (schedulingConfigResult.status === "fulfilled") {
+        if (!schedulingConfigResult.value.ok) {
+          statusParts.push(`scheduling config HTTP ${schedulingConfigResult.value.status}`);
+        } else {
+          const schedulingConfig = await schedulingConfigResult.value.json();
+          nextSchedulingConfigPreview = prettyJson(schedulingConfig);
+          statusParts.push("scheduling config loaded");
+        }
+      } else {
+        statusParts.push("scheduling config unavailable");
+      }
+
+      setConfigPreviewState({
+        tenantConfigPreview: nextTenantConfigPreview,
+        schedulingConfigPreview: nextSchedulingConfigPreview,
+        configPreviewStatus: statusParts.join(" | "),
+      });
+    }
+
     async function loadTenantConfig() {
+      setConfigPreviewState({
+        tenantConfigPreview: "",
+        schedulingConfigPreview: "",
+        configPreviewStatus: `Loading previews for ${tenant}...`,
+      });
+
       try {
         const response = await fetch(CONFIG_URL);
 
@@ -810,25 +1374,49 @@
         }
 
         const config = await response.json();
+        const defaultServiceId = Array.isArray(config.services)
+          ? safeText(config.services.find((service) => service && typeof service.id === "string" && service.id.trim())?.id).trim()
+          : "";
+        const defaultTimezone = safeText(config.scheduling?.timezone).trim() || "Europe/Skopje";
         const businessName = config.business?.name || config.assistant?.name || "Асистент";
         const greeting = config.conversation?.greeting || "Здраво! Како можам да ви помогнам денес?";
 
         chatHeader.textContent = businessName;
         tenantChip.textContent = `Tenant: ${tenant}`;
         document.title = `${businessName} Chat SandBox`;
+        setSchedulingCriteriaState({
+          service_id: defaultServiceId,
+          timezone: defaultTimezone,
+          date_from: nextDateText(0),
+          date_to: nextDateText(7),
+          preferred_days: "",
+          preferred_time_range: "",
+        });
 
         conversationDispatcher.clear();
         bookingSummaryHistory.reset();
         bookingProgressWidget.reset();
         addMessage(greeting, "bot");
+        updateInspectorFields();
+        await loadConfigPreviews();
       } catch (error) {
         chatHeader.textContent = "Асистент";
         tenantChip.textContent = `Tenant: ${tenant}`;
         document.title = "Chat SandBox";
+        setSchedulingCriteriaState({
+          service_id: "consultation",
+          timezone: "Europe/Skopje",
+          date_from: nextDateText(0),
+          date_to: nextDateText(7),
+          preferred_days: "",
+          preferred_time_range: "",
+        });
         conversationDispatcher.clear();
         bookingSummaryHistory.reset();
         bookingProgressWidget.reset();
         addMessage("Здраво! Како можам да ви помогнам денес?", "bot");
+        updateInspectorFields();
+        await loadConfigPreviews();
         console.error("Failed to load tenant config:", error);
       }
     }
@@ -852,6 +1440,18 @@
     bookingResetButton.addEventListener("click", resetConversation);
     inspectorToggleButton.addEventListener("click", () => {
       setInspectorOpen(!sandboxShell.classList.contains("panel-open"));
+    });
+    [
+      ["service_id", schedulingServiceIdInput],
+      ["timezone", schedulingTimezoneInput],
+      ["date_from", schedulingDateFromInput],
+      ["date_to", schedulingDateToInput],
+      ["preferred_days", schedulingPreferredDaysInput],
+      ["preferred_time_range", schedulingPreferredTimeRangeInput],
+    ].forEach(([fieldName, element]) => {
+      element.addEventListener("input", () => {
+        setSchedulingCriteriaState({ [fieldName]: element.value });
+      });
     });
 
     setInspectorOpen(window.innerWidth > 1120 ? false : true);

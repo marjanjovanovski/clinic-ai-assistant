@@ -33,7 +33,7 @@ Status values allowed in this document:
 
 ## Last Updated On
 
-- `2026-03-27`
+- `2026-03-26`
 
 ## Merge To Main
 
@@ -41,16 +41,16 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 3`
+- `Manual Verification / Merge`
 
 ## Global Status Summary
 
 - Prompt 1 - Completed
 - Prompt 2 - Completed
-- Prompt 3 - Pending
-- Prompt 4 - Pending
-- Prompt 5 - Pending
-- Prompt 6 - Pending
+- Prompt 3 - Completed
+- Prompt 4 - Completed
+- Prompt 5 - Completed
+- Prompt 6 - Completed
 
 ## Working Rules For The Implementing AI Agent
 
@@ -354,7 +354,7 @@ Why this prompt stops here:
 - Prompt 2 was limited to establishing the new page and the minimal side-panel shell
 - the grouped panel content and runtime wiring are deferred to Prompts 3, 4, and 5 so the work stays staged and reviewable
 
-## Prompt 3 - Pending
+## Prompt 3 - Completed
 
 ### Goal
 
@@ -381,7 +381,40 @@ Requirements:
 
 The Chat SandBox panel displays the important runtime flow variables in a categorized and readable way.
 
-## Prompt 4 - Pending
+### Prompt 3 Completion Note
+
+What changed:
+
+- replaced the remaining panel shell with textbox-style runtime fields for:
+  - `Session And Routing`
+  - `Booking Flow`
+  - `Scheduling Criteria`
+  - `Selected Slot And Booking Result`
+  - `Widget / Payload Snapshot`
+- wired the inspector to current frontend runtime values already available from:
+  - session state
+  - booking progress payloads
+  - selected slot state
+  - latest widget / response payload handling
+- finished the `Scheduling Criteria` section as editable inspector state instead of static placeholder values by:
+  - seeding defaults from tenant config where available
+  - seeding a readable default date window for sandbox inspection
+  - syncing values from runtime payload data when scheduling-related request context is present
+  - allowing local textbox edits for controlled tester prep without yet changing the live chat contract
+
+Prompt 3 intentionally still does not yet implement:
+
+- config JSON preview rendering at the bottom of the panel
+- a dedicated backend inspector contract for values not already exposed in current runtime payloads
+- guaranteed request-override behavior from edited scheduling criteria values into the live flow
+
+Why this prompt stops here:
+
+- Prompt 3 is complete as the categorized runtime-variable display pass
+- config previews are reserved for Prompt 4
+- deeper runtime-contract or override behavior belongs to Prompt 5
+
+## Prompt 4 - Completed
 
 ### Goal
 
@@ -405,7 +438,29 @@ Requirements:
 
 The Chat SandBox panel includes useful config JSON previews at the bottom.
 
-## Prompt 5 - Pending
+### Prompt 4 Completion Note
+
+What changed:
+
+- replaced the reserved `Config Preview` placeholder with real read-only preview fields at the bottom of `ChatSandBox`
+- added a focused `tenant_profile_preview` JSON view sourced from the existing `/config/{tenant}` endpoint
+- added a `scheduling_public_config_preview` JSON view sourced from the existing `/scheduling/config/{tenant}` endpoint
+- added a lightweight `preview_status` field so testers can see whether each preview loaded successfully or failed independently
+- kept the preview content scoped to flow-relevant configuration rather than turning the panel into a broad config/file browser
+
+Prompt 4 intentionally still does not yet implement:
+
+- any new backend inspector payload beyond existing config endpoints
+- deeper live-flow runtime synchronization for values that are not already available in the current frontend/runtime contract
+- verification coverage for the new preview sections
+
+Why this prompt stops here:
+
+- Prompt 4 is complete as the config-preview pass
+- any additional live runtime contract work belongs to Prompt 5
+- focused verification belongs to Prompt 6
+
+## Prompt 5 - Completed
 
 ### Goal
 
@@ -430,7 +485,37 @@ Requirements:
 
 The Chat SandBox panel shows live, relevant flow data rather than static placeholders.
 
-## Prompt 6 - Pending
+### Prompt 5 Completion Note
+
+What changed:
+
+- added a focused backend `inspector_payload` contract to chat-flow responses so the sandbox can read live flow state from a stable payload instead of relying only on frontend inference
+- extended the scheduling availability widget payload with backend-fed request details so the inspector can display:
+  - `service_id`
+  - `date_from`
+  - `date_to`
+  - `timezone`
+  - `preferred_days`
+  - `preferred_time_range`
+- wired the Chat SandBox frontend to prefer the new inspector payload for:
+  - session / routing state
+  - response type
+  - scheduling criteria snapshot
+  - selected slot carry-forward
+  - widget snapshot slot count / service metadata
+- kept the contract narrow and runtime-focused rather than exposing broad internal state
+
+Prompt 5 intentionally still does not yet implement:
+
+- final verification coverage for the new inspector contract and page behavior
+- broader inspector sections beyond the currently scoped runtime groups
+
+Why this prompt stops here:
+
+- Prompt 5 is complete as the live runtime wiring pass
+- verification and non-regression checks belong to Prompt 6
+
+## Prompt 6 - Completed
 
 ### Goal
 
@@ -451,3 +536,27 @@ Requirements:
 ### Required Outcome
 
 The Chat SandBox page and its runtime inspector behavior are verified and documented in this file.
+
+### Prompt 6 Completion Note
+
+What changed:
+
+- added focused integration coverage for the new `ChatSandBox` page structure and inspector/config-preview wiring
+- added focused integration coverage for the new backend `inspector_payload` contract and availability request snapshot data
+- re-ran existing related integration coverage to guard against regressions in:
+  - availability intent gating
+  - frontend booking UI assets / wiring
+  - `cal.html` scheduling sandbox behavior
+
+Verification completed:
+
+- automated tests run with external temp paths and external `--basetemp`
+- command used:
+  - `.\\.venv\\Scripts\\python.exe -m pytest .\\tests\\integration\\test_availability_intent_gating.py .\\tests\\integration\\test_frontend_booking_ui.py .\\tests\\integration\\test_cal_html.py -q --basetemp="F:\\temp\\clinic-ai-assistant\\pytest-slot-widget-final"`
+- result:
+  - `19 passed`
+
+Manual verification notes:
+
+- the new `ChatSandBox` page is now structurally served and covered for inspector toggle/panel wiring, runtime field presence, and config preview presence
+- branch-level manual browser verification is still recommended before merge to `main`
