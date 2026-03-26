@@ -1,0 +1,15 @@
+# Default text normalization for source and docs.
+* text=auto eol=lf
+
+# Windows-native script formats should keep CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Common binary assets should never be line-normalized.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
