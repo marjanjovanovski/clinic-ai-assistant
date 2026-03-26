@@ -1,7 +1,13 @@
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 
-from app.services.ai_agent import AIInferenceError, generate_reply, get_booking_progress, get_session_status
+from app.services.ai_agent import (
+    AIInferenceError,
+    build_runtime_inspector_payload,
+    generate_reply,
+    get_booking_progress,
+    get_session_status,
+)
 from app.services.config_loader import TenantConfigError, TenantNotFoundError
 
 router = APIRouter()
@@ -50,4 +56,12 @@ def chat(payload: ChatRequest, tenant: str = Query(...)):
         "booking_progress": booking_progress,
         "reply": response_payload.get("reply"),
         "widget_payload": response_payload.get("widget_payload"),
+        "inspector_payload": build_runtime_inspector_payload(
+            tenant,
+            session_id,
+            response_payload=response_payload,
+            session_status=session_status,
+            booking_progress=booking_progress,
+            last_user_message=payload.message,
+        ),
     }

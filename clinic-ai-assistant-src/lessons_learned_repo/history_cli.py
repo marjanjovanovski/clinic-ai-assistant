@@ -3,7 +3,6 @@ import json
 from pathlib import Path
 
 from lessons_learned_repo.history_store import (
-    commit_requirement_execution,
     create_lesson_learned,
     create_project_requirement,
     create_requirement_category,
@@ -29,11 +28,11 @@ def _print_json(payload) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Lessons learned repository trigger entrypoint for requirement-linked execution records."
+        description="Lessons learned repository CLI for optional requirement-linked evidence and curated lessons."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    init_db = subparsers.add_parser("init-db", help="Create the project history database and seed categories.")
+    init_db = subparsers.add_parser("init-db", help="Create the lessons-learned database and seed categories.")
     init_db.set_defaults(handler=lambda args: {"status": "initialized"})
 
     add_category = subparsers.add_parser("create-category", help="Create a requirement category.")
@@ -66,7 +65,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     add_execution = subparsers.add_parser(
         "record-execution",
-        help="Trigger entry for requirement-linked repo-changing execution history.",
+        help="Optionally record requirement-linked execution evidence.",
     )
     add_execution.add_argument("--req-code", required=True)
     add_execution.add_argument("--prompt-text")
@@ -76,38 +75,6 @@ def build_parser() -> argparse.ArgumentParser:
     add_execution.set_defaults(
         handler=lambda args: create_requirement_execution(
             req_code=args.req_code,
-            prompt_text=_read_prompt_text(args),
-            execution_summary=args.summary,
-            execution_impact=args.impact,
-        )
-    )
-
-    commit_with_history = subparsers.add_parser(
-        "commit-with-history",
-        help="Commit repo changes and record the execution against a requirement.",
-    )
-    commit_with_history.add_argument("--req-code", required=True)
-    commit_with_history.add_argument("--category-code", required=True)
-    commit_with_history.add_argument("--category-name")
-    commit_with_history.add_argument("--category-description")
-    commit_with_history.add_argument("--title")
-    commit_with_history.add_argument("--description")
-    commit_with_history.add_argument("--status", default="active")
-    commit_with_history.add_argument("--commit-message", required=True)
-    commit_with_history.add_argument("--prompt-text")
-    commit_with_history.add_argument("--prompt-file")
-    commit_with_history.add_argument("--summary", required=True)
-    commit_with_history.add_argument("--impact", required=True)
-    commit_with_history.set_defaults(
-        handler=lambda args: commit_requirement_execution(
-            req_code=args.req_code,
-            category_code=args.category_code,
-            category_name=args.category_name,
-            category_description=args.category_description,
-            requirement_title=args.title,
-            requirement_description=args.description,
-            requirement_status=args.status,
-            commit_message=args.commit_message,
             prompt_text=_read_prompt_text(args),
             execution_summary=args.summary,
             execution_impact=args.impact,
@@ -176,7 +143,7 @@ def main() -> int:
     args = parser.parse_args()
     init_history_db()
 
-    if args.command in {"record-execution", "commit-with-history"} and not (args.prompt_text or args.prompt_file):
+    if args.command == "record-execution" and not (args.prompt_text or args.prompt_file):
         parser.error(f"{args.command} requires --prompt-text or --prompt-file")
 
     result = args.handler(args)

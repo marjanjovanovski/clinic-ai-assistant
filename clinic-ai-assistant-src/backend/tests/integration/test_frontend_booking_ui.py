@@ -186,3 +186,42 @@ def test_booking_widget_demo_pages_use_live_assets(monkeypatch, tmp_path):
     assert 'import { createBookingProgressWidget } from "/frontend/widgets/booking-progress/booking-progress.js";' in progress_demo.text
     assert 'href="/frontend/widgets/booking-summary/booking-summary.css"' in summary_demo.text
     assert 'import { createBookingSummaryElement } from "/frontend/widgets/booking-summary/booking-summary.js";' in summary_demo.text
+
+
+def test_chat_sandbox_page_exposes_runtime_panel_and_config_previews(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+
+    response = client.get("/frontend/ChatSandBox.html")
+
+    assert response.status_code == 200
+    assert 'Production-like main chat surface with a hidden inspector shell for runtime testing.' in response.text
+    assert 'id="inspectorToggleButton"' in response.text
+    assert 'id="routeSessionIdInput"' in response.text
+    assert 'id="bookingStageInput"' in response.text
+    assert 'id="schedulingServiceIdInput"' in response.text
+    assert 'id="slotDisplayLabelInput"' in response.text
+    assert 'id="payloadSnapshotInput"' in response.text
+    assert 'id="configPreviewStatusInput"' in response.text
+    assert 'id="tenantConfigPreviewInput"' in response.text
+    assert 'id="schedulingConfigPreviewInput"' in response.text
+    assert 'const SCHEDULING_CONFIG_URL = `/scheduling/config/${encodeURIComponent(tenant)}`;' in response.text
+    assert "function loadConfigPreviews()" in response.text
+    assert "function syncInspectorPayload(data)" in response.text
+    assert "data?.inspector_payload" in response.text
+    assert 'const tenant = resolveTenantFromPath(window.location.pathname, "milena_dental");' in response.text
+    assert 'id="tenantChip">Tenant: milena_dental<' in response.text
+    assert "setInspectorOpen(true);" in response.text
+    assert 'id="inspectorColumnLeft"' in response.text
+    assert 'id="inspectorColumnRight"' in response.text
+    assert "grid-template-columns: 0 minmax(0, 720px) 0;" in response.text
+    assert "grid-template-columns: minmax(280px, 320px) minmax(0, 720px) minmax(280px, 320px);" in response.text
+    assert "grid-template-columns: 1fr;" in response.text
+    assert "--desktop-shell-height: calc(var(--desktop-chat-height) + var(--desktop-toolbar-height));" in response.text
+    assert "align-items: start;" in response.text
+    assert "height: var(--desktop-shell-height);" in response.text
+    assert "scrollbar-gutter: stable;" in response.text
+    assert 'class="inspector-card-body scrollable"' in response.text
+    assert 'id="routeSessionIdInput" class="inspector-field-textarea compact"' in response.text
+    assert 'id="slotIdInput" class="inspector-field-textarea compact"' in response.text
+    assert "overflow-wrap: anywhere;" in response.text
+    assert 'setInspectorOpen(!sandboxShell.classList.contains("panel-open"));' in response.text

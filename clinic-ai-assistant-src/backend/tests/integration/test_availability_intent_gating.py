@@ -83,6 +83,17 @@ def test_availability_intent_triggers_scheduling_without_starting_booking(monkey
     assert payload["widget_payload"]["service_id"] == "consultation"
     assert payload["widget_payload"]["title"] == payload["reply"].split("\n\n", 1)[0]
     assert payload["widget_payload"]["slots"][0]["slot_id"].startswith("mock|")
+    assert payload["widget_payload"]["provider"] == "mock"
+    assert payload["widget_payload"]["request"]["service_id"] == "consultation"
+    assert payload["widget_payload"]["request"]["timezone"] == "Europe/Skopje"
+    assert payload["inspector_payload"]["session"]["session_id"] == payload["session_id"]
+    assert payload["inspector_payload"]["session"]["session_status"] == "active"
+    assert payload["inspector_payload"]["routing"]["last_user_message"] == "check availability"
+    assert payload["inspector_payload"]["routing"]["last_response_type"] == "slot-list"
+    assert payload["inspector_payload"]["scheduling_criteria"]["service_id"] == "consultation"
+    assert payload["inspector_payload"]["scheduling_criteria"]["date_from"] == payload["widget_payload"]["request"]["date_from"]
+    assert payload["inspector_payload"]["scheduling_criteria"]["date_to"] == payload["widget_payload"]["request"]["date_to"]
+    assert payload["inspector_payload"]["widget_payload"]["slot_count"] == len(payload["widget_payload"]["slots"])
 
     session_key = ai_agent._session_key("milena_dental", payload["session_id"])
     scheduling_state = ai_agent.SESSION_STATE[session_key]["scheduling"]
@@ -145,6 +156,9 @@ def test_selected_slot_endpoint_hands_off_chat_session_into_contact_collection(m
     assert selection_payload["session_status"] == "collecting_contact"
     assert selection_payload["booking_progress"]["next_field"] == "name"
     assert selection_payload["selected_slot"]["slot_id"] == first_payload["widget_payload"]["slots"][0]["slot_id"]
+    assert selection_payload["inspector_payload"]["routing"]["last_response_type"] == "collecting_contact"
+    assert selection_payload["inspector_payload"]["selected_slot"]["slot_id"] == first_payload["widget_payload"]["slots"][0]["slot_id"]
+    assert selection_payload["inspector_payload"]["scheduling_criteria"]["service_id"] == "consultation"
 
     session_key = ai_agent._session_key("milena_dental", first_payload["session_id"])
     state = ai_agent.SESSION_STATE[session_key]
