@@ -33,7 +33,7 @@ Status values allowed in this document:
 
 ## Last Updated On
 
-- `2026-03-26`
+- `2026-03-27`
 
 ## Merge To Main
 
@@ -41,11 +41,11 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 1`
+- `Prompt 2`
 
 ## Global Status Summary
 
-- Prompt 1 - Pending
+- Prompt 1 - Completed
 - Prompt 2 - Pending
 - Prompt 3 - Pending
 - Prompt 4 - Pending
@@ -113,7 +113,7 @@ After all prompts are complete, the repo should have:
 - bottom-panel previews for relevant config JSON files
 - focused verification for the new page and its runtime data display
 
-## Prompt 1 - Pending
+## Prompt 1 - Completed
 
 ### Goal
 
@@ -141,6 +141,165 @@ Requirements:
 ### Required Outcome
 
 A clear variable inventory exists for the future Chat SandBox panel, grouped by concern and mapped to likely data sources.
+
+### Prompt 1 Completion Note
+
+What was identified:
+
+- the current runtime already exposes enough stable flow state to build a first useful inspector without inventing a second booking engine
+- the most important sandbox panel values should be grouped into:
+  - `Session And Routing`
+  - `Catalog / Intent Resolution`
+  - `Booking Flow`
+  - `Scheduling Criteria`
+  - `Selected Slot And Booking Result`
+  - `Widget / Response Payload`
+  - `Config Preview`
+
+Variable inventory for the future panel:
+
+`Session And Routing`
+- `tenant`
+  - type: read-only observed value
+  - likely source: frontend tenant resolution from page path
+- `session_id`
+  - type: read-only observed value
+  - likely source: `/chat` and `/scheduling/select-slot` response payloads plus local storage
+- `session_status`
+  - type: read-only observed value
+  - likely source: `/chat` response payload
+- `last_user_message`
+  - type: read-only observed value
+  - likely source: frontend chat send flow
+- `last_response_type`
+  - type: read-only observed value
+  - likely source: frontend response handling, potentially derived from widget and session updates unless a small backend field is later added
+
+`Catalog / Intent Resolution`
+- `resolved_service_id`
+  - type: read-only observed value, with future optional editable override for testing
+  - likely source: `booking_progress.summary`, scheduling widget payload, or future explicit inspector contract
+- `allow_booking`
+  - type: config-preview-only content
+  - likely source: tenant profile JSON
+- `allow_scheduling_first`
+  - type: config-preview-only content
+  - likely source: tenant profile JSON
+
+`Booking Flow`
+- `booking_stage`
+  - type: read-only observed value
+  - likely source: `booking_progress.booking_stage`
+- `reservation_status`
+  - type: read-only observed value
+  - likely source: `booking_progress.reservation_status`
+- `collection_status`
+  - type: read-only observed value
+  - likely source: `booking_progress.collection_status`
+- `collection_total`
+  - type: read-only observed value
+  - likely source: `booking_progress.collection_total`
+- `progress_percent`
+  - type: read-only observed value
+  - likely source: `booking_progress.progress_percent`
+- `next_field`
+  - type: read-only observed value
+  - likely source: `booking_progress.next_field`
+- collected field values:
+  - `name`
+  - `phone`
+  - `email`
+  - type: read-only observed values in the first implementation; possible future editable controls only if that helps testing
+  - likely source: `booking_progress.fields` and `booking_progress.summary.fields`
+
+`Scheduling Criteria`
+- `service_id`
+  - type: editable control value
+  - likely source: sandbox panel state, seeded from scheduling defaults or latest runtime context
+- `date_from`
+  - type: editable control value
+  - likely source: sandbox panel state
+- `date_to`
+  - type: editable control value
+  - likely source: sandbox panel state
+- `timezone`
+  - type: editable control value
+  - likely source: sandbox panel state seeded from scheduling config
+- `preferred_days`
+  - type: editable control value
+  - likely source: sandbox panel state
+- `preferred_time_range`
+  - type: editable control value
+  - likely source: sandbox panel state
+- resolved/defaulted scheduling request snapshot:
+  - type: read-only observed value
+  - likely source: future explicit inspector payload or a focused backend debug contract
+
+`Selected Slot And Booking Result`
+- `selected_slot.display_label`
+  - type: read-only observed value
+  - likely source: `/scheduling/select-slot` response and booking summary state
+- `selected_slot.slot_id`
+  - type: read-only observed value
+  - likely source: slot widget payload / selected-slot response payload
+- `selected_slot.start_at`
+  - type: read-only observed value
+  - likely source: slot widget payload / selected-slot response payload
+- `selected_slot.end_at`
+  - type: read-only observed value
+  - likely source: slot widget payload / selected-slot response payload
+- `selected_slot.provider`
+  - type: read-only observed value
+  - likely source: slot widget payload / selected-slot response payload
+- `booking_result.status`
+  - type: read-only observed value
+  - likely source: booking completion state projected through booking summary or future inspector payload
+- `booking_result.display_label`
+  - type: read-only observed value
+  - likely source: booking completion summary state
+- `booking_result.booking_id`
+  - type: read-only observed value
+  - likely source: future explicit inspector payload if exposed safely
+- `booking_result.confirmation_message`
+  - type: read-only observed value
+  - likely source: booking summary subtitle / future inspector payload
+
+`Widget / Response Payload`
+- `widget_payload.type`
+  - type: read-only observed value
+  - likely source: `/chat` response payload
+- `widget_payload.service_id`
+  - type: read-only observed value
+  - likely source: slot-list widget payload
+- `widget_payload.slots.length`
+  - type: read-only observed value
+  - likely source: slot-list widget payload
+- `last_reply`
+  - type: read-only observed value
+  - likely source: `/chat` response payload
+- raw payload preview:
+  - type: read-only observed value
+  - likely source: latest `/chat`, `/scheduling/select-slot`, and optional scheduling-config payload snapshots
+
+`Config Preview`
+- tenant profile JSON preview
+  - type: config-preview-only content
+  - likely source: `backend/app/config/profiles/<tenant>.json`
+- scheduling public config preview
+  - type: config-preview-only content
+  - likely source: `/scheduling/config/{tenant}`
+- optional prompt/output contract preview if later deemed useful
+  - type: config-preview-only content
+  - likely source: tenant profile JSON sections already driving model behavior
+
+Implementation guidance locked in after Prompt 1:
+
+- the first useful Chat SandBox version should avoid exposing raw full backend session state
+- the panel should mix:
+  - editable scheduling criteria controls
+  - read-only live flow observations
+  - config previews at the bottom
+- if a value cannot be derived reliably from existing frontend payloads, the preferred next step is a small explicit backend inspector contract rather than fragile DOM inference
 
 ## Prompt 2 - Pending
 
