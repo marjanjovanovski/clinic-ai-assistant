@@ -15,14 +15,16 @@
     }
 
     :root {
-      --page-bg: linear-gradient(180deg, #f5f8fc 0%, #edf3fb 100%);
+      --page-bg: #f4f4f4;
       --panel-bg: rgba(255, 255, 255, 0.94);
       --panel-border: #d9e3ef;
-      --panel-shadow: 0 22px 46px rgba(15, 23, 42, 0.08);
+      --panel-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
       --accent: #0f172a;
-      --accent-soft: #eff6ff;
       --accent-border: #bfdbfe;
       --text-muted: #64748b;
+      --desktop-chat-height: 80vh;
+      --desktop-toolbar-height: 96px;
+      --desktop-shell-height: calc(var(--desktop-chat-height) + var(--desktop-toolbar-height));
     }
 
     body {
@@ -32,25 +34,35 @@
       background: var(--page-bg);
       color: #0f172a;
       padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     .sandbox-shell {
       width: 100%;
-      max-width: 1460px;
+      max-width: 1540px;
       margin: 0 auto;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 0;
+      grid-template-columns: 0 minmax(0, 720px) 0;
       gap: 18px;
       align-items: start;
+      justify-content: center;
       transition: grid-template-columns 160ms ease;
     }
 
     .sandbox-shell.panel-open {
-      grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+      grid-template-columns: minmax(280px, 320px) minmax(0, 720px) minmax(280px, 320px);
     }
 
     .chat-column {
       min-width: 0;
+      width: 100%;
+      height: var(--desktop-shell-height);
+      min-height: 816px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
 
     .chat-toolbar {
@@ -58,12 +70,11 @@
       justify-content: space-between;
       gap: 12px;
       align-items: center;
-      margin-bottom: 12px;
       padding: 12px 16px;
-      border: 1px solid var(--panel-border);
-      border-radius: 14px;
-      background: rgba(255, 255, 255, 0.86);
-      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+      border: 1px solid #dcdcdc;
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: var(--panel-shadow);
     }
 
     .chat-toolbar-copy {
@@ -94,8 +105,8 @@
     .toolbar-chip {
       padding: 7px 10px;
       border-radius: 999px;
-      background: #f8fafc;
-      border: 1px solid #dbe4f0;
+      background: #fafafa;
+      border: 1px solid #dcdcdc;
       color: #334155;
       font-size: 12px;
       font-weight: 700;
@@ -133,19 +144,21 @@
     }
 
     .toolbar-button.secondary {
-      background: #e2e8f0;
-      color: #0f172a;
+      background: #f3f4f6;
+      color: #111827;
     }
 
     .chat-app {
       width: 100%;
-      height: calc(100vh - 96px);
-      min-height: 720px;
+      max-width: 720px;
+      height: auto;
+      min-height: 0;
       background: #ffffff;
-      border: 1px solid var(--panel-border);
-      border-radius: 16px;
+      border: 1px solid #dcdcdc;
+      border-radius: 12px;
       display: flex;
       flex-direction: column;
+      flex: 1;
       overflow: hidden;
       box-shadow: var(--panel-shadow);
     }
@@ -165,7 +178,6 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
-      background: linear-gradient(180deg, #ffffff 0%, #f9fbfe 100%);
     }
 
     .chat-input-area {
@@ -205,6 +217,8 @@
 
     .inspector-column {
       min-width: 0;
+      height: var(--desktop-shell-height);
+      min-height: 816px;
       overflow: hidden;
       opacity: 0;
       pointer-events: none;
@@ -217,10 +231,9 @@
     }
 
     .inspector-stack {
-      height: calc(100vh - 96px);
-      min-height: 720px;
-      overflow-y: auto;
-      padding-right: 4px;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
       gap: 14px;
@@ -232,6 +245,10 @@
       background: var(--panel-bg);
       box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
     }
 
     .inspector-card-header {
@@ -257,9 +274,14 @@
       padding: 14px 16px 16px 16px;
     }
 
+    .inspector-card-body.scrollable {
+      overflow-y: auto;
+      scrollbar-gutter: stable;
+    }
+
     .inspector-field-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
       gap: 10px 12px;
     }
 
@@ -274,19 +296,24 @@
     }
 
     .inspector-field-label {
+      display: block;
       font-size: 12px;
       font-weight: 700;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
       color: #475569;
     }
 
     .inspector-field-input,
     .inspector-field-textarea {
       width: 100%;
+      min-width: 0;
       border: 1px solid var(--accent-border);
       border-radius: 10px;
       background: #ffffff;
       padding: 9px 10px;
       font-size: 13px;
+      line-height: 1.45;
       color: #334155;
       font-family: inherit;
     }
@@ -297,9 +324,15 @@
     }
 
     .inspector-field-textarea {
-      min-height: 72px;
+      min-height: 92px;
       resize: vertical;
       line-height: 1.45;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .inspector-field-textarea.compact {
+      min-height: 56px;
     }
 
     .inspector-footer-note {
@@ -323,6 +356,7 @@
     @media (max-width: 1120px) {
       body {
         padding: 14px;
+        align-items: flex-start;
       }
 
       .sandbox-shell,
@@ -331,9 +365,19 @@
       }
 
       .chat-app,
-      .inspector-stack {
+      .inspector-column,
+      .inspector-stack,
+      .chat-column {
         height: auto;
         min-height: 0;
+      }
+
+      .inspector-stack {
+        overflow-y: auto;
+      }
+
+      .inspector-card {
+        flex: initial;
       }
 
       .inspector-column {
@@ -341,9 +385,6 @@
         pointer-events: auto;
       }
 
-      .inspector-stack {
-        padding-right: 0;
-      }
     }
 
     @media (max-width: 720px) {
@@ -360,14 +401,130 @@
         flex-direction: column;
       }
 
-      .inspector-field-grid {
-        grid-template-columns: 1fr;
-      }
     }
   </style>
 </head>
 <body>
   <div class="sandbox-shell" id="sandboxShell">
+    <aside class="inspector-column" id="inspectorColumnLeft">
+      <div class="inspector-stack">
+        <section class="inspector-card">
+          <div class="inspector-card-header">
+            <div class="inspector-card-title">Session And Routing</div>
+            <div class="inspector-card-subtitle">
+              Live routing context from the current chat surface.
+            </div>
+          </div>
+          <div class="inspector-card-body scrollable">
+            <div class="inspector-field-grid">
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="routeTenantInput">tenant</label>
+                <input id="routeTenantInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="routeSessionStatusInput">session_status</label>
+                <input id="routeSessionStatusInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field full">
+                <label class="inspector-field-label" for="routeSessionIdInput">session_id</label>
+                <textarea id="routeSessionIdInput" class="inspector-field-textarea compact" readonly></textarea>
+              </div>
+              <div class="inspector-field full">
+                <label class="inspector-field-label" for="routeLastUserMessageInput">last_user_message</label>
+                <textarea id="routeLastUserMessageInput" class="inspector-field-textarea" readonly></textarea>
+              </div>
+              <div class="inspector-field full">
+                <label class="inspector-field-label" for="routeLastResponseTypeInput">last_response_type</label>
+                <input id="routeLastResponseTypeInput" class="inspector-field-input" type="text" readonly />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="inspector-card">
+          <div class="inspector-card-header">
+            <div class="inspector-card-title">Booking Flow</div>
+            <div class="inspector-card-subtitle">
+              Readable snapshot of booking progression and collected contact data.
+            </div>
+          </div>
+          <div class="inspector-card-body scrollable">
+            <div class="inspector-field-grid">
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="bookingStageInput">booking_stage</label>
+                <input id="bookingStageInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="bookingReservationStatusInput">reservation_status</label>
+                <input id="bookingReservationStatusInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="bookingProgressPercentInput">progress_percent</label>
+                <input id="bookingProgressPercentInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="bookingCollectionStatusInput">collection_status</label>
+                <input id="bookingCollectionStatusInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field full">
+                <label class="inspector-field-label" for="bookingNextFieldInput">next_field</label>
+                <input id="bookingNextFieldInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="bookingNameInput">name</label>
+                <input id="bookingNameInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="bookingPhoneInput">phone</label>
+                <input id="bookingPhoneInput" class="inspector-field-input" type="text" readonly />
+              </div>
+              <div class="inspector-field full">
+                <label class="inspector-field-label" for="bookingEmailInput">email</label>
+                <input id="bookingEmailInput" class="inspector-field-input" type="text" readonly />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="inspector-card">
+          <div class="inspector-card-header">
+            <div class="inspector-card-title">Scheduling Criteria</div>
+            <div class="inspector-card-subtitle">
+              Editable sandbox criteria for the scheduling-focused part of the flow.
+            </div>
+          </div>
+          <div class="inspector-card-body scrollable">
+            <div class="inspector-field-grid">
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="schedulingServiceIdInput">service_id</label>
+                <input id="schedulingServiceIdInput" class="inspector-field-input" type="text" value="consultation" />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="schedulingTimezoneInput">timezone</label>
+                <input id="schedulingTimezoneInput" class="inspector-field-input" type="text" value="Europe/Skopje" />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="schedulingDateFromInput">date_from</label>
+                <input id="schedulingDateFromInput" class="inspector-field-input" type="text" value="" />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="schedulingDateToInput">date_to</label>
+                <input id="schedulingDateToInput" class="inspector-field-input" type="text" value="" />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="schedulingPreferredDaysInput">preferred_days</label>
+                <input id="schedulingPreferredDaysInput" class="inspector-field-input" type="text" value="" placeholder="mon,tue" />
+              </div>
+              <div class="inspector-field">
+                <label class="inspector-field-label" for="schedulingPreferredTimeRangeInput">preferred_time_range</label>
+                <input id="schedulingPreferredTimeRangeInput" class="inspector-field-input" type="text" value="" placeholder="morning" />
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </aside>
+
     <div class="chat-column">
       <div class="chat-toolbar">
         <div class="chat-toolbar-copy">
@@ -377,7 +534,7 @@
           </div>
         </div>
         <div class="chat-toolbar-actions">
-          <div class="toolbar-chip" id="tenantChip">Tenant: generic</div>
+          <div class="toolbar-chip" id="tenantChip">Tenant: milena_dental</div>
           <button type="button" class="toolbar-button secondary" id="inspectorToggleButton" aria-expanded="false">
             Show Inspector
           </button>
@@ -447,123 +604,8 @@
       </div>
     </div>
 
-    <aside class="inspector-column" id="inspectorColumn">
+    <aside class="inspector-column" id="inspectorColumnRight">
       <div class="inspector-stack">
-        <section class="inspector-card">
-          <div class="inspector-card-header">
-            <div class="inspector-card-title">Session And Routing</div>
-            <div class="inspector-card-subtitle">
-              Live routing context from the current chat surface.
-            </div>
-          </div>
-          <div class="inspector-card-body">
-            <div class="inspector-field-grid">
-              <div class="inspector-field">
-                <label class="inspector-field-label" for="routeTenantInput">tenant</label>
-                <input id="routeTenantInput" class="inspector-field-input" type="text" readonly />
-              </div>
-              <div class="inspector-field">
-                <label class="inspector-field-label" for="routeSessionStatusInput">session_status</label>
-                <input id="routeSessionStatusInput" class="inspector-field-input" type="text" readonly />
-              </div>
-              <div class="inspector-field full">
-                <label class="inspector-field-label" for="routeSessionIdInput">session_id</label>
-                <input id="routeSessionIdInput" class="inspector-field-input" type="text" readonly />
-              </div>
-              <div class="inspector-field full">
-                <label class="inspector-field-label" for="routeLastUserMessageInput">last_user_message</label>
-                <textarea id="routeLastUserMessageInput" class="inspector-field-textarea" readonly></textarea>
-              </div>
-              <div class="inspector-field full">
-                <label class="inspector-field-label" for="routeLastResponseTypeInput">last_response_type</label>
-                <input id="routeLastResponseTypeInput" class="inspector-field-input" type="text" readonly />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="inspector-card">
-          <div class="inspector-card-header">
-            <div class="inspector-card-title">Booking Flow</div>
-            <div class="inspector-card-subtitle">
-              Readable snapshot of booking progression and collected contact data.
-            </div>
-          </div>
-          <div class="inspector-card-body">
-            <div class="inspector-field-grid">
-              <div class="inspector-field">
-                <label class="inspector-field-label" for="bookingStageInput">booking_stage</label>
-                <input id="bookingStageInput" class="inspector-field-input" type="text" readonly />
-              </div>
-              <div class="inspector-field">
-                <label class="inspector-field-label" for="bookingReservationStatusInput">reservation_status</label>
-                <input id="bookingReservationStatusInput" class="inspector-field-input" type="text" readonly />
-              </div>
-              <div class="inspector-field">
-                <label class="inspector-field-label" for="bookingProgressPercentInput">progress_percent</label>
-                <input id="bookingProgressPercentInput" class="inspector-field-input" type="text" readonly />
-              </div>
-              <div class="inspector-field">
-                <label class="inspector-field-label" for="bookingCollectionStatusInput">collection_status</label>
-                <input id="bookingCollectionStatusInput" class="inspector-field-input" type="text" readonly />
-              </div>
-              <div class="inspector-field full">
-                <label class="inspector-field-label" for="bookingNextFieldInput">next_field</label>
-                <input id="bookingNextFieldInput" class="inspector-field-input" type="text" readonly />
-              </div>
-              <div class="inspector-field">
-                <label class="inspector-field-label" for="bookingNameInput">name</label>
-                <input id="bookingNameInput" class="inspector-field-input" type="text" readonly />
-              </div>
-              <div class="inspector-field">
-                <label class="inspector-field-label" for="bookingPhoneInput">phone</label>
-                <input id="bookingPhoneInput" class="inspector-field-input" type="text" readonly />
-              </div>
-              <div class="inspector-field full">
-                <label class="inspector-field-label" for="bookingEmailInput">email</label>
-                <input id="bookingEmailInput" class="inspector-field-input" type="text" readonly />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="inspector-card">
-          <div class="inspector-card-header">
-            <div class="inspector-card-title">Scheduling Criteria</div>
-            <div class="inspector-card-subtitle">
-              Editable sandbox criteria for the scheduling-focused part of the flow.
-            </div>
-          </div>
-          <div class="inspector-card-body">
-            <div class="inspector-field-grid">
-              <div class="inspector-field">
-                <label class="inspector-field-label" for="schedulingServiceIdInput">service_id</label>
-                <input id="schedulingServiceIdInput" class="inspector-field-input" type="text" value="consultation" />
-              </div>
-              <div class="inspector-field">
-                <label class="inspector-field-label" for="schedulingTimezoneInput">timezone</label>
-                <input id="schedulingTimezoneInput" class="inspector-field-input" type="text" value="Europe/Skopje" />
-              </div>
-              <div class="inspector-field">
-                <label class="inspector-field-label" for="schedulingDateFromInput">date_from</label>
-                <input id="schedulingDateFromInput" class="inspector-field-input" type="text" value="" />
-              </div>
-              <div class="inspector-field">
-                <label class="inspector-field-label" for="schedulingDateToInput">date_to</label>
-                <input id="schedulingDateToInput" class="inspector-field-input" type="text" value="" />
-              </div>
-              <div class="inspector-field">
-                <label class="inspector-field-label" for="schedulingPreferredDaysInput">preferred_days</label>
-                <input id="schedulingPreferredDaysInput" class="inspector-field-input" type="text" value="" placeholder="mon,tue" />
-              </div>
-              <div class="inspector-field">
-                <label class="inspector-field-label" for="schedulingPreferredTimeRangeInput">preferred_time_range</label>
-                <input id="schedulingPreferredTimeRangeInput" class="inspector-field-input" type="text" value="" placeholder="morning" />
-              </div>
-            </div>
-          </div>
-        </section>
-
         <section class="inspector-card">
           <div class="inspector-card-header">
             <div class="inspector-card-title">Selected Slot And Booking Result</div>
@@ -571,7 +613,7 @@
               Observed slot state from selection through booking summary.
             </div>
           </div>
-          <div class="inspector-card-body">
+          <div class="inspector-card-body scrollable">
             <div class="inspector-field-grid">
               <div class="inspector-field full">
                 <label class="inspector-field-label" for="slotDisplayLabelInput">selected_slot.display_label</label>
@@ -579,7 +621,7 @@
               </div>
               <div class="inspector-field full">
                 <label class="inspector-field-label" for="slotIdInput">selected_slot.slot_id</label>
-                <input id="slotIdInput" class="inspector-field-input" type="text" readonly />
+                <textarea id="slotIdInput" class="inspector-field-textarea compact" readonly></textarea>
               </div>
               <div class="inspector-field">
                 <label class="inspector-field-label" for="slotStartInput">selected_slot.start_at</label>
@@ -616,7 +658,7 @@
               Quick readout of the latest widget and response payload values already available in the frontend.
             </div>
           </div>
-          <div class="inspector-card-body">
+          <div class="inspector-card-body scrollable">
             <div class="inspector-field-grid">
               <div class="inspector-field">
                 <label class="inspector-field-label" for="payloadWidgetTypeInput">widget_payload.type</label>
@@ -649,7 +691,7 @@
               Read-only previews of the JSON config artifacts most relevant to this chat and scheduling flow.
             </div>
           </div>
-          <div class="inspector-card-body">
+          <div class="inspector-card-body scrollable">
             <div class="config-preview-stack">
               <div class="config-preview-block">
                 <label class="inspector-field-label" for="configPreviewStatusInput">preview_status</label>
@@ -736,7 +778,7 @@
     const tenantConfigPreviewInput = document.getElementById("tenantConfigPreviewInput");
     const schedulingConfigPreviewInput = document.getElementById("schedulingConfigPreviewInput");
 
-    const tenant = resolveTenantFromPath(window.location.pathname, "generic");
+    const tenant = resolveTenantFromPath(window.location.pathname, "milena_dental");
     const sessionStorageKey = `clinic-ai-session:${tenant}:chat-sandbox`;
     let sessionId = window.localStorage.getItem(sessionStorageKey) || null;
     let isSending = false;
@@ -1454,7 +1496,7 @@
       });
     });
 
-    setInspectorOpen(window.innerWidth > 1120 ? false : true);
+    setInspectorOpen(true);
     loadTenantConfig();
   </script>
 </body>

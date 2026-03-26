@@ -208,4 +208,20 @@ def test_chat_sandbox_page_exposes_runtime_panel_and_config_previews(monkeypatch
     assert "function loadConfigPreviews()" in response.text
     assert "function syncInspectorPayload(data)" in response.text
     assert "data?.inspector_payload" in response.text
+    assert 'const tenant = resolveTenantFromPath(window.location.pathname, "milena_dental");' in response.text
+    assert 'id="tenantChip">Tenant: milena_dental<' in response.text
+    assert "setInspectorOpen(true);" in response.text
+    assert 'id="inspectorColumnLeft"' in response.text
+    assert 'id="inspectorColumnRight"' in response.text
+    assert "grid-template-columns: 0 minmax(0, 720px) 0;" in response.text
+    assert "grid-template-columns: minmax(280px, 320px) minmax(0, 720px) minmax(280px, 320px);" in response.text
+    assert "grid-template-columns: 1fr;" in response.text
+    assert "--desktop-shell-height: calc(var(--desktop-chat-height) + var(--desktop-toolbar-height));" in response.text
+    assert "align-items: start;" in response.text
+    assert "height: var(--desktop-shell-height);" in response.text
+    assert "scrollbar-gutter: stable;" in response.text
+    assert 'class="inspector-card-body scrollable"' in response.text
+    assert 'id="routeSessionIdInput" class="inspector-field-textarea compact"' in response.text
+    assert 'id="slotIdInput" class="inspector-field-textarea compact"' in response.text
+    assert "overflow-wrap: anywhere;" in response.text
     assert 'setInspectorOpen(!sandboxShell.classList.contains("panel-open"));' in response.text

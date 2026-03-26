@@ -1,37 +1,34 @@
 # Lessons Learned Repo
 
-This folder is the collaboration and execution-memory layer for requirement-linked project history.
+This folder is an optional engineering-memory layer for curated lessons learned and requirement-linked notes.
 
-It is separate from the live clinic runtime. It does not run through `backend/app/main.py`.
+It is separate from the live clinic runtime and is not part of the default commit workflow.
 
-## What It Does
+## Current Role
 
-- stores controlled requirement categories
-- stores canonical project requirements
-- stores execution history records tied to requirements
-- stores curated lessons learned linked back to execution evidence
-- stores git commit hashes for commit-triggered execution records
-- provides a CLI trigger entry for logging repo-changing executions
+Git is the source of truth for normal code history, commit grouping, and rollback.
 
-## Trigger Entry
+This repository exists for the cases where the team wants to preserve higher-value knowledge that Git does not express cleanly, such as:
+- reusable engineering lessons
+- cross-task implementation patterns
+- requirement-linked rationale
+- validated guidance worth carrying into future work
 
-Use:
+## What It Supports
 
-```bash
-python -m lessons_learned_repo.history_cli commit-with-history ...
-```
+- controlled requirement categories
+- canonical project requirements
+- optional execution records tied to requirements
+- curated lessons learned linked back to execution evidence
 
-This is the commit-time trigger for requirement-linked execution logging.
+## What It Does Not Do
 
-You can also record execution without committing:
+- it does not replace Git history
+- it is not required after every commit
+- it should not be used to mirror routine branch activity
+- it no longer provides a combined commit-and-log command
 
-```bash
-python -m lessons_learned_repo.history_cli record-execution ...
-```
-
-The `commit-with-history` command is the preferred trigger when a successful prompt ends in a repo commit.
-
-## Quick Start
+## Recommended Use
 
 Initialize the database:
 
@@ -45,16 +42,10 @@ Create a requirement:
 python -m lessons_learned_repo.history_cli create-requirement --req-code REQ-PROJ-HISTORY-001 --title "Project requirements and execution history tracking" --category-code lessons_learned_repo --description "Create a lightweight SQLite-based project history layer." --status active
 ```
 
-Record an execution:
+Optionally record an execution when the team explicitly wants requirement-linked evidence:
 
 ```bash
 python -m lessons_learned_repo.history_cli record-execution --req-code REQ-PROJ-HISTORY-001 --prompt-file path/to/prompt.txt --summary "Implemented the initial history layer." --impact "Requirement-linked execution history became queryable."
-```
-
-Commit and log in one step:
-
-```bash
-python -m lessons_learned_repo.history_cli commit-with-history --req-code REQ-PROJ-HISTORY-001 --category-code lessons_learned_repo --commit-message "Add lessons learned repo history layer" --prompt-file path/to/prompt.txt --summary "Committed the lessons learned repo history layer." --impact "Successful repo changes were linked to the requirement history."
 ```
 
 Create a lesson from one or more execution ids:
