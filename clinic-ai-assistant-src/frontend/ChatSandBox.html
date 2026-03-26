@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/frontend/favicon.ico">
+  <link rel="stylesheet" href="/frontend/chat/chat-shell.css" />
+  <link rel="stylesheet" href="/frontend/widgets/booking-progress/booking-progress.css" />
+  <link rel="stylesheet" href="/frontend/widgets/booking-summary/booking-summary.css" />
+  <link rel="stylesheet" href="/frontend/widgets/slot-list/slot-list.css" />
+  <title id="pageTitle">Chat SandBox</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --page-bg: linear-gradient(180deg, #f5f8fc 0%, #edf3fb 100%);
+      --panel-bg: rgba(255, 255, 255, 0.94);
+      --panel-border: #d9e3ef;
+      --panel-shadow: 0 22px 46px rgba(15, 23, 42, 0.08);
+      --accent: #0f172a;
+      --accent-soft: #eff6ff;
+      --accent-border: #bfdbfe;
+      --text-muted: #64748b;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: var(--page-bg);
+      color: #0f172a;
+      padding: 20px;
+    }
+
+    .sandbox-shell {
+      width: 100%;
+      max-width: 1460px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 0;
+      gap: 18px;
+      align-items: start;
+      transition: grid-template-columns 160ms ease;
+    }
+
+    .sandbox-shell.panel-open {
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+    }
+
+    .chat-column {
+      min-width: 0;
+    }
+
+    .chat-toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 12px 16px;
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.86);
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+    }
+
+    .chat-toolbar-copy {
+      min-width: 0;
+    }
+
+    .chat-toolbar-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .chat-toolbar-subtitle {
+      margin-top: 4px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--text-muted);
+    }
+
+    .chat-toolbar-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .toolbar-chip {
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: #f8fafc;
+      border: 1px solid #dbe4f0;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .toolbar-button,
+    .send-button {
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.14s ease, box-shadow 0.14s ease, opacity 0.14s ease;
+    }
+
+    .toolbar-button:hover,
+    .send-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+    }
+
+    .toolbar-button:disabled,
+    .send-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .toolbar-button {
+      padding: 10px 12px;
+      background: #0f172a;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .toolbar-button.secondary {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+
+    .chat-app {
+      width: 100%;
+      height: calc(100vh - 96px);
+      min-height: 720px;
+      background: #ffffff;
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: var(--panel-shadow);
+    }
+
+    .chat-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #e5e5e5;
+      font-size: 18px;
+      font-weight: 700;
+      background: #fafafa;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: linear-gradient(180deg, #ffffff 0%, #f9fbfe 100%);
+    }
+
+    .chat-input-area {
+      display: flex;
+      gap: 10px;
+      padding: 16px;
+      border-top: 1px solid #e5e5e5;
+      background: #ffffff;
+    }
+
+    .chat-input {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid #cfcfcf;
+      border-radius: 10px;
+      font-size: 16px;
+      outline: none;
+      background: #ffffff;
+    }
+
+    .chat-input:focus {
+      border-color: #888;
+    }
+
+    .send-button {
+      padding: 12px 18px;
+      background: #111827;
+      color: #ffffff;
+      font-size: 15px;
+    }
+
+    .status {
+      padding: 0 16px 12px 16px;
+      font-size: 13px;
+      color: #666666;
+    }
+
+    .inspector-column {
+      min-width: 0;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 160ms ease;
+    }
+
+    .sandbox-shell.panel-open .inspector-column {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .inspector-stack {
+      height: calc(100vh - 96px);
+      min-height: 720px;
+      overflow-y: auto;
+      padding-right: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .inspector-card {
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      background: var(--panel-bg);
+      box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+    }
+
+    .inspector-card-header {
+      padding: 14px 16px 12px 16px;
+      border-bottom: 1px solid #e7edf4;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    }
+
+    .inspector-card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .inspector-card-subtitle {
+      margin-top: 4px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text-muted);
+    }
+
+    .inspector-card-body {
+      padding: 14px 16px 16px 16px;
+    }
+
+    .inspector-placeholder-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .inspector-placeholder {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #f8fafc;
+      padding: 10px 12px;
+    }
+
+    .inspector-placeholder-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+    }
+
+    .inspector-placeholder-value {
+      margin-top: 5px;
+      min-height: 38px;
+      border: 1px solid var(--accent-border);
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 9px 10px;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+
+    .inspector-footer-note {
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 1120px) {
+      body {
+        padding: 14px;
+      }
+
+      .sandbox-shell,
+      .sandbox-shell.panel-open {
+        grid-template-columns: 1fr;
+      }
+
+      .chat-app,
+      .inspector-stack {
+        height: auto;
+        min-height: 0;
+      }
+
+      .inspector-column {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .inspector-stack {
+        padding-right: 0;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .chat-toolbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .chat-toolbar-actions {
+        justify-content: flex-start;
+      }
+
+      .chat-input-area {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="sandbox-shell" id="sandboxShell">
+    <div class="chat-column">
+      <div class="chat-toolbar">
+        <div class="chat-toolbar-copy">
+          <div class="chat-toolbar-title">Chat SandBox</div>
+          <div class="chat-toolbar-subtitle">
+            Production-like main chat surface with a hidden inspector shell for runtime testing.
+          </div>
+        </div>
+        <div class="chat-toolbar-actions">
+          <div class="toolbar-chip" id="tenantChip">Tenant: generic</div>
+          <button type="button" class="toolbar-button secondary" id="inspectorToggleButton" aria-expanded="false">
+            Show Inspector
+          </button>
+        </div>
+      </div>
+
+      <div class="chat-app">
+        <div class="chat-header" id="chatHeader">Се вчитува...</div>
+        <div class="booking-progress" id="bookingProgress">
+          <div class="booking-progress-header">
+            <div class="booking-progress-title" id="bookingProgressTitle">Закажување во тек</div>
+            <div class="booking-progress-controls">
+              <div class="booking-progress-status" id="bookingProgressStatus">0 / 3</div>
+              <button
+                type="button"
+                class="booking-reset-button"
+                id="bookingResetButton"
+                data-tooltip="Почни од почеток"
+                aria-label="Почни од почеток"
+                hidden
+              >
+                <span class="booking-reset-icon" aria-hidden="true">&#8634;</span>
+              </button>
+            </div>
+          </div>
+          <div class="booking-progress-steps" id="bookingProgressSteps"></div>
+        </div>
+
+        <div class="booking-summary" id="bookingSummary">
+          <div class="booking-summary-header">
+            <div>
+              <div class="booking-summary-title" id="bookingSummaryTitle">Резиме на барањето</div>
+              <div class="booking-summary-subtitle" id="bookingSummarySubtitle"></div>
+            </div>
+            <div class="booking-summary-badge" id="bookingSummaryBadge">Привремен термин</div>
+          </div>
+          <div class="booking-summary-grid">
+            <div class="booking-summary-card">
+              <div class="booking-summary-label">Услуга</div>
+              <div class="booking-summary-value" id="bookingSummaryService"></div>
+            </div>
+            <div class="booking-summary-card">
+              <div class="booking-summary-label">Термин</div>
+              <div class="booking-summary-value" id="bookingSummaryAppointment"></div>
+            </div>
+          </div>
+          <div class="booking-summary-fields" id="bookingSummaryFields"></div>
+          <div class="booking-summary-note" id="bookingSummaryNote" hidden>
+            <div class="booking-summary-note-label" id="bookingSummaryNoteLabel">Забелешка од пациентот</div>
+            <div class="booking-summary-note-value" id="bookingSummaryNoteValue"></div>
+          </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages"></div>
+
+        <div class="chat-input-area">
+          <input
+            type="text"
+            id="messageInput"
+            class="chat-input"
+            placeholder="Напишете порака..."
+          />
+          <button id="sendButton" class="send-button">Испрати</button>
+        </div>
+
+        <div class="status" id="statusText">Подготвено</div>
+      </div>
+    </div>
+
+    <aside class="inspector-column" id="inspectorColumn">
+      <div class="inspector-stack">
+        <section class="inspector-card">
+          <div class="inspector-card-header">
+            <div class="inspector-card-title">Session And Routing</div>
+            <div class="inspector-card-subtitle">
+              Placeholder shell for live session, route, and reply-state variables.
+            </div>
+          </div>
+          <div class="inspector-card-body">
+            <div class="inspector-placeholder-list">
+              <div class="inspector-placeholder">
+                <div class="inspector-placeholder-label">session_id</div>
+                <div class="inspector-placeholder-value">Will be wired in Prompt 3 / 5</div>
+              </div>
+              <div class="inspector-placeholder">
+                <div class="inspector-placeholder-label">session_status</div>
+                <div class="inspector-placeholder-value">Will be wired in Prompt 3 / 5</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="inspector-card">
+          <div class="inspector-card-header">
+            <div class="inspector-card-title">Booking Flow</div>
+            <div class="inspector-card-subtitle">
+              Reserved panel group for booking stage, next field, progress, and collected data.
+            </div>
+          </div>
+          <div class="inspector-card-body">
+            <div class="inspector-placeholder-list">
+              <div class="inspector-placeholder">
+                <div class="inspector-placeholder-label">booking_stage</div>
+                <div class="inspector-placeholder-value">Panel shell only in Prompt 2</div>
+              </div>
+              <div class="inspector-placeholder">
+                <div class="inspector-placeholder-label">next_field</div>
+                <div class="inspector-placeholder-value">Panel shell only in Prompt 2</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="inspector-card">
+          <div class="inspector-card-header">
+            <div class="inspector-card-title">Scheduling Criteria</div>
+            <div class="inspector-card-subtitle">
+              Reserved group for service, date range, timezone, and other scheduling request inputs.
+            </div>
+          </div>
+          <div class="inspector-card-body">
+            <div class="inspector-placeholder-list">
+              <div class="inspector-placeholder">
+                <div class="inspector-placeholder-label">service_id / date_from / date_to</div>
+                <div class="inspector-placeholder-value">Editable controls will be added in Prompt 3</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="inspector-card">
+          <div class="inspector-card-header">
+            <div class="inspector-card-title">Selected Slot And Booking Result</div>
+            <div class="inspector-card-subtitle">
+              Reserved area for selected slot state, booking result state, and confirmation details.
+            </div>
+          </div>
+          <div class="inspector-card-body">
+            <div class="inspector-placeholder-list">
+              <div class="inspector-placeholder">
+                <div class="inspector-placeholder-label">selected_slot / booking_result</div>
+                <div class="inspector-placeholder-value">Live values will be connected in Prompt 5</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="inspector-card">
+          <div class="inspector-card-header">
+            <div class="inspector-card-title">Config Preview</div>
+            <div class="inspector-card-subtitle">
+              Bottom section reserved for tenant profile and scheduling config previews.
+            </div>
+          </div>
+          <div class="inspector-card-body">
+            <div class="inspector-footer-note">
+              Prompt 2 only creates the Chat SandBox page and inspector shell. Runtime groups, payload details, and config previews will be filled in by later prompts.
+            </div>
+          </div>
+        </section>
+      </div>
+    </aside>
+  </div>
+
+  <script type="module">
+    import { resolveTenantFromPath } from "/frontend/chat/chat-shell.js";
+    import { bindTextInputSubmission, setInputBusyState } from "/frontend/chat/chat-input.js";
+    import { createBookingSummaryHistory } from "/frontend/widgets/booking-summary/booking-summary.js";
+    import {
+      addSlotListConversationWidget,
+      createConversationWidgetDispatcher,
+      createConversationWidgetRegistry,
+      registerDefaultConversationWidgets,
+    } from "/frontend/widgets/widget-registry.js";
+
+    const sandboxShell = document.getElementById("sandboxShell");
+    const inspectorToggleButton = document.getElementById("inspectorToggleButton");
+    const tenantChip = document.getElementById("tenantChip");
+    const chatMessages = document.getElementById("chatMessages");
+    const messageInput = document.getElementById("messageInput");
+    const sendButton = document.getElementById("sendButton");
+    const statusText = document.getElementById("statusText");
+    const chatHeader = document.getElementById("chatHeader");
+    const bookingProgress = document.getElementById("bookingProgress");
+    const bookingProgressTitle = document.getElementById("bookingProgressTitle");
+    const bookingProgressStatus = document.getElementById("bookingProgressStatus");
+    const bookingProgressSteps = document.getElementById("bookingProgressSteps");
+    const bookingResetButton = document.getElementById("bookingResetButton");
+    const bookingSummary = document.getElementById("bookingSummary");
+    const bookingSummaryTemplate = bookingSummary.cloneNode(true);
+    bookingSummary.remove();
+
+    const tenant = resolveTenantFromPath(window.location.pathname, "generic");
+    const sessionStorageKey = `clinic-ai-session:${tenant}:chat-sandbox`;
+    let sessionId = window.localStorage.getItem(sessionStorageKey) || null;
+    let isSending = false;
+
+    const API_URL = `/chat?tenant=${encodeURIComponent(tenant)}`;
+    const CONFIG_URL = `/config/${encodeURIComponent(tenant)}`;
+    const SELECT_SLOT_URL = `/scheduling/select-slot?tenant=${encodeURIComponent(tenant)}`;
+
+    const widgetRegistry = registerDefaultConversationWidgets(
+      createConversationWidgetRegistry(),
+      {
+        bookingSummaryTemplate,
+        labelForField,
+      }
+    );
+
+    const conversationDispatcher = createConversationWidgetDispatcher({
+      container: chatMessages,
+      registry: widgetRegistry,
+      afterAppend({ kind, sender }) {
+        if (kind === "message" && sender === "bot") {
+          bookingSummaryHistory.flushPending();
+        }
+      }
+    });
+
+    const bookingSummaryHistory = createBookingSummaryHistory({
+      template: bookingSummaryTemplate,
+      labelForField,
+      appendSummary(summary) {
+        return conversationDispatcher.addWidget(
+          "booking-summary",
+          { summary },
+          {
+            template: bookingSummaryTemplate,
+            labelForField,
+          }
+        ).element;
+      },
+    });
+
+    const bookingProgressWidget = widgetRegistry.mount("booking-progress", {
+      root: bookingProgress,
+      titleElement: bookingProgressTitle,
+      statusElement: bookingProgressStatus,
+      stepsElement: bookingProgressSteps,
+      resetButton: bookingResetButton,
+      onEditField: beginBookingFieldEdit,
+      labelForField,
+      summaryHistory: bookingSummaryHistory,
+    }).widget;
+
+    function addMessage(text, sender) {
+      return conversationDispatcher.addTextMessage(text, sender);
+    }
+
+    function isSlotListWidgetPayload(widgetPayload) {
+      return Boolean(
+        widgetPayload &&
+        widgetPayload.type === "slot-list" &&
+        Array.isArray(widgetPayload.slots) &&
+        widgetPayload.slots.length
+      );
+    }
+
+    function getPrimaryReplyText(replyText, widgetPayload) {
+      if (typeof replyText !== "string" || !replyText.trim()) {
+        return "";
+      }
+
+      if (!isSlotListWidgetPayload(widgetPayload)) {
+        return replyText.trim();
+      }
+
+      const [primaryReply] = replyText.split(/\n\s*\n/, 1);
+      return String(primaryReply || "").trim();
+    }
+
+    function syncSessionId(nextSessionId) {
+      if (!nextSessionId) {
+        return;
+      }
+
+      sessionId = nextSessionId;
+      window.localStorage.setItem(sessionStorageKey, sessionId);
+    }
+
+    function updateStatusFromSessionStatus(nextSessionStatus, fallbackText = "Подготвено") {
+      statusText.textContent = nextSessionStatus === "completed"
+        ? "Барањето е завршено."
+        : nextSessionStatus === "collecting_contact"
+          ? "Се собираат контакт податоци."
+          : fallbackText;
+    }
+
+    function applyBackendConversationUpdate(data, options = {}) {
+      const {
+        fallbackReply = "Нема одговор од серверот.",
+        fallbackStatus = "Подготвено",
+        includeWidget = false,
+      } = options;
+
+      syncSessionId(data.session_id);
+      updateBookingProgress(data.booking_progress);
+
+      const primaryReplyText = getPrimaryReplyText(data.reply, includeWidget ? data.widget_payload : null);
+      addMessage(primaryReplyText || fallbackReply, "bot");
+
+      if (includeWidget) {
+        addResponseWidget(data.widget_payload, { hideTitle: Boolean(primaryReplyText) });
+      }
+
+      updateStatusFromSessionStatus(data.session_status, fallbackStatus);
+    }
+
+    async function handleSlotSelection(slot, widgetPayload, slotListWidget) {
+      if (!sessionId) {
+        addMessage("Нема активна chat сесија за избор на термин.", "bot");
+        statusText.textContent = "Недостасува chat сесија.";
+        slotListWidget.enableAll();
+        return;
+      }
+
+      slotListWidget.disableAll();
+      addMessage(`Го избирам овој термин: ${slot.display_label}`, "user");
+      statusText.textContent = "Се испраќа изборот на термин...";
+
+      try {
+        const response = await fetch(SELECT_SLOT_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            session_id: sessionId,
+            service_id: widgetPayload.service_id,
+            slot_id: slot.slot_id
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || `HTTP error: ${response.status}`);
+        }
+
+        applyBackendConversationUpdate(data, {
+          fallbackReply: "Изборот на термин е примен.",
+          fallbackStatus: "Терминот е избран.",
+        });
+      } catch (error) {
+        addMessage(`Неуспешен избор на термин. ${error.message}`, "bot");
+        statusText.textContent = `Грешка: ${error.message}`;
+        slotListWidget.enableAll();
+      }
+    }
+
+    function addResponseWidget(widgetPayload, options = {}) {
+      if (!widgetPayload || widgetPayload.type !== "slot-list") {
+        return null;
+      }
+
+      const slots = Array.isArray(widgetPayload.slots) ? widgetPayload.slots : [];
+      if (!slots.length) {
+        return null;
+      }
+
+      const { hideTitle = false } = options;
+
+      return addSlotListConversationWidget(conversationDispatcher, {
+        title: hideTitle ? null : (widgetPayload.title || "Изберете термин:"),
+        slots,
+        onSelect: (slot, slotListWidget) => handleSlotSelection(slot, widgetPayload, slotListWidget),
+        readOnly: false,
+      }, { sender: "bot" });
+    }
+
+    async function performSend(userMessage, options = {}) {
+      const { showUserMessage = true } = options;
+
+      if (isSending) {
+        return;
+      }
+
+      const trimmedMessage = String(userMessage || "").trim();
+      if (!trimmedMessage) {
+        return;
+      }
+
+      isSending = true;
+      if (showUserMessage) {
+        addMessage(trimmedMessage, "user");
+      }
+      messageInput.value = "";
+      setInputBusyState({ input: messageInput, button: sendButton, isBusy: true });
+      statusText.textContent = "Се испраќа...";
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            message: trimmedMessage,
+            session_id: sessionId
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        applyBackendConversationUpdate(data, {
+          fallbackReply: "Нема одговор од серверот.",
+          fallbackStatus: "Подготвено",
+          includeWidget: true,
+        });
+      } catch (error) {
+        addMessage("Настана грешка при поврзување со системот.", "bot");
+        statusText.textContent = `Грешка: ${error.message}`;
+      } finally {
+        isSending = false;
+        setInputBusyState({ input: messageInput, button: sendButton, isBusy: false });
+        messageInput.focus();
+      }
+    }
+
+    function beginBookingFieldEdit(fieldName) {
+      if (!sessionId || !fieldName) {
+        return;
+      }
+      performSend(`__booking_edit__:${fieldName}`, { showUserMessage: false });
+    }
+
+    async function resetConversation() {
+      if (isSending) {
+        return;
+      }
+
+      sessionId = null;
+      window.localStorage.removeItem(sessionStorageKey);
+      bookingSummaryHistory.reset();
+      bookingProgressWidget.reset();
+      statusText.textContent = "Подготвено";
+      messageInput.value = "";
+      await loadTenantConfig();
+      messageInput.focus();
+    }
+
+    function labelForField(fieldName) {
+      if (fieldName === "name") return "Име";
+      if (fieldName === "phone") return "Телефон";
+      if (fieldName === "email") return "Е-пошта";
+      return fieldName;
+    }
+
+    function updateBookingProgress(progress) {
+      bookingProgressWidget.update(progress);
+    }
+
+    async function loadTenantConfig() {
+      try {
+        const response = await fetch(CONFIG_URL);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error: ${response.status}`);
+        }
+
+        const config = await response.json();
+        const businessName = config.business?.name || config.assistant?.name || "Асистент";
+        const greeting = config.conversation?.greeting || "Здраво! Како можам да ви помогнам денес?";
+
+        chatHeader.textContent = businessName;
+        tenantChip.textContent = `Tenant: ${tenant}`;
+        document.title = `${businessName} Chat SandBox`;
+
+        conversationDispatcher.clear();
+        bookingSummaryHistory.reset();
+        bookingProgressWidget.reset();
+        addMessage(greeting, "bot");
+      } catch (error) {
+        chatHeader.textContent = "Асистент";
+        tenantChip.textContent = `Tenant: ${tenant}`;
+        document.title = "Chat SandBox";
+        conversationDispatcher.clear();
+        bookingSummaryHistory.reset();
+        bookingProgressWidget.reset();
+        addMessage("Здраво! Како можам да ви помогнам денес?", "bot");
+        console.error("Failed to load tenant config:", error);
+      }
+    }
+
+    async function sendMessage() {
+      const userMessage = messageInput.value.trim();
+      await performSend(userMessage, { showUserMessage: true });
+    }
+
+    function setInspectorOpen(nextOpen) {
+      sandboxShell.classList.toggle("panel-open", nextOpen);
+      inspectorToggleButton.setAttribute("aria-expanded", String(nextOpen));
+      inspectorToggleButton.textContent = nextOpen ? "Hide Inspector" : "Show Inspector";
+    }
+
+    bindTextInputSubmission({
+      input: messageInput,
+      button: sendButton,
+      onSubmit: sendMessage,
+    });
+    bookingResetButton.addEventListener("click", resetConversation);
+    inspectorToggleButton.addEventListener("click", () => {
+      setInspectorOpen(!sandboxShell.classList.contains("panel-open"));
+    });
+
+    setInspectorOpen(window.innerWidth > 1120 ? false : true);
+    loadTenantConfig();
+  </script>
+</body>
+</html>

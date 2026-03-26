@@ -41,12 +41,12 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 2`
+- `Prompt 3`
 
 ## Global Status Summary
 
 - Prompt 1 - Completed
-- Prompt 2 - Pending
+- Prompt 2 - Completed
 - Prompt 3 - Pending
 - Prompt 4 - Pending
 - Prompt 5 - Pending
@@ -301,7 +301,7 @@ Implementation guidance locked in after Prompt 1:
   - config previews at the bottom
 - if a value cannot be derived reliably from existing frontend payloads, the preferred next step is a small explicit backend inspector contract rather than fragile DOM inference
 
-## Prompt 2 - Pending
+## Prompt 2 - Completed
 
 ### Goal
 
@@ -321,6 +321,38 @@ Requirements:
 ### Required Outcome
 
 A new Chat SandBox page exists with production-like chat behavior and a sandbox inspector side panel shell.
+
+### Prompt 2 Completion Note
+
+What changed:
+
+- created a new frontend page at `clinic-ai-assistant-src/frontend/ChatSandBox.html`
+- kept the main chat runtime behavior production-like by reusing the same:
+  - `/chat` interaction model
+  - booking progress widget
+  - booking summary history behavior
+  - slot-list widget flow
+  - `/scheduling/select-slot` handoff path
+- added a minimal inspector-side layout shell without turning the page into a scheduling-first sandbox like `cal.html`
+- made the inspector shell toggleable through a `Show Inspector` / `Hide Inspector` control
+- added reserved grouped inspector cards for:
+  - `Session And Routing`
+  - `Booking Flow`
+  - `Scheduling Criteria`
+  - `Selected Slot And Booking Result`
+  - `Config Preview`
+
+Prompt 2 intentionally does not yet implement:
+
+- live runtime variable rendering in the panel
+- editable scheduling controls inside the panel
+- config JSON previews
+- focused inspector payload wiring
+
+Why this prompt stops here:
+
+- Prompt 2 was limited to establishing the new page and the minimal side-panel shell
+- the grouped panel content and runtime wiring are deferred to Prompts 3, 4, and 5 so the work stays staged and reviewable
 
 ## Prompt 3 - Pending
 
