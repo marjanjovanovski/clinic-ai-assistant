@@ -31,7 +31,8 @@
 
     body {
       margin: 0;
-      min-height: 100vh;
+      height: 100vh;
+      overflow: hidden;
       background:
         linear-gradient(180deg, rgba(191, 219, 254, 0.3) 0%, rgba(238, 244, 251, 0.94) 18%, var(--page-bg) 100%),
         radial-gradient(circle at top right, rgba(96, 165, 250, 0.18), transparent 28%);
@@ -40,11 +41,12 @@
     }
 
     .page-shell {
-      width: min(1600px, calc(100vw - 48px));
-      margin: 24px auto;
+      width: calc(100vw - 24px);
+      margin: 12px auto;
+      height: calc(100vh - 24px);
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 12px;
     }
 
     .page-card {
@@ -54,45 +56,28 @@
       box-shadow: var(--shadow);
     }
 
-    .hero {
-      padding: 22px 24px 18px;
+    .header-shell {
+      padding: 14px 18px;
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
-      gap: 20px;
+      gap: 16px;
     }
 
-    .hero-title {
+    .header-title {
       margin: 0;
-      font-size: 30px;
-      line-height: 1.1;
+      font-size: 22px;
+      line-height: 1.15;
       font-weight: 700;
       letter-spacing: -0.02em;
     }
 
-    .hero-copy {
-      margin: 10px 0 0;
-      max-width: 780px;
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
-
-    .hero-badge {
-      padding: 10px 14px;
-      border-radius: 999px;
-      background: var(--accent-soft);
-      color: var(--accent);
-      font-size: 13px;
-      font-weight: 600;
-      white-space: nowrap;
-    }
-
     .toolbar {
-      padding: 18px 24px;
+      padding: 0 18px 14px;
       display: grid;
-      grid-template-columns: 1.2fr 0.55fr 1fr;
-      gap: 18px;
-      align-items: end;
+      grid-template-columns: minmax(0, 1.3fr) minmax(220px, 0.6fr) minmax(0, 1.1fr);
+      gap: 14px;
+      align-items: start;
     }
 
     .field-group {
@@ -111,7 +96,18 @@
 
     .task-select {
       width: 100%;
-      padding: 13px 14px;
+      padding: 11px 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--text-main);
+      font-size: 15px;
+      outline: none;
+    }
+
+    .filter-select {
+      width: 100%;
+      padding: 11px 12px;
       border: 1px solid var(--border-strong);
       border-radius: 12px;
       background: #fff;
@@ -125,16 +121,9 @@
       box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.12);
     }
 
-    .review-toggle-card {
-      min-height: 90px;
-      padding: 14px 16px;
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      background: #fbfdff;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 10px;
+    .filter-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.12);
     }
 
     .review-toggle-row {
@@ -143,6 +132,11 @@
       gap: 10px;
       font-size: 14px;
       color: var(--text-main);
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fbfdff;
     }
 
     .review-toggle-row input[type="checkbox"] {
@@ -155,7 +149,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-top: 10px;
+      flex-wrap: wrap;
     }
 
     .primary-button {
@@ -183,38 +177,78 @@
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 12px;
+      align-self: start;
     }
 
     .meta-card {
-      min-height: 90px;
-      padding: 14px 16px;
+      min-height: 64px;
+      padding: 10px 12px;
       border: 1px solid var(--border);
       border-radius: 14px;
       background: #fbfdff;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      gap: 8px;
+      justify-content: flex-start;
+      align-items: flex-start;
+      gap: 6px;
     }
 
     .meta-label {
       color: var(--text-muted);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
 
     .meta-value {
-      font-size: 28px;
+      font-size: 18px;
       font-weight: 700;
       line-height: 1;
     }
 
     .meta-subvalue {
-      font-size: 13px;
+      font-size: 11px;
       color: var(--text-muted);
       word-break: break-word;
+    }
+
+    .general-comment-shell {
+      padding: 0 18px 14px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 180px;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .general-comment-field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .general-comment-input {
+      width: 100%;
+      min-height: 44px;
+      max-height: 84px;
+      padding: 10px 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--text-main);
+      font: inherit;
+      line-height: 1.4;
+      resize: vertical;
+      outline: none;
+    }
+
+    .general-comment-actions {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: 10px;
+      padding-top: 22px;
     }
 
     .status-pass {
@@ -230,10 +264,12 @@
     }
 
     .table-card {
-      padding: 18px 18px 20px;
+      padding: 12px 14px 14px;
       display: flex;
       flex-direction: column;
       gap: 14px;
+      flex: 1 1 auto;
+      min-height: 0;
     }
 
     .table-header {
@@ -263,7 +299,8 @@
     }
 
     .table-scroll {
-      max-height: 68vh;
+      flex: 1 1 auto;
+      min-height: 0;
       overflow: auto;
       border: 1px solid var(--border);
       border-radius: 16px;
@@ -274,7 +311,7 @@
       width: 100%;
       border-collapse: separate;
       border-spacing: 0;
-      min-width: 1220px;
+      min-width: 1580px;
     }
 
     thead th {
@@ -387,19 +424,47 @@
     }
 
     .status-select {
-      min-width: 120px;
+      min-width: 132px;
       padding: 10px 12px;
     }
 
     .row-textarea {
       min-height: 88px;
+      width: 100%;
       padding: 10px 12px;
       resize: vertical;
       line-height: 1.4;
     }
 
+    .status-select--pass {
+      background: var(--pass-bg);
+      color: var(--pass-text);
+      border-color: rgba(22, 101, 52, 0.28);
+    }
+
+    .status-select--fail {
+      background: var(--fail-bg);
+      color: var(--fail-text);
+      border-color: rgba(153, 27, 27, 0.28);
+    }
+
+    .status-select--not-run {
+      background: var(--not-run-bg);
+      color: var(--not-run-text);
+      border-color: rgba(146, 64, 14, 0.28);
+    }
+
+    .col-comment {
+      min-width: 320px;
+    }
+
+    .col-reference {
+      min-width: 320px;
+    }
+
     .status-select:focus,
-    .row-textarea:focus {
+    .row-textarea:focus,
+    .general-comment-input:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.12);
     }
@@ -407,58 +472,72 @@
 </head>
 <body>
   <main class="page-shell">
-    <section class="page-card hero">
-      <div>
-        <h1 class="hero-title">Manual Testing Dashboard</h1>
-        <p class="hero-copy">
-          Review pending tasks that are waiting for final manual verification, inspect their JSON-driven test rows,
-          and use the summary counts to decide whether merge readiness can be discussed.
-        </p>
-      </div>
-      <div class="hero-badge" id="heroBadge">Read-Only Review</div>
-    </section>
-
-    <section class="page-card toolbar">
-      <div class="field-group">
-        <label class="field-label" for="taskSelector">Pending Task</label>
-        <select id="taskSelector" class="task-select">
-          <option>Loading tasks...</option>
-        </select>
-        <div class="toolbar-actions">
-          <button id="saveButton" class="primary-button" disabled>Save</button>
-          <span id="saveStatus" class="save-status">No changes</span>
+    <section class="page-card">
+      <div class="header-shell">
+        <div>
+          <h1 class="header-title">Manual Testing Dashboard</h1>
         </div>
       </div>
 
-      <div class="review-toggle-card">
-        <div class="field-label">Branch Readiness</div>
-        <label class="review-toggle-row" for="branchMergeReadyInput">
-          <input id="branchMergeReadyInput" type="checkbox" />
-          <span>Approved as merge-ready</span>
-        </label>
+      <div class="toolbar">
+        <div class="field-group">
+          <label class="field-label" for="taskSelector">Pending Task</label>
+          <select id="taskSelector" class="task-select">
+            <option>Loading tasks...</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="statusFilter">Status Filter</label>
+          <select id="statusFilter" class="filter-select">
+            <option value="All">All Rows</option>
+            <option value="Not Run">Not Run</option>
+            <option value="Pass">Pass</option>
+            <option value="Fail">Fail</option>
+          </select>
+          <label class="review-toggle-row" for="branchMergeReadyInput">
+            <input id="branchMergeReadyInput" type="checkbox" />
+            <span>Approved as merge-ready</span>
+          </label>
+        </div>
+
+        <div class="meta-grid">
+          <article class="meta-card">
+            <div class="meta-label">Not Run</div>
+            <div class="meta-value status-not-run" id="notRunCount">0</div>
+            <div class="meta-subvalue">rows still pending</div>
+          </article>
+          <article class="meta-card">
+            <div class="meta-label">Pass</div>
+            <div class="meta-value status-pass" id="passCount">0</div>
+            <div class="meta-subvalue">verified rows</div>
+          </article>
+          <article class="meta-card">
+            <div class="meta-label">Fail</div>
+            <div class="meta-value status-fail" id="failCount">0</div>
+            <div class="meta-subvalue">rows needing action</div>
+          </article>
+          <article class="meta-card">
+            <div class="meta-label">Task State</div>
+            <div class="meta-value" id="taskState">-</div>
+            <div class="meta-subvalue" id="taskMeta">No task selected</div>
+          </article>
+        </div>
       </div>
 
-      <div class="meta-grid">
-        <article class="meta-card">
-          <div class="meta-label">Not Run</div>
-          <div class="meta-value status-not-run" id="notRunCount">0</div>
-          <div class="meta-subvalue">rows still pending</div>
-        </article>
-        <article class="meta-card">
-          <div class="meta-label">Pass</div>
-          <div class="meta-value status-pass" id="passCount">0</div>
-          <div class="meta-subvalue">verified rows</div>
-        </article>
-        <article class="meta-card">
-          <div class="meta-label">Fail</div>
-          <div class="meta-value status-fail" id="failCount">0</div>
-          <div class="meta-subvalue">rows needing action</div>
-        </article>
-        <article class="meta-card">
-          <div class="meta-label">Task State</div>
-          <div class="meta-value" id="taskState">-</div>
-          <div class="meta-subvalue" id="taskMeta">No task selected</div>
-        </article>
+      <div class="general-comment-shell">
+        <div class="general-comment-field">
+          <label class="field-label" for="generalCommentInput">General Comment</label>
+          <textarea
+            id="generalCommentInput"
+            class="general-comment-input"
+            placeholder="Add overall feedback, follow-up bugs, or feature ideas for this task..."
+          ></textarea>
+        </div>
+        <div class="general-comment-actions">
+          <button id="saveButton" class="primary-button" disabled>Save</button>
+          <span id="saveStatus" class="save-status">No changes</span>
+        </div>
       </div>
     </section>
 
@@ -509,11 +588,14 @@
     const runtimeNote = document.getElementById("runtimeNote");
     const saveButton = document.getElementById("saveButton");
     const saveStatus = document.getElementById("saveStatus");
+    const statusFilter = document.getElementById("statusFilter");
     const branchMergeReadyInput = document.getElementById("branchMergeReadyInput");
+    const generalCommentInput = document.getElementById("generalCommentInput");
 
     let discoveredTasks = [];
     let selectedTask = null;
     let selectedCoverage = null;
+    let selectedStatusFilter = "All";
     let isDirty = false;
     let isSaving = false;
 
@@ -525,10 +607,10 @@
         .replaceAll('"', "&quot;");
     }
 
-    function statusClass(status) {
-      if (status === "Pass") return "badge badge-pass";
-      if (status === "Fail") return "badge badge-fail";
-      return "badge badge-not-run";
+    function statusSelectClass(status) {
+      if (status === "Pass") return "status-select status-select--pass";
+      if (status === "Fail") return "status-select status-select--fail";
+      return "status-select status-select--not-run";
     }
 
     function setSummary(summary = {}) {
@@ -585,6 +667,7 @@
     function updateSaveState() {
       saveButton.disabled = !selectedTask || !selectedTask.coverage_available || !isDirty || isSaving;
       branchMergeReadyInput.disabled = !selectedTask || !selectedTask.coverage_available || isSaving;
+      generalCommentInput.disabled = !selectedTask || !selectedTask.coverage_available || isSaving;
       if (isSaving) {
         saveStatus.textContent = "Saving...";
       } else if (isDirty) {
@@ -617,6 +700,9 @@
           const testName = test?.name ?? "Unnamed Test";
           const testRows = Array.isArray(test?.rows) ? test.rows : [];
           for (const row of testRows) {
+            if (selectedStatusFilter !== "All" && row?.status !== selectedStatusFilter) {
+              continue;
+            }
             rows.push(`
               <tr>
                 <td class="col-category">${escapeHtml(categoryName)}</td>
@@ -624,9 +710,9 @@
                 <td class="col-step">${escapeHtml(row?.step ?? "")}</td>
                 <td>${escapeHtml(row?.action ?? "")}</td>
                 <td>${escapeHtml(row?.what_is_tested ?? "")}</td>
-                <td>
+                <td class="col-status">
                   <select
-                    class="status-select"
+                    class="${statusSelectClass(row?.status)}"
                     data-category="${escapeHtml(categoryName)}"
                     data-test="${escapeHtml(testName)}"
                     data-step="${escapeHtml(row?.step ?? "")}"
@@ -636,7 +722,7 @@
                     <option value="Fail" ${row?.status === "Fail" ? "selected" : ""}>Fail</option>
                   </select>
                 </td>
-                <td>
+                <td class="col-comment">
                   <textarea
                     class="row-textarea"
                     data-field="comment"
@@ -645,7 +731,7 @@
                     data-step="${escapeHtml(row?.step ?? "")}"
                   >${escapeHtml(row?.comment ?? "")}</textarea>
                 </td>
-                <td>
+                <td class="col-reference">
                   <textarea
                     class="row-textarea"
                     data-field="reference_files"
@@ -660,10 +746,22 @@
         }
       }
 
+      if (!rows.length) {
+        renderMessageRow(`No rows match the selected status filter: ${selectedStatusFilter}.`);
+        tableTitle.textContent = coverage.task_name || task.task_name;
+        tableSubtitle.textContent = coverage.task_file || task.task_file;
+        branchMergeReadyInput.checked = Boolean(coverage?.manual_verification?.branch_merge_ready);
+        generalCommentInput.value = String(coverage?.manual_verification?.general_comment ?? "");
+        refreshSummaryState();
+        updateSaveState();
+        return;
+      }
+
       coverageTableBody.innerHTML = rows.join("");
       tableTitle.textContent = coverage.task_name || task.task_name;
       tableSubtitle.textContent = coverage.task_file || task.task_file;
       branchMergeReadyInput.checked = Boolean(coverage?.manual_verification?.branch_merge_ready);
+      generalCommentInput.value = String(coverage?.manual_verification?.general_comment ?? "");
       bindRowInputs();
       refreshSummaryState();
       updateSaveState();
@@ -703,6 +801,7 @@
           );
           if (!row) return;
           row.status = event.target.value;
+          event.target.className = statusSelectClass(row.status);
           markDirty();
         });
       });
@@ -742,7 +841,7 @@
       try {
         const payloadToSave = structuredClone(selectedCoverage);
         if (!payloadToSave.manual_verification || typeof payloadToSave.manual_verification !== "object") {
-          payloadToSave.manual_verification = { branch_merge_ready: false };
+          payloadToSave.manual_verification = { branch_merge_ready: false, general_comment: "" };
         }
         payloadToSave.summary = computeSummaryFromCoverage(payloadToSave);
         const response = await fetch(`/manual-verification/tasks/${encodeURIComponent(selectedTask.id)}`, {
@@ -786,6 +885,7 @@
         tableSubtitle.textContent = "Select a task to load its coverage rows.";
         runtimeNote.textContent = "Awaiting task selection";
         branchMergeReadyInput.checked = false;
+        generalCommentInput.value = "";
         renderMessageRow("Select a task to inspect manual verification coverage.");
         return;
       }
@@ -795,6 +895,7 @@
         tableSubtitle.textContent = selectedTask.task_file;
         runtimeNote.textContent = "Migration needed";
         branchMergeReadyInput.checked = false;
+        generalCommentInput.value = "";
         renderMessageRow(
           `This task is discoverable but does not yet have manual_testing_coverage.json. Create coverage JSON in the task folder before using the dashboard for row-level review.`,
           "error-state"
@@ -842,12 +943,29 @@
         taskSelector.addEventListener("change", (event) => {
           handleTaskSelection(event.target.value);
         });
+        statusFilter.addEventListener("change", (event) => {
+          selectedStatusFilter = event.target.value;
+          if (selectedTask && selectedCoverage) {
+            renderCoverageRows(selectedTask, selectedCoverage);
+            runtimeNote.textContent = selectedStatusFilter === "All"
+              ? `Loaded ${selectedTask.task_name}`
+              : `Filtered ${selectedTask.task_name} by ${selectedStatusFilter}`;
+          }
+        });
         branchMergeReadyInput.addEventListener("change", (event) => {
           if (!selectedCoverage) return;
           if (!selectedCoverage.manual_verification || typeof selectedCoverage.manual_verification !== "object") {
-            selectedCoverage.manual_verification = { branch_merge_ready: false };
+            selectedCoverage.manual_verification = { branch_merge_ready: false, general_comment: "" };
           }
           selectedCoverage.manual_verification.branch_merge_ready = Boolean(event.target.checked);
+          markDirty();
+        });
+        generalCommentInput.addEventListener("input", (event) => {
+          if (!selectedCoverage) return;
+          if (!selectedCoverage.manual_verification || typeof selectedCoverage.manual_verification !== "object") {
+            selectedCoverage.manual_verification = { branch_merge_ready: false, general_comment: "" };
+          }
+          selectedCoverage.manual_verification.general_comment = event.target.value;
           markDirty();
         });
         saveButton.addEventListener("click", saveCoverage);

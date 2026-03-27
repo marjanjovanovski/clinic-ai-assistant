@@ -3,7 +3,8 @@
   "task_file": "TEST - Manual Verification Coverage Dashboard FIX 01.md",
   "status": "pending_manual_verification",
   "manual_verification": {
-    "branch_merge_ready": false
+    "branch_merge_ready": true,
+    "general_comment": "There are no remarks left. This can be shipped onto main."
   },
   "categories": [
     {
@@ -16,7 +17,7 @@
               "step": 1,
               "action": "Open `ManualTesting.html` after FIX 01 is implemented.",
               "what_is_tested": "The header area is compact and the unnecessary top badge/overhead is removed.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
               "reference_files": ""
             },
@@ -24,7 +25,7 @@
               "step": 2,
               "action": "Use the dashboard on a normal wide desktop window.",
               "what_is_tested": "The main page no longer needs unnecessary outer scrolling while the table area keeps inner scrolling.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
               "reference_files": ""
             }
@@ -42,15 +43,15 @@
               "step": 1,
               "action": "Type a longer note in `Comment` and a longer comma-separated list in `Reference Files`.",
               "what_is_tested": "Both fields are wide enough to use comfortably during real review work.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Pass",
+              "comment": "jh kjh kjhskdjfh sdf",
+              "reference_files": "it works.."
             },
             {
               "step": 2,
               "action": "Switch a row between `Pass` and `Fail`.",
               "what_is_tested": "The status control changes to a visible contextual color for easier scanning.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
               "reference_files": ""
             },
@@ -58,7 +59,7 @@
               "step": 3,
               "action": "Use the top status filter.",
               "what_is_tested": "The table can be filtered by selected status without breaking row editing or save behavior.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
               "reference_files": ""
             }
@@ -76,7 +77,7 @@
               "step": 1,
               "action": "Open the pending task selector.",
               "what_is_tested": "Only valid folder-based JSON-backed dashboard items are listed.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
               "reference_files": ""
             },
@@ -84,7 +85,7 @@
               "step": 2,
               "action": "Confirm that dashboard fix follow-up items are selectable separately when applicable.",
               "what_is_tested": "Original task items and fix follow-ups can be treated as separate review entries.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
               "reference_files": ""
             }
@@ -94,8 +95,8 @@
     }
   ],
   "summary": {
-    "not_run": 7,
-    "pass": 0,
+    "not_run": 0,
+    "pass": 7,
     "fail": 0
   }
 }

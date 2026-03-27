@@ -6,9 +6,11 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
 PENDING_TASKS_DIR = REPO_ROOT / "clinic-ai-assistant docs" / "ProjectTasks_Pending"
 MANUAL_COVERAGE_FILENAME = "manual_testing_coverage.json"
+FIX_COVERAGE_PATTERN = "manual_testing_coverage_FIX*.json"
 STATUS_VALUES = {"Not Run", "Pass", "Fail"}
 DEFAULT_MANUAL_VERIFICATION = {
     "branch_merge_ready": False,
+    "general_comment": "",
 }
 
 
@@ -37,20 +39,21 @@ def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def _task_markdown_path(entry: Path) -> Path | None:
-    if entry.is_dir():
-        candidate = entry / f"{entry.name}.md"
-        return candidate if candidate.exists() else None
-    if entry.is_file() and entry.suffix.lower() == ".md":
-        return entry
-    return None
-
-
-def _coverage_path_for_entry(entry: Path) -> Path | None:
-    if not entry.is_dir():
-        return None
-    candidate = entry / MANUAL_COVERAGE_FILENAME
+def _primary_task_markdown_path(folder: Path) -> Path | None:
+    candidate = folder / f"{folder.name}.md"
     return candidate if candidate.exists() else None
+
+
+def _primary_coverage_path(folder: Path) -> Path | None:
+    candidate = folder / MANUAL_COVERAGE_FILENAME
+    return candidate if candidate.exists() else None
+
+
+def _fix_suffix_from_stem(stem: str) -> str | None:
+    match = re.search(r" FIX (\d+)$", stem)
+    if not match:
+        return None
+    return match.group(1).zfill(2)
 
 
 def _extract_current_active_prompt(markdown_text: str) -> str | None:
@@ -97,38 +100,60 @@ def _extract_pending_manual_prompt(markdown_text: str) -> dict | None:
     return None
 
 
-def _task_descriptor(entry: Path) -> dict | None:
-    markdown_path = _task_markdown_path(entry)
-    if markdown_path is None:
-        return None
+def _task_descriptor(folder: Path, markdown_path: Path, coverage_path: Path, *, entry_kind: str) -> dict | None:
     markdown_text = _read_text(markdown_path)
     pending_manual_prompt = _extract_pending_manual_prompt(markdown_text)
     if pending_manual_prompt is None:
         return None
 
-    coverage_path = _coverage_path_for_entry(entry)
     task_name = markdown_path.stem
-    entry_type = "folder" if entry.is_dir() else "legacy_flat"
     return {
         "id": _slugify(task_name),
         "task_name": task_name,
         "task_file": markdown_path.name,
         "task_relative_path": str(markdown_path.relative_to(REPO_ROOT)),
-        "entry_type": entry_type,
+        "entry_type": "folder",
+        "entry_kind": entry_kind,
+        "task_folder": folder.name,
         "manual_prompt_number": pending_manual_prompt["prompt_number"],
         "current_active_prompt": _extract_current_active_prompt(markdown_text),
         "merge_to_main": _extract_merge_status(markdown_text),
-        "coverage_available": coverage_path is not None,
-        "coverage_relative_path": str(coverage_path.relative_to(REPO_ROOT)) if coverage_path else None,
+        "coverage_available": True,
+        "coverage_relative_path": str(coverage_path.relative_to(REPO_ROOT)),
     }
+
+
+def _task_descriptors_for_folder(folder: Path) -> list[dict]:
+    tasks = []
+
+    primary_markdown = _primary_task_markdown_path(folder)
+    primary_coverage = _primary_coverage_path(folder)
+    if primary_markdown is not None and primary_coverage is not None:
+        task = _task_descriptor(folder, primary_markdown, primary_coverage, entry_kind="primary")
+        if task is not None:
+            tasks.append(task)
+
+    for coverage_path in sorted(folder.glob(FIX_COVERAGE_PATTERN), key=lambda item: item.name.lower()):
+        match = re.fullmatch(r"manual_testing_coverage_FIX(\d+)\.json", coverage_path.name)
+        if not match:
+            continue
+        suffix = match.group(1).zfill(2)
+        markdown_path = folder / f"{folder.name} FIX {suffix}.md"
+        if not markdown_path.exists():
+            continue
+        task = _task_descriptor(folder, markdown_path, coverage_path, entry_kind=f"fix_{suffix}")
+        if task is not None:
+            tasks.append(task)
+
+    return tasks
 
 
 def discover_manual_verification_tasks() -> list[dict]:
     tasks = []
     for entry in sorted(PENDING_TASKS_DIR.iterdir(), key=lambda item: item.name.lower()):
-        task = _task_descriptor(entry)
-        if task is not None:
-            tasks.append(task)
+        if not entry.is_dir():
+            continue
+        tasks.extend(_task_descriptors_for_folder(entry))
     return tasks
 
 
@@ -185,6 +210,10 @@ def _validate_coverage_payload(payload: dict) -> dict:
     if not isinstance(manual_verification.get("branch_merge_ready"), bool):
         raise ManualVerificationCoverageInvalid(
             "Coverage payload field 'manual_verification.branch_merge_ready' must be a boolean"
+        )
+    if not isinstance(manual_verification.get("general_comment"), str):
+        raise ManualVerificationCoverageInvalid(
+            "Coverage payload field 'manual_verification.general_comment' must be a string"
         )
     categories = payload.get("categories")
     if not isinstance(categories, list):

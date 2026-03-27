@@ -83,6 +83,8 @@ Required behavior:
 - `manual_testing_coverage.json` is the structured companion artifact for manual verification state, not a replacement for the task markdown file
 - reference files in `manual_testing_coverage.json` should be plain typed filenames only
 - do not add upload or preview requirements to the task-folder convention unless the task explicitly requires them
+- use `manual_testing_coverage.json` only when it materially simplifies repeated manual testing, retesting, or fix follow-up work
+- do not create the JSON companion for tiny tasks that do not need structured manual retest tracking
 
 Compatibility rule:
 - existing flat pending `.md` task files may remain in place until they are migrated or completed
@@ -502,6 +504,12 @@ Recommended category examples:
 When a task uses `manual_testing_coverage.json`:
 - keep the appendix as the human-readable source for what should be tested
 - keep pass/fail execution state in the JSON artifact rather than repeatedly editing the markdown file during every manual test pass
+- keep the JSON compact and operational
+- prefer row-level state for the actual manual steps
+- optional task-level manual-verification fields are allowed when they reduce friction, for example:
+  - `branch_merge_ready`
+  - `general_comment`
+- when adding a new optional JSON field, prefer a safe default in the loader instead of breaking older task JSON files
 
 ## Final Residual Check Rule
 
