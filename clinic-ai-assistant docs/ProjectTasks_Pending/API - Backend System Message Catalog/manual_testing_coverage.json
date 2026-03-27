@@ -1,0 +1,136 @@
+{
+  "task_name": "API - Backend System Message Catalog",
+  "task_file": "API - Backend System Message Catalog.md",
+  "status": "pending_manual_verification",
+  "manual_verification": {
+    "branch_merge_ready": false,
+    "general_comment": ""
+  },
+  "categories": [
+    {
+      "name": "Category 1 - Booking Workflow Messages",
+      "tests": [
+        {
+          "name": "Test 1.1 - Contact field prompt comes from the system catalog",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Start a booking flow that asks for contact details.",
+              "what_is_tested": "The backend resolves the field prompt from the system message catalog.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Review the returned user-facing prompt.",
+              "what_is_tested": "The reply appears correct and is not coming from a hard-coded backend literal path.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 1.2 - Validation retry uses the catalog",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Enter an invalid phone or email value.",
+              "what_is_tested": "The backend reaches the retry-validation path.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Review the retry message.",
+              "what_is_tested": "The retry message comes from the system message catalog and matches the active locale.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 2 - Scheduling Conflict Messages",
+      "tests": [
+        {
+          "name": "Test 2.1 - Lost-slot conflict uses the catalog",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Trigger a scheduling conflict such as a lost selected slot.",
+              "what_is_tested": "The backend reaches a conflict-message path.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Review the returned conflict message.",
+              "what_is_tested": "The conflict message comes from the system message catalog rather than hard-coded backend text.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 3 - Locale And Ownership Boundary",
+      "tests": [
+        {
+          "name": "Test 3.1 - Locale switch changes system messages without code changes",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Switch to another configured locale if supported in scope.",
+              "what_is_tested": "Locale resolution changes the message source file.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Re-run a booking or conflict state already covered above.",
+              "what_is_tested": "The same backend state returns the translated system message.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 3.2 - Tenant conversational content remains outside the system catalog",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Review tenant-driven replies such as greetings, services, or business overview.",
+              "what_is_tested": "Tenant profile content ownership remains unchanged.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Compare those replies with system workflow messages.",
+              "what_is_tested": "System messages come from the new catalog while tenant conversational content still comes from tenant profile behavior.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "not_run": 8,
+    "pass": 0,
+    "fail": 0
+  }
+}

@@ -1,0 +1,508 @@
+{
+  "task_name": "API - Slot Overlap Conflict Handling Proposal",
+  "task_file": "API - Slot Overlap Conflict Handling Proposal.md",
+  "status": "pending_manual_verification",
+  "manual_verification": {
+    "branch_merge_ready": false,
+    "general_comment": ""
+  },
+  "categories": [
+    {
+      "name": "Category 1 - Happy Path",
+      "tests": [
+        {
+          "name": "Test 1.1 - Main chat normal booking",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Open main chat and request availability.",
+              "what_is_tested": "Main chat returns slot-list widget correctly.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Select a free slot.",
+              "what_is_tested": "Hold is created on selection.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Enter name, phone, and email.",
+              "what_is_tested": "Contact collection continues normally.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 4,
+              "action": "Complete booking.",
+              "what_is_tested": "Valid hold leads to successful booking.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 5,
+              "action": "Review confirmation and summary.",
+              "what_is_tested": "Final state shows correct confirmed slot.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 1.2 - cal.html normal booking",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Open cal.html and load availability.",
+              "what_is_tested": "Sandbox page loads and shows current slots.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Book a free slot directly.",
+              "what_is_tested": "Direct sandbox booking still succeeds.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Review returned confirmation.",
+              "what_is_tested": "Sandbox success path remains intact.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 2 - Conflict And Recovery Path",
+      "tests": [
+        {
+          "name": "Test 2.1 - Immediate selection conflict for User B",
+          "rows": [
+            {
+              "step": 1,
+              "action": "User A opens availability and selects slot 12:00.",
+              "what_is_tested": "First session acquires the active hold.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "User B selects the same slot while A still owns the hold.",
+              "what_is_tested": "Second session is rejected at selection time.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Review User B response.",
+              "what_is_tested": "User B sees the immediate conflict message.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 4,
+              "action": "Review the next assistant reply for User B.",
+              "what_is_tested": "Fresh same-day replacement slots are returned.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 5,
+              "action": "Try interacting with any stale prior widget if present.",
+              "what_is_tested": "Old widget is not treated as the active recovery surface.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 2.2 - Late booking conflict for User A after losing the slot",
+          "rows": [
+            {
+              "step": 1,
+              "action": "User A selects slot 12:00 and begins entering details.",
+              "what_is_tested": "Main chat stores selected-slot handoff and hold.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Wait until User A hold expires.",
+              "what_is_tested": "Hold-release timing path becomes reachable.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "User B selects the same slot and completes booking.",
+              "what_is_tested": "Another session can take the slot after expiry.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 4,
+              "action": "User A finishes the booking flow.",
+              "what_is_tested": "Booking-time conflict path triggers correctly.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 5,
+              "action": "Review User A response.",
+              "what_is_tested": "Lost-slot message plus same-day replacement slots are returned.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 6,
+              "action": "Review summary state.",
+              "what_is_tested": "Lost original slot is not shown as still reserved.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 2.3 - Replacement-slot recovery after conflict",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Trigger a conflict that returns replacement slots.",
+              "what_is_tested": "Recovery path is available.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Select one of the returned replacement slots.",
+              "what_is_tested": "Replacement selection is accepted.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Continue or complete booking.",
+              "what_is_tested": "Flow resumes without restarting the whole interaction.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 4,
+              "action": "Review preserved fields.",
+              "what_is_tested": "Previously entered contact details remain usable.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 3 - Timed Hold Lifecycle",
+      "tests": [
+        {
+          "name": "Test 3.1 - Hold expires and slot becomes available again",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Select a slot but do not complete booking.",
+              "what_is_tested": "Hold exists without consumption.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Wait past the hold timeout.",
+              "what_is_tested": "Expiry path is triggered.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "In another session, request availability or select the same slot.",
+              "what_is_tested": "Expired hold no longer blocks the slot.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 3.2 - Silent recovery succeeds",
+          "rows": [
+            {
+              "step": 1,
+              "action": "User A selects a slot and waits until the hold expires.",
+              "what_is_tested": "Expired-hold recovery precondition is reached.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Ensure no other user takes the slot.",
+              "what_is_tested": "Same slot remains free for silent recovery.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "User A completes booking.",
+              "what_is_tested": "Backend silently refreshes and confirms booking.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 4,
+              "action": "Review user-visible response.",
+              "what_is_tested": "Normal confirmation appears with no conflict message.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 3.3 - Silent recovery fails because another user takes the slot",
+          "rows": [
+            {
+              "step": 1,
+              "action": "User A selects a slot and waits until the hold expires.",
+              "what_is_tested": "Expired-hold recovery precondition is reached.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "User B takes that same slot before A finishes.",
+              "what_is_tested": "Silent recovery should no longer succeed.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "User A finishes booking.",
+              "what_is_tested": "Backend returns recoverable lost-slot conflict.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 4,
+              "action": "Review User A response.",
+              "what_is_tested": "Same-day replacements are returned when available.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 4 - Surface Parity",
+      "tests": [
+        {
+          "name": "Test 4.1 - Main chat parity in index.html",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Run a conflict-and-recovery scenario in main chat.",
+              "what_is_tested": "index.html handles overlap recovery correctly.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Review returned widget behavior.",
+              "what_is_tested": "Returned slot-list widget is rendered from the correct reply.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 4.2 - ChatSandBox.html parity",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Run the same main-chat conflict scenario in ChatSandBox.html.",
+              "what_is_tested": "Sandbox chat shell matches main chat behavior.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Review recovery rendering.",
+              "what_is_tested": "Returned widget and follow-through remain consistent.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 4.3 - cal.html sandbox direct-book conflict",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Open cal.html and choose a slot that becomes unavailable.",
+              "what_is_tested": "Sandbox conflict path is reachable.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Review returned error payload and UI state.",
+              "what_is_tested": "Structured slot_unavailable conflict is shown.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Review replacement choices.",
+              "what_is_tested": "Same-day fallback slots are rendered when available.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 5 - State Safety And Regression Checks",
+      "tests": [
+        {
+          "name": "Test 5.1 - No double booking",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Race two users on the same slot.",
+              "what_is_tested": "Only one active owner should survive.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Complete both flows as far as possible.",
+              "what_is_tested": "Only one confirmed booking should exist for that slot.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 5.2 - No false success for losing user",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Force a losing-user scenario.",
+              "what_is_tested": "Conflict path is reached.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Review final user-visible state.",
+              "what_is_tested": "Losing user never sees success or false confirmation.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 5.3 - Wrong-session hold cannot be reused",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Let User A hold a slot.",
+              "what_is_tested": "Hold ownership is session-bound.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Try to continue or finish from another session context.",
+              "what_is_tested": "Wrong-session reuse is rejected safely.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 5.4 - Availability refresh reflects current truth after timeout",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Let a hold expire without booking.",
+              "what_is_tested": "Expiry releases the claim.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Refresh availability in a fresh session.",
+              "what_is_tested": "Latest available slots reflect current backend truth.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "not_run": 45,
+    "pass": 0,
+    "fail": 0
+  }
+}
