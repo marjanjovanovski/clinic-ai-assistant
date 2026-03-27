@@ -42,7 +42,7 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 8`
+- `None - Ready for review`
 
 ## Global Status Summary
 
@@ -53,7 +53,7 @@ Status values allowed in this document:
 - Prompt 5 - Completed
 - Prompt 6 - Completed
 - Prompt 7 - Completed
-- Prompt 8 - Pending
+- Prompt 8 - Completed
 
 ## Working Rules For The Implementing AI Agent
 
@@ -655,7 +655,7 @@ Verification completed for Prompt 7:
   - `5 passed`
   - executed with the proven external user-temp fallback after the standard `F:\temp` basetemp path hit a Windows permission blocker
 
-## Prompt 8 - Pending
+## Prompt 8 - Completed
 
 ### Goal
 
@@ -673,6 +673,22 @@ Requirements:
 ### Required Outcome
 
 Manual verification and merge readiness are tracked explicitly before merge.
+
+### Completion Note
+
+Prompt 8 is completed.
+
+Manual verification for the dashboard branch is now confirmed complete.
+
+Recorded branch state:
+- main dashboard feature implemented
+- follow-up `FIX 01` completed and manually approved
+- dashboard workflow is now in active use for manual retest tracking
+
+Merge state remains:
+- `Merge To Main = Pending`
+
+The task is now ready for merge discussion and branch review.
 
 
 ---
