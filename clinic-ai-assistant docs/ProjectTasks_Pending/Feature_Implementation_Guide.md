@@ -88,6 +88,27 @@ Compatibility rule:
 - existing flat pending `.md` task files may remain in place until they are migrated or completed
 - new folder-based tooling should handle legacy flat task files explicitly during the transition period rather than assuming the repo is already fully migrated
 
+## Dashboard-Driven Fix Follow-Up Rule
+
+When manual verification of a folder-based task produces concrete UI or behavior feedback that should be implemented as a follow-up fix:
+- keep the follow-up fix inside the same parent task folder
+- create a dedicated fix markdown task file rather than mixing the fix scope back into the original completed prompts
+- create a dedicated companion JSON for retesting that fix
+
+Recommended naming inside the same task folder:
+- `<Original Task Name> FIX 01.md`
+- `manual_testing_coverage_FIX01.json`
+
+If later fixes are needed, increment the suffix:
+- `FIX 02`
+- `manual_testing_coverage_FIX02.json`
+
+Required behavior:
+- the fix task file should reference the original task briefly and list only the new fix scope
+- the fix JSON should contain only the retest coverage needed for that fix, not a copy of the entire original manual-testing matrix
+- keep the fix task lean and boundary-based; do not duplicate the original master prompt unless the fix is large enough to be its own feature
+- when dashboard discovery later supports fix-task entries, it should treat the original task and its fix follow-ups as separate selectable review items
+
 ## Required Tracking Format
 
 At the top of each feature-specific master prompt document, include a global summary such as:

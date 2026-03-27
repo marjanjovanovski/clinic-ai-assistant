@@ -1,0 +1,101 @@
+{
+  "task_name": "TEST - Manual Verification Coverage Dashboard FIX 01",
+  "task_file": "TEST - Manual Verification Coverage Dashboard FIX 01.md",
+  "status": "pending_manual_verification",
+  "manual_verification": {
+    "branch_merge_ready": false
+  },
+  "categories": [
+    {
+      "name": "Category 1 - Layout And Visibility",
+      "tests": [
+        {
+          "name": "Test 1.1 - Compact dashboard shell",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Open `ManualTesting.html` after FIX 01 is implemented.",
+              "what_is_tested": "The header area is compact and the unnecessary top badge/overhead is removed.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Use the dashboard on a normal wide desktop window.",
+              "what_is_tested": "The main page no longer needs unnecessary outer scrolling while the table area keeps inner scrolling.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 2 - Table Usability",
+      "tests": [
+        {
+          "name": "Test 2.1 - Editing experience",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Type a longer note in `Comment` and a longer comma-separated list in `Reference Files`.",
+              "what_is_tested": "Both fields are wide enough to use comfortably during real review work.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Switch a row between `Pass` and `Fail`.",
+              "what_is_tested": "The status control changes to a visible contextual color for easier scanning.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Use the top status filter.",
+              "what_is_tested": "The table can be filtered by selected status without breaking row editing or save behavior.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 3 - Task Discovery",
+      "tests": [
+        {
+          "name": "Test 3.1 - Folder-based selector entries only",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Open the pending task selector.",
+              "what_is_tested": "Only valid folder-based JSON-backed dashboard items are listed.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Confirm that dashboard fix follow-up items are selectable separately when applicable.",
+              "what_is_tested": "Original task items and fix follow-ups can be treated as separate review entries.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "not_run": 7,
+    "pass": 0,
+    "fail": 0
+  }
+}
