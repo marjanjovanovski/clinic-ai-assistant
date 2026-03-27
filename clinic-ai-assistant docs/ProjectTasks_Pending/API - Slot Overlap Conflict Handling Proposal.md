@@ -42,13 +42,13 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 1`
+- `Prompt 4`
 
 ## Global Status Summary
 
-- Prompt 1 - Pending
-- Prompt 2 - Pending
-- Prompt 3 - Pending
+- Prompt 1 - Completed
+- Prompt 2 - Completed
+- Prompt 3 - Completed
 - Prompt 4 - Pending
 - Prompt 5 - Pending
 - Prompt 6 - Pending
@@ -261,7 +261,7 @@ The prompts below are intentionally split so the implementing agent can:
 - reduce the chance of mixing API, UI, and test work in one oversized step
 - stop cleanly after every meaningful checkpoint
 
-## Prompt 1 - Pending
+## Prompt 1 - Completed
 
 ### Goal
 
@@ -284,7 +284,51 @@ Requirements:
 
 A precise architecture map exists in this file or in prompt notes, and the exact integration points for the hold model are clear before implementation starts.
 
-## Prompt 2 - Pending
+### Prompt 1 Completion Note
+
+Current flow map:
+- main chat availability lookup runs through scheduling capability assessment and stores the availability result in runtime session state under `state["scheduling"]`
+- main chat slot selection calls `/scheduling/select-slot`, which reads the existing chat session state and uses `selected_slot_handoff_payload(...)` to confirm that the chosen `slot_id` exists in the active availability snapshot
+- successful main chat slot selection then starts contact collection through `start_contact_collection_from_scheduling_handoff(...)`, which stores `scheduling_handoff.selected_slot` in session state for later booking completion
+- final main chat booking does not book at slot-click time; it happens later inside `booking_credentials._complete_selected_slot_booking_if_ready(...)`, which calls `scheduling_capability.book_selected_slot(...)`
+- `scheduling_capability.book_selected_slot(...)` currently builds a `BookingRequest` and delegates directly to `scheduling.service.book_slot(...)`
+- `scheduling.service.book_slot(...)` currently validates required booking inputs and delegates directly to the configured provider's `book_slot(...)`
+- sandbox `cal.html` does not use the chat-session handoff path; it calls `/scheduling/book` directly, which also delegates straight to `scheduling.service.book_slot(...)`
+
+Confirmed overlap failure boundaries:
+- slot selection in main chat is only validated against the current in-session availability snapshot, not against a cross-session reservation or hold record
+- direct sandbox booking has no reservation layer between availability display and provider booking
+- final booking for both entry points currently reaches provider booking without an app-level short-lived hold, hold ownership check, or explicit stale-slot conflict contract
+- this means the system can accept two near-simultaneous users as long as the provider layer does not reject the second booking first
+
+Recommended insertion points:
+- hold creation boundary:
+  - main chat: in `/scheduling/select-slot` immediately after authoritative slot validation and before contact collection begins
+  - sandbox: at the point where the selected slot is claimed for booking, ideally through the same scheduling-owned hold API rather than frontend-only state
+- hold persistence owner:
+  - scheduling-owned backend service or scheduling persistence module, not frontend and not `ai_agent.py`
+- hold validation boundary:
+  - inside the scheduling-owned final booking path before provider booking executes
+- hold consumption boundary:
+  - immediately after successful provider booking confirmation
+- hold release or expiry boundary:
+  - scheduling-owned expiration logic with timestamp-based invalidation, plus explicit release where appropriate
+- silent expired-hold recovery boundary:
+  - inside the final booking path after hold lookup fails due to expiry but before returning a user-facing conflict
+
+Files and functions that define the current critical path:
+- `clinic-ai-assistant-src/backend/app/routes/scheduling.py`
+- `clinic-ai-assistant-src/backend/app/services/scheduling_capability.py`
+- `clinic-ai-assistant-src/backend/app/services/booking_credentials.py`
+- `clinic-ai-assistant-src/backend/app/services/ai_agent.py`
+- `clinic-ai-assistant-src/backend/app/services/scheduling/service.py`
+
+Architecture conclusion after Prompt 1:
+- scheduling backend is the correct owner for the overlap solution
+- `ai_agent.py` should remain orchestration-focused and should not own reservation logic
+- the cleanest design is to introduce a shared scheduling-owned hold lifecycle that both main chat and sandbox booking paths must pass through before final provider booking
+
+## Prompt 2 - Completed
 
 ### Goal
 
@@ -308,7 +352,131 @@ Requirements:
 
 The booking and conflict contract is explicit enough that backend, UI, and tests can be implemented without guessing response shape.
 
-## Prompt 3 - Pending
+### Prompt 2 Completion Note
+
+Contract design direction:
+- keep scheduling as the contract owner for hold creation, hold validation, silent recheck, and conflict responses
+- preserve the current distinction between:
+  - slot selection / handoff response
+  - final booking response
+- add machine-readable hold and conflict fields rather than overloading generic provider errors or plain-text `detail` messages
+
+Recommended contract families:
+
+1. Slot selection response contract:
+- used by `/scheduling/select-slot` and by any future sandbox hold-claim path
+- returns whether the slot was successfully claimed for the current session
+- if claim succeeds, contact collection or next booking step may continue
+- if claim fails, return a structured conflict response rather than only an HTTP error string
+
+2. Final booking response contract:
+- used by the scheduling-owned final booking path before and after provider booking
+- distinguishes:
+  - booking confirmed
+  - hold expired but silently recovered
+  - hold rejected
+  - slot unavailable after recheck
+  - provider conflict or provider failure
+
+Recommended hold payload fields:
+- `hold_id`
+- `hold_status`
+- `hold_expires_at`
+- `session_id`
+- `service_id`
+- `slot_id`
+
+Recommended slot-selection success shape:
+- `status = hold_acquired`
+- `next_action = collect_contact` for main chat, or a booking-ready equivalent for sandbox
+- required payload fields:
+  - `message`
+  - `service_id`
+  - `selected_slot`
+  - `hold`
+- optional payload fields:
+  - `booking_progress`
+  - `session_status`
+  - `inspector_payload`
+
+Recommended slot-selection conflict shape:
+- `status = hold_rejected`
+- `reason = slot_conflict`
+- `next_action = refresh_availability`
+- required payload fields:
+  - `message`
+  - `service_id`
+  - `selected_slot`
+- optional payload fields:
+  - `selected_date`
+  - `replacement_slots`
+  - `conflict_slot_id`
+
+Recommended final-booking success shape:
+- `status = confirmed`
+- retain current booking result fields for compatibility:
+  - `provider`
+  - `booking_id`
+  - `start_at`
+  - `end_at`
+  - `display_label`
+  - `confirmation_message`
+- add optional overlap-related fields:
+  - `hold_id`
+  - `hold_status = consumed`
+  - `recovery_applied = true|false`
+
+Recommended final-booking conflict shape:
+- `status = hold_expired` or `status = slot_unavailable`
+- `reason = hold_expired_recheck_failed` or `reason = slot_conflict`
+- `next_action = refresh_availability`
+- required payload fields:
+  - `message`
+  - `service_id`
+  - `selected_slot`
+  - `selected_date`
+- optional payload fields:
+  - `replacement_slots`
+  - `hold_id`
+  - `hold_status`
+
+Recommended provider-conflict shape:
+- `status = slot_unavailable`
+- `reason = provider_conflict`
+- `next_action = refresh_availability`
+- required payload fields:
+  - `message`
+  - `service_id`
+  - `selected_slot`
+- optional payload fields:
+  - `selected_date`
+  - `replacement_slots`
+  - `provider`
+
+Recommended fallback and frontend-safe rules:
+- frontend may always rely on:
+  - `status`
+  - `message`
+  - `service_id` when the booking flow is service-bound
+- frontend should treat these as optional:
+  - `replacement_slots`
+  - `hold`
+  - `selected_date`
+  - `provider`
+- if `next_action = refresh_availability`, UI should treat the selected slot as lost and render returned same-day alternatives when present
+- if `recovery_applied = true`, UI should behave as a normal success path and must not show a conflict banner
+
+Recommended HTTP semantics:
+- keep `200` for confirmed booking and successful silent recovery
+- use `409` for hold rejection, expired-hold failure, and slot-conflict outcomes
+- reserve `503` for real provider unavailability where the system cannot safely determine a user-recoverable slot conflict
+
+Compatibility guidance:
+- preserve current `BookingResult` success fields so existing booking summary rendering remains compatible during the migration
+- introduce overlap-specific fields additively rather than replacing current booking result structure in one step
+- for selection conflicts, move from plain `HTTPException(detail=...)` responses toward structured JSON payloads that the frontend can render consistently
+
+## Prompt 3 - Completed
 
 ### Goal
 
@@ -328,6 +496,50 @@ Requirements:
 ### Required Outcome
 
 A minimal scheduling-owned hold store exists and can represent the required hold lifecycle safely.
+
+### Prompt 3 Completion Note
+
+What changed:
+- added a new scheduling-owned persistence module:
+  - `clinic-ai-assistant-src/backend/app/services/scheduling_hold_store.py`
+- added startup initialization for the new hold table in:
+  - `clinic-ai-assistant-src/backend/app/main.py`
+- added a focused unit test suite for the persistence lifecycle in:
+  - `clinic-ai-assistant-src/backend/tests/unit/test_scheduling_hold_store.py`
+
+Persistence design chosen for the first version:
+- use the existing backend SQLite database rather than introducing a second database
+- keep hold ownership in a separate scheduling-owned table instead of mixing it into lead/session rows
+- reuse the existing tenant table through backend service helpers so holds remain tenant-scoped
+- keep the implementation small and deterministic while preserving room for later scheduling-specific expansion
+
+Hold store capabilities now represented:
+- create an active hold for exact `tenant + slot_id + session_id`
+- detect and return an already-active hold for the same exact slot
+- mark stale active holds as expired based on timestamp
+- update holds into `released` and `consumed` terminal states
+- read holds with active-vs-inactive awareness for later booking-path integration
+
+Current table intent:
+- one row per hold lifecycle instance
+- `hold_id` is the durable external identifier
+- `status` supports:
+  - `active`
+  - `expired`
+  - `released`
+  - `consumed`
+- `expires_at` is the deterministic expiration boundary
+- `released_reason`, `released_at`, and `consumed_at` preserve lifecycle traceability
+
+Verification completed for Prompt 3:
+- automated test run:
+  - `.\\.venv\\Scripts\\python.exe -m pytest .\\tests\\unit\\test_scheduling_hold_store.py -q --basetemp="F:\\temp\\clinic-ai-assistant\\pytest-slot-hold-store"`
+- result:
+  - `4 passed`
+
+Architecture result after Prompt 3:
+- the repo now has the minimal persistence layer needed for the hold model
+- runtime selection and booking flows do not use it yet; that integration remains for the next prompts
 
 ## Prompt 4 - Pending
 

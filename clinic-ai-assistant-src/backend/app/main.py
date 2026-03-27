@@ -16,6 +16,7 @@ from app.services.config_loader import (
     load_public_profile_config,
 )
 from app.services.lead_store import init_leads_db
+from app.services.scheduling_hold_store import init_hold_store
 
 load_dotenv()
 
@@ -23,6 +24,7 @@ if not os.getenv("OPENAI_API_KEY"):
     raise RuntimeError("OPENAI_API_KEY is required at startup")
 
 init_leads_db()
+init_hold_store()
 
 app = FastAPI()
 
