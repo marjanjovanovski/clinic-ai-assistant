@@ -27,6 +27,8 @@ Completed task files should be archived into `ProjectTasks_Done`.
 
 For new pending tasks, prefer a dedicated task folder inside `ProjectTasks_Pending` rather than a loose standalone markdown file.
 
+When a completed task uses a folder-based structure with companion artifacts, archive the whole task folder into `ProjectTasks_Done` rather than moving only the markdown file.
+
 ## Token Efficiency Rule
 
 To preserve weekly usage while keeping output quality high:
@@ -89,6 +91,23 @@ Required behavior:
 Compatibility rule:
 - existing flat pending `.md` task files may remain in place until they are migrated or completed
 - new folder-based tooling should handle legacy flat task files explicitly during the transition period rather than assuming the repo is already fully migrated
+
+## Completed Task Archive Convention
+
+When a task created under the folder-based workflow is merged into `main` and moved out of `ProjectTasks_Pending`:
+- archive the whole task folder into `ProjectTasks_Done`
+- keep the markdown task file together with its companion JSON artifacts
+- keep any same-folder fix follow-up files together with the original task when they belong to the same completed workstream
+
+Required behavior:
+- do not flatten a folder-based completed task into a single markdown file if that would separate it from:
+  - `manual_testing_coverage.json`
+  - `manual_testing_coverage_FIXNN.json`
+  - related same-folder fix task files
+- preserve the folder name when moving it from `ProjectTasks_Pending` to `ProjectTasks_Done`
+- for older flat tasks that never used the folder-based workflow, the existing flat archive style is still acceptable
+
+This rule exists so completed folder-based tasks remain self-contained and their manual-verification artifacts are not lost.
 
 ## Dashboard-Driven Fix Follow-Up Rule
 
@@ -298,7 +317,9 @@ Minimum merge readiness conditions:
 Only after merge is complete:
 - set `Merge To Main - Completed`
 - merge the branch into `main`
-- move the task file from `ProjectTasks_Pending` to `ProjectTasks_Done`
+- archive the completed task:
+  - move the whole task folder when the task uses the folder-based workflow
+  - move only the markdown file when the task is one of the older flat tasks
 - switch the working branch back to `main` if needed and treat that state as the new clean baseline
 - start any new implementation task from a fresh dedicated branch created from the updated `main`
 
