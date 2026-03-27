@@ -69,11 +69,12 @@ def _appointment_summary_projection(state: dict) -> tuple[str, str, str | None, 
         booked_display_label = booking_result.get("display_label")
         if isinstance(booked_display_label, str) and booked_display_label.strip():
             appointment_display = booked_display_label.strip()
-        appointment_status = "Потврден термин"
-        appointment_source = "calendar_booking"
         confirmation_message = booking_result.get("confirmation_message")
         if isinstance(confirmation_message, str) and confirmation_message.strip():
             subtitle = confirmation_message.strip()
+        if booking_result.get("status") == "confirmed" or booking_result.get("booking_id"):
+            appointment_status = "Потврден термин"
+            appointment_source = "calendar_booking"
 
     return appointment_display, appointment_status, appointment_source, subtitle
 
@@ -151,16 +152,37 @@ def _complete_selected_slot_booking_if_ready(
         return None
 
     from app.services import scheduling_capability
+    from app.services.scheduling.service import SchedulingConfigError
 
-    booking_result = scheduling_capability.book_selected_slot(
-        tenant=tenant,
-        service_id=service_id.strip(),
-        slot_id=slot_id.strip(),
-        patient_name=patient_name.strip(),
-        patient_phone=data.get("phone"),
-        patient_email=data.get("email"),
-        note="Booked from main chat scheduling flow",
-    )
+    hold = scheduling_handoff.get("hold")
+    try:
+        booking_result = scheduling_capability.book_selected_slot(
+            tenant=tenant,
+            service_id=service_id.strip(),
+            slot_id=slot_id.strip(),
+            patient_name=patient_name.strip(),
+            patient_phone=data.get("phone"),
+            patient_email=data.get("email"),
+            note="Booked from main chat scheduling flow",
+            session_id=hold.get("session_id") if isinstance(hold, dict) else None,
+            hold_id=hold.get("hold_id") if isinstance(hold, dict) else None,
+        )
+    except SchedulingConfigError as exc:
+        booking_payload = {
+            "status": "slot_unavailable",
+            "provider": "scheduling",
+            "booking_id": "",
+            "start_at": selected_slot.get("start_at"),
+            "end_at": selected_slot.get("end_at"),
+            "display_label": selected_slot.get("display_label", ""),
+            "confirmation_message": str(exc),
+            "source_payload": {
+                "slot_id": slot_id.strip(),
+                "reason": "slot_conflict",
+            },
+        }
+        state["booking_result"] = booking_payload
+        return booking_payload
     booking_payload = booking_result.to_dict()
     state["booking_result"] = booking_payload
     return booking_payload

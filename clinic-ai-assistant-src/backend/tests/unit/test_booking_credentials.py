@@ -109,4 +109,52 @@ def test_complete_selected_slot_booking_if_ready_books_once_and_stores_payload(m
         "patient_phone": "070000000",
         "patient_email": "mail@test.mk",
         "note": "Booked from main chat scheduling flow",
+        "session_id": None,
+        "hold_id": None,
     }
+
+
+def test_complete_selected_slot_booking_if_ready_passes_hold_identity_and_returns_conflict_payload(monkeypatch):
+    from app.services.scheduling.service import SchedulingConfigError
+
+    def fake_book_selected_slot(**kwargs):
+        assert kwargs["session_id"] == "session-1"
+        assert kwargs["hold_id"] == "hold-1"
+        raise SchedulingConfigError(
+            "The selected slot is no longer available. I will show you other available slots for the same day."
+        )
+
+    monkeypatch.setattr(
+        "app.services.scheduling_capability.book_selected_slot",
+        fake_book_selected_slot,
+    )
+
+    state = {
+        "stage": "completed",
+        "service_id": "consultation",
+        "scheduling_handoff": {
+            "service_id": "consultation",
+            "selected_slot": {
+                "slot_id": "mock|slot-1",
+                "display_label": "26 Mar 2026 во 16:00",
+                "start_at": "2026-03-26T16:00:00+01:00",
+                "end_at": "2026-03-26T16:30:00+01:00",
+            },
+            "hold": {
+                "hold_id": "hold-1",
+                "session_id": "session-1",
+            },
+        },
+    }
+
+    result = booking_credentials._complete_selected_slot_booking_if_ready(
+        tenant="milena_dental",
+        state=state,
+        data={"name": "Marjan", "phone": "070000000", "email": "mail@test.mk"},
+    )
+
+    assert result["status"] == "slot_unavailable"
+    assert result["provider"] == "scheduling"
+    assert result["booking_id"] == ""
+    assert "no longer available" in result["confirmation_message"]
+    assert result["source_payload"]["reason"] == "slot_conflict"

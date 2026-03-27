@@ -5,6 +5,12 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field, replace
 from datetime import date, timedelta
 
+from app.services.scheduling_hold_store import (
+    HOLD_STATUS_ACTIVE,
+    HOLD_STATUS_CONSUMED,
+    get_slot_hold,
+    update_hold_status,
+)
 from app.services.scheduling.models import AvailabilityRequest, BookingRequest
 from app.services.scheduling.service import (
     SchedulingConfigError,
@@ -595,7 +601,33 @@ def book_selected_slot(
     patient_phone: str | None = None,
     patient_email: str | None = None,
     note: str | None = None,
+    session_id: str | None = None,
+    hold_id: str | None = None,
 ):
+    if session_id or hold_id:
+        hold = get_slot_hold(
+            tenant=tenant,
+            slot_id=slot_id,
+            session_id=session_id,
+            include_inactive=True,
+        )
+        if not isinstance(hold, dict):
+            raise SchedulingConfigError(
+                "The selected slot is no longer available. I will show you other available slots for the same day."
+            )
+        if hold_id and hold.get("hold_id") != hold_id:
+            raise SchedulingConfigError(
+                "The selected slot is no longer available. I will show you other available slots for the same day."
+            )
+        if session_id and hold.get("session_id") != session_id:
+            raise SchedulingConfigError(
+                "The selected slot is no longer available. I will show you other available slots for the same day."
+            )
+        if hold.get("status") != HOLD_STATUS_ACTIVE:
+            raise SchedulingConfigError(
+                "The selected slot is no longer available. I will show you other available slots for the same day."
+            )
+
     request = BookingRequest(
         tenant=tenant,
         service_id=service_id,
@@ -605,4 +637,12 @@ def book_selected_slot(
         patient_email=patient_email,
         note=note,
     )
-    return book_slot(request)
+    result = book_slot(request)
+    if session_id or hold_id:
+        resolved_hold_id = hold_id or hold.get("hold_id")
+        if isinstance(resolved_hold_id, str) and resolved_hold_id.strip():
+            update_hold_status(
+                hold_id=resolved_hold_id.strip(),
+                status=HOLD_STATUS_CONSUMED,
+            )
+    return result

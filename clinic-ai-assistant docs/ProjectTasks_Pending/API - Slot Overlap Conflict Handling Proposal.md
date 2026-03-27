@@ -42,7 +42,7 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 5`
+- `Prompt 6`
 
 ## Global Status Summary
 
@@ -50,7 +50,7 @@ Status values allowed in this document:
 - Prompt 2 - Completed
 - Prompt 3 - Completed
 - Prompt 4 - Completed
-- Prompt 5 - Pending
+- Prompt 5 - Completed
 - Prompt 6 - Pending
 - Prompt 7 - Pending
 - Prompt 8 - Pending
@@ -596,7 +596,7 @@ Verification completed for Prompt 4:
 - result:
   - `13 passed`
 
-## Prompt 5 - Pending
+## Prompt 5 - Completed
 
 ### Goal
 
@@ -616,6 +616,39 @@ Requirements:
 ### Required Outcome
 
 Final booking becomes an authoritative guarded boundary rather than a best-effort attempt based only on earlier slot display.
+
+### Prompt 5 Completion Note
+
+What changed:
+- updated the scheduling-owned main-chat booking bridge so `book_selected_slot(...)` now validates active hold ownership before provider booking when a `session_id` / `hold_id` is supplied
+- if the hold is missing, belongs to another session, or is no longer active, the booking bridge now rejects the booking with a clear user-facing stale-slot message instead of proceeding to provider booking
+- after successful provider booking, the validated hold is now marked as `consumed`
+- updated the main-chat booking completion path so it passes the selected-slot hold identity from `scheduling_handoff.hold` into the scheduling booking bridge
+- added a controlled conflict payload path in booking completion so a rejected final booking can still produce a clean user-facing reply instead of crashing the flow
+- updated appointment-summary projection so only a true confirmed booking result is treated as a confirmed appointment state
+
+Compatibility decision for this prompt:
+- enforced the hold boundary immediately for the main-chat scheduling-owned booking bridge
+- did not yet force the same hold requirement on the raw `/scheduling/book` sandbox path because the sandbox-specific adaptation prompt still needs to update that surface and its caller contract
+- this keeps `cal.html` compatible during the staged rollout while the main authoritative chat-completion path is already protected
+
+Behavior after Prompt 5:
+- main chat final booking no longer depends only on earlier selected-slot display
+- the booking bridge now requires that the active hold still belongs to the same session
+- successful booking consumes the hold
+- stale or invalid hold ownership now yields a clear lost-slot result instead of silently reaching provider booking
+
+Files changed for Prompt 5:
+- `clinic-ai-assistant-src/backend/app/services/scheduling_capability.py`
+- `clinic-ai-assistant-src/backend/app/services/booking_credentials.py`
+- `clinic-ai-assistant-src/backend/tests/unit/test_scheduling_capability.py`
+- `clinic-ai-assistant-src/backend/tests/unit/test_booking_credentials.py`
+
+Verification completed for Prompt 5:
+- automated test run:
+  - `.\\.venv\\Scripts\\python.exe -m pytest .\\tests\\unit\\test_scheduling_capability.py .\\tests\\unit\\test_booking_credentials.py .\\tests\\integration\\test_availability_intent_gating.py -q --basetemp="F:\\temp\\clinic-ai-assistant\\pytest-slot-booking-guard"`
+- result:
+  - `25 passed`
 
 ## Prompt 6 - Pending
 
