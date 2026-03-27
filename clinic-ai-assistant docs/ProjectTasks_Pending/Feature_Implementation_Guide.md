@@ -374,11 +374,47 @@ Required behavior:
 - make it possible for a reviewer to validate the feature without reverse-engineering the code
 - include separate scenario coverage when success path and conflict path differ meaningfully
 - keep steps practical, observable, and concise
+- organize the section into clear categories when the feature has multiple paths or surfaces
+- inside each category, group steps under named tests or scenarios rather than one long undifferentiated list
+- each named test should have a short purpose line when the outcome is not obvious from the title alone
+- prefer keeping the structure shallow and readable rather than deeply nested prose
 
 Recommended format:
-- Step
-- Action
-- Expected Result
+- `Manual Testing Steps`
+- `Category`
+- `Test`
+- `Step`
+- `Action`
+- `Expected Result`
+
+Recommended structure:
+
+`Manual Testing Steps`
+
+`Category 1 - <area or surface>`
+
+`Test 1 - <scenario name>`
+
+| Step | Action | Expected Result |
+|---|---|---|
+| 1 | Do the first action | The expected initial outcome appears |
+| 2 | Do the next action | The target behavior appears |
+
+`Test 2 - <scenario name>`
+
+| Step | Action | Expected Result |
+|---|---|---|
+| 1 | Do the first action | The expected initial outcome appears |
+| 2 | Do the next action | The target behavior appears |
+
+`Category 2 - <area or surface>`
+
+`Test 1 - <scenario name>`
+
+| Step | Action | Expected Result |
+|---|---|---|
+| 1 | Do the first action | The expected initial outcome appears |
+| 2 | Do the next action | The target behavior appears |
 
 Example compact table:
 
@@ -387,6 +423,12 @@ Example compact table:
 | 1 | Open the page or trigger the flow | Initial state loads correctly |
 | 2 | Perform the user action under test | Target state change appears |
 | 3 | Repeat the conflicting or recovery action | Conflict or recovery behavior matches the task definition |
+
+Recommended category examples:
+- `Category 1 - Happy Path`
+- `Category 2 - Conflict Or Recovery Path`
+- `Category 3 - Surface Parity`
+- `Category 4 - State Safety Or Regression Checks`
 
 ## Final Residual Check Rule
 

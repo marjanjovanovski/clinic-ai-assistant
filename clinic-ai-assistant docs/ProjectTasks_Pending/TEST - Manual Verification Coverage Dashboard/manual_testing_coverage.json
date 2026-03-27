@@ -1,0 +1,11 @@
+{
+  "task_name": "TEST - Manual Verification Coverage Dashboard",
+  "task_file": "TEST - Manual Verification Coverage Dashboard.md",
+  "status": "pending_manual_verification",
+  "categories": [],
+  "summary": {
+    "not_run": 0,
+    "pass": 0,
+    "fail": 0
+  }
+}
