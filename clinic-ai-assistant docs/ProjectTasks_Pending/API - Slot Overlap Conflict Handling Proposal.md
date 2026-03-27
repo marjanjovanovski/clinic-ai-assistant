@@ -42,7 +42,7 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `None - Ready for review`
+- `Prompt 13`
 
 ## Global Status Summary
 
@@ -58,6 +58,7 @@ Status values allowed in this document:
 - Prompt 10 - Completed
 - Prompt 11 - Completed
 - Prompt 12 - Completed
+- Prompt 13 - Pending
 
 ## Working Rules For The Implementing AI Agent
 
@@ -1098,6 +1099,27 @@ Final repo residual check:
 Accepted environment note:
 - on this machine, sandboxed test execution could not reliably create or finalize external SQLite-backed temp paths for the full suite
 - the final automated verification therefore required one non-destructive escalated pytest run using an external temp directory outside the repo
+
+## Prompt 13 - Pending
+
+### Goal
+
+Track branch-level manual verification and merge readiness before this task can move out of `ProjectTasks_Pending`.
+
+### Instructions
+
+Implementation and automated verification are complete. This prompt stays pending until the user performs manual verification on the branch.
+
+Requirements:
+- keep this prompt `Pending` until the user confirms manual verification is complete
+- record which manual verification scenarios were performed
+- record whether the user approved the branch as merge-ready
+- keep `Merge To Main` as `Pending` until this prompt is completed and the branch is actually merged
+- if manual verification finds issues, continue the task from this file with follow-up work instead of treating the branch as finished
+
+### Required Outcome
+
+Manual verification and merge readiness are tracked explicitly as their own prompt status before merge.
 
 ---
 

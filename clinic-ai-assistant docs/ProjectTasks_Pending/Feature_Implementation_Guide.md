@@ -145,8 +145,10 @@ Required behavior:
   - or `Merge To Main - Completed`
 - when implementation prompts are complete but the branch has not yet been manually verified and merged, the task file must remain in `ProjectTasks_Pending`
 - the task file should act as the final source of truth for whether the feature is only implemented on a branch or is actually merged into `main`
-- when all prompts are complete but merge is still pending, it is recommended to set:
-  - `Current Active Prompt` to `Manual Verification / Merge`
+- when implementation is complete but manual verification or merge is still pending, the task file should include one final tracked prompt such as:
+  - `Prompt N - Manual Verification / Merge Readiness`
+- while that work is still pending, set:
+  - `Current Active Prompt` to that manual-verification prompt
   - `Merge To Main` to `Pending`
 
 This rule exists so that implementation completion and merge completion are not treated as the same event.
@@ -221,6 +223,7 @@ Minimum merge readiness conditions:
 - implementation prompts are completed, or any blocked items are explicitly accepted by the user
 - the task file statuses are updated
 - required automated tests were run, or blockers were documented clearly
+- the manual verification / merge readiness prompt is completed
 - the user has performed manual verification on the branch
 - the user has decided the branch is ready for merge
 
@@ -253,6 +256,8 @@ Example final response when no pending prompts remain:
 
 If no prompts remain but merge is still pending, the task file must stay in `ProjectTasks_Pending` with `Merge To Main - Pending`.
 
+If merge is still pending because manual verification has not been completed yet, that state should be represented as its own final prompt rather than only as freeform prose.
+
 Only after the branch is merged into `main` should the task file be archived into `ProjectTasks_Done`.
 
 ## Master Prompt Authoring Rule
@@ -263,6 +268,7 @@ To keep the process bulletproof without unnecessary redundancy:
 - duplicate workflow rules into a feature file only when that feature needs a special exception
 - if an older pending file started as a proposal-only note but is now intended to drive implementation, rewrite it into a proper execution-ready master prompt document instead of appending more freeform proposal text
 - prefer prompt sections that map to real engineering boundaries such as architecture review, contracts, persistence, runtime integration, UI adaptation, logging, tests, and final verification
+- when branch-level human verification is required before merge, add one final prompt section for `Manual Verification / Merge Readiness`
 - split large features into enough prompts that each one has a clear verification target and a natural commit boundary
 - do not pack unrelated backend, frontend, and testing work into one oversized prompt when separate prompts would reduce token load and execution risk
 
@@ -317,7 +323,8 @@ For new task files, prefer this top-level order:
 11. `Current Repo Truth`
 12. `Architecture Guidance`
 13. Prompt sections in execution order
-14. Archive appendix sections at the end
+14. Final tracked `Manual Verification / Merge Readiness` prompt when the task remains pending until human verification
+15. Archive appendix sections at the end
 
 This keeps task files easier to continue across sessions and makes it easier for an implementing agent to identify status, constraints, architecture boundaries, and the next safe execution step quickly.
 
