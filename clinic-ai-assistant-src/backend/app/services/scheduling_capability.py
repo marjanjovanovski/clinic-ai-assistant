@@ -3,9 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, replace
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
-from app.services.scheduling.models import AvailabilityRequest, BookingRequest
+from app.services.scheduling_hold_store import (
+    HOLD_STATUS_ACTIVE,
+    HOLD_STATUS_CONSUMED,
+    HOLD_STATUS_EXPIRED,
+    create_slot_hold,
+    get_slot_hold,
+    update_hold_status,
+)
+from app.services.session_trace_logger import trace_event
+from app.services.scheduling.models import AvailabilityRequest, BookingRequest, BookingResult
 from app.services.scheduling.service import (
     SchedulingConfigError,
     SchedulingDisabledError,
@@ -21,6 +30,57 @@ CAPABILITY_NEXT_RETURN = "return_response"
 OPERATION_AVAILABILITY = "availability_lookup"
 OPERATION_BOOK_SLOT = "book_selected_slot"
 AVAILABILITY_INTENT_MARKER_KEY = "_availability_intent_pending"
+SLOT_UNAVAILABLE_MESSAGE = "The selected slot is no longer available. I will show you other available slots for the same day."
+SLOT_CONFLICT_NEXT_ACTION = "refresh_availability"
+SLOT_CONFLICT_REASON = "slot_conflict"
+SLOT_CONFLICT_SCOPE = "same_day"
+
+
+class SchedulingSlotConflictError(SchedulingConfigError):
+    """Structured recoverable slot-conflict error for UI-safe fallback handling."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        service_id: str,
+        selected_slot: dict | None,
+        replacement_slots: list[dict] | None = None,
+        next_action: str = SLOT_CONFLICT_NEXT_ACTION,
+        reason: str = SLOT_CONFLICT_REASON,
+        fallback_scope: str = SLOT_CONFLICT_SCOPE,
+        fallback_date: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.service_id = service_id
+        self.selected_slot = selected_slot if isinstance(selected_slot, dict) else None
+        self.replacement_slots = replacement_slots if isinstance(replacement_slots, list) else []
+        self.next_action = next_action
+        self.reason = reason
+        self.fallback_scope = fallback_scope
+        self.fallback_date = fallback_date
+
+    def to_booking_result_payload(self, *, slot_id: str) -> dict:
+        selected_slot = self.selected_slot if isinstance(self.selected_slot, dict) else {}
+        return {
+            "status": "slot_unavailable",
+            "provider": "scheduling",
+            "booking_id": "",
+            "start_at": selected_slot.get("start_at"),
+            "end_at": selected_slot.get("end_at"),
+            "display_label": "",
+            "confirmation_message": str(self),
+            "source_payload": {
+                "slot_id": slot_id,
+                "service_id": self.service_id,
+                "reason": self.reason,
+                "next_action": self.next_action,
+                "fallback_scope": self.fallback_scope,
+                "fallback_date": self.fallback_date,
+                "selected_slot": dict(selected_slot) if isinstance(selected_slot, dict) else None,
+                "replacement_slots": [slot for slot in self.replacement_slots if isinstance(slot, dict)],
+            },
+        }
 
 
 @dataclass(slots=True)
@@ -586,6 +646,157 @@ def lookup_availability(
     return get_availability(request)
 
 
+def _slot_day_for_recheck(slot_id: str, selected_slot: dict | None) -> str | None:
+    start_at = selected_slot.get("start_at") if isinstance(selected_slot, dict) else None
+    if isinstance(start_at, str) and start_at.strip():
+        try:
+            return datetime.fromisoformat(start_at.strip()).date().isoformat()
+        except ValueError:
+            return None
+
+    parts = slot_id.split("|")
+    if len(parts) >= 2:
+        candidate = parts[1].strip()
+        if candidate:
+            try:
+                return datetime.fromisoformat(candidate).date().isoformat()
+            except ValueError:
+                return None
+    return None
+
+
+def _slot_timezone_for_recheck(tenant: str, selected_slot: dict | None) -> str:
+    timezone_name = selected_slot.get("timezone") if isinstance(selected_slot, dict) else None
+    if isinstance(timezone_name, str) and timezone_name.strip():
+        return timezone_name.strip()
+    return get_capability_snapshot(tenant).timezone
+
+
+def _slot_is_still_available(
+    *,
+    tenant: str,
+    service_id: str,
+    slot_id: str,
+    selected_slot: dict | None,
+) -> bool:
+    slot_day = _slot_day_for_recheck(slot_id, selected_slot)
+    if not slot_day:
+        return False
+    timezone_name = _slot_timezone_for_recheck(tenant, selected_slot)
+    availability = lookup_availability(
+        tenant=tenant,
+        service_id=service_id,
+        date_from=slot_day,
+        date_to=slot_day,
+        timezone=timezone_name,
+    )
+    availability_payload = availability.to_dict()
+    slots = availability_payload.get("slots") if isinstance(availability_payload, dict) else None
+    if not isinstance(slots, list):
+        return False
+    return any(isinstance(slot, dict) and slot.get("slot_id") == slot_id for slot in slots)
+
+
+def _same_day_replacement_slots(
+    *,
+    tenant: str,
+    service_id: str,
+    slot_id: str,
+    selected_slot: dict | None,
+) -> tuple[str | None, list[dict]]:
+    slot_day = _slot_day_for_recheck(slot_id, selected_slot)
+    if not slot_day:
+        return None, []
+
+    timezone_name = _slot_timezone_for_recheck(tenant, selected_slot)
+    availability = lookup_availability(
+        tenant=tenant,
+        service_id=service_id,
+        date_from=slot_day,
+        date_to=slot_day,
+        timezone=timezone_name,
+    )
+    availability_payload = availability.to_dict()
+    slots = availability_payload.get("slots") if isinstance(availability_payload, dict) else None
+    if not isinstance(slots, list):
+        return slot_day, []
+    replacement_slots = [
+        dict(slot)
+        for slot in slots
+        if isinstance(slot, dict) and slot.get("slot_id") != slot_id
+    ]
+    return slot_day, replacement_slots[:6]
+
+
+def _raise_slot_unavailable(
+    *,
+    tenant: str,
+    service_id: str,
+    slot_id: str,
+    selected_slot: dict | None,
+    session_id: str | None = None,
+) -> None:
+    fallback_date, replacement_slots = _same_day_replacement_slots(
+        tenant=tenant,
+        service_id=service_id,
+        slot_id=slot_id,
+        selected_slot=selected_slot,
+    )
+    _trace_scheduling_decision(
+        tenant,
+        session_id,
+        "SCHEDULING_SLOT_CONFLICT",
+        service_id=service_id,
+        slot_id=slot_id,
+        reason=SLOT_CONFLICT_REASON,
+        next_action=SLOT_CONFLICT_NEXT_ACTION,
+        fallback_scope=SLOT_CONFLICT_SCOPE,
+        fallback_date=fallback_date,
+        replacement_count=len(replacement_slots),
+    )
+    raise SchedulingSlotConflictError(
+        SLOT_UNAVAILABLE_MESSAGE,
+        service_id=service_id,
+        selected_slot=selected_slot,
+        replacement_slots=replacement_slots,
+        fallback_date=fallback_date,
+    )
+
+
+def slot_conflict_error(
+    *,
+    tenant: str,
+    service_id: str,
+    slot_id: str,
+    selected_slot: dict | None,
+    message: str = SLOT_UNAVAILABLE_MESSAGE,
+) -> SchedulingSlotConflictError:
+    fallback_date, replacement_slots = _same_day_replacement_slots(
+        tenant=tenant,
+        service_id=service_id,
+        slot_id=slot_id,
+        selected_slot=selected_slot,
+    )
+    return SchedulingSlotConflictError(
+        message,
+        service_id=service_id,
+        selected_slot=selected_slot,
+        replacement_slots=replacement_slots,
+        fallback_date=fallback_date,
+    )
+
+
+def _trace_scheduling_decision(
+    tenant: str,
+    session_id: str | None,
+    event: str,
+    **fields,
+) -> None:
+    if not isinstance(session_id, str) or not session_id.strip():
+        return
+    trace_event(tenant, session_id.strip(), event, **fields)
+
+
 def book_selected_slot(
     *,
     tenant: str,
@@ -595,7 +806,98 @@ def book_selected_slot(
     patient_phone: str | None = None,
     patient_email: str | None = None,
     note: str | None = None,
+    session_id: str | None = None,
+    hold_id: str | None = None,
+    selected_slot: dict | None = None,
 ):
+    recovery_applied = False
+    if session_id or hold_id:
+        hold = get_slot_hold(
+            tenant=tenant,
+            slot_id=slot_id,
+            session_id=session_id,
+            include_inactive=True,
+        )
+        hold_is_active = (
+            isinstance(hold, dict)
+            and (not hold_id or hold.get("hold_id") == hold_id)
+            and (not session_id or hold.get("session_id") == session_id)
+            and hold.get("status") == HOLD_STATUS_ACTIVE
+        )
+        if not hold_is_active:
+            can_attempt_recovery = (
+                isinstance(hold, dict)
+                and hold.get("status") == HOLD_STATUS_EXPIRED
+                and (not hold_id or hold.get("hold_id") == hold_id)
+                and (not session_id or hold.get("session_id") == session_id)
+            )
+            if can_attempt_recovery and _slot_is_still_available(
+                tenant=tenant,
+                service_id=service_id,
+                slot_id=slot_id,
+                selected_slot=selected_slot,
+            ):
+                refreshed_hold = create_slot_hold(
+                    tenant=tenant,
+                    service_id=service_id,
+                    slot_id=slot_id,
+                    session_id=session_id or str(hold.get("session_id") or ""),
+                )
+                if isinstance(refreshed_hold, dict) and refreshed_hold.get("session_id") == (session_id or hold.get("session_id")):
+                    hold = refreshed_hold
+                    recovery_applied = True
+                    _trace_scheduling_decision(
+                        tenant,
+                        session_id,
+                        "SCHEDULING_HOLD_REFRESHED",
+                        service_id=service_id,
+                        slot_id=slot_id,
+                        previous_hold_id=hold_id,
+                        refreshed_hold_id=hold.get("hold_id"),
+                    )
+                else:
+                    _raise_slot_unavailable(
+                        tenant=tenant,
+                        service_id=service_id,
+                        slot_id=slot_id,
+                        selected_slot=selected_slot,
+                        session_id=session_id,
+                    )
+            else:
+                _trace_scheduling_decision(
+                    tenant,
+                    session_id,
+                    "SCHEDULING_BOOKING_MISMATCH",
+                    service_id=service_id,
+                    slot_id=slot_id,
+                    hold_id=hold_id,
+                    observed_hold_status=hold.get("status") if isinstance(hold, dict) else None,
+                )
+                _raise_slot_unavailable(
+                    tenant=tenant,
+                    service_id=service_id,
+                    slot_id=slot_id,
+                    selected_slot=selected_slot,
+                    session_id=session_id,
+                )
+        if not isinstance(hold, dict) or hold.get("status") != HOLD_STATUS_ACTIVE:
+            _trace_scheduling_decision(
+                tenant,
+                session_id,
+                "SCHEDULING_BOOKING_MISMATCH",
+                service_id=service_id,
+                slot_id=slot_id,
+                hold_id=hold_id,
+                observed_hold_status=hold.get("status") if isinstance(hold, dict) else None,
+            )
+            _raise_slot_unavailable(
+                tenant=tenant,
+                service_id=service_id,
+                slot_id=slot_id,
+                selected_slot=selected_slot,
+                session_id=session_id,
+            )
+
     request = BookingRequest(
         tenant=tenant,
         service_id=service_id,
@@ -605,4 +907,34 @@ def book_selected_slot(
         patient_email=patient_email,
         note=note,
     )
-    return book_slot(request)
+    result = book_slot(request)
+    if recovery_applied:
+        source_payload = dict(result.source_payload or {})
+        source_payload["recovery_applied"] = True
+        result = BookingResult(
+            status=result.status,
+            provider=result.provider,
+            booking_id=result.booking_id,
+            start_at=result.start_at,
+            end_at=result.end_at,
+            display_label=result.display_label,
+            confirmation_message=result.confirmation_message,
+            source_payload=source_payload,
+        )
+    if session_id or hold_id:
+        resolved_hold_id = hold_id or hold.get("hold_id")
+        if isinstance(resolved_hold_id, str) and resolved_hold_id.strip():
+            update_hold_status(
+                hold_id=resolved_hold_id.strip(),
+                status=HOLD_STATUS_CONSUMED,
+            )
+    _trace_scheduling_decision(
+        tenant,
+        session_id,
+        "SCHEDULING_BOOKING_CONFIRMED",
+        service_id=service_id,
+        slot_id=slot_id,
+        booking_id=result.booking_id,
+        recovery_applied=recovery_applied,
+    )
+    return result

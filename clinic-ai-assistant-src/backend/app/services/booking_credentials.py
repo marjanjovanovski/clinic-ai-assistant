@@ -66,14 +66,19 @@ def _appointment_summary_projection(state: dict) -> tuple[str, str, str | None, 
         appointment_source = "selected_slot"
 
     if isinstance(booking_result, dict):
+        if booking_result.get("status") == "slot_unavailable":
+            appointment_display = ""
+            appointment_status = "Терминот не е достапен"
+            appointment_source = None
         booked_display_label = booking_result.get("display_label")
         if isinstance(booked_display_label, str) and booked_display_label.strip():
             appointment_display = booked_display_label.strip()
-        appointment_status = "Потврден термин"
-        appointment_source = "calendar_booking"
         confirmation_message = booking_result.get("confirmation_message")
         if isinstance(confirmation_message, str) and confirmation_message.strip():
             subtitle = confirmation_message.strip()
+        if booking_result.get("status") == "confirmed" or booking_result.get("booking_id"):
+            appointment_status = "Потврден термин"
+            appointment_source = "calendar_booking"
 
     return appointment_display, appointment_status, appointment_source, subtitle
 
@@ -122,6 +127,71 @@ def booking_summary_payload(
     }
 
 
+def scheduling_fallback_state_from_booking_result(
+    state: dict,
+    booking_result: dict | None,
+) -> dict | None:
+    if not isinstance(state, dict) or not isinstance(booking_result, dict):
+        return None
+
+    if booking_result.get("status") != "slot_unavailable":
+        return None
+
+    source_payload = booking_result.get("source_payload")
+    if not isinstance(source_payload, dict):
+        return None
+
+    replacement_slots = source_payload.get("replacement_slots")
+    if not isinstance(replacement_slots, list) or not replacement_slots:
+        return None
+
+    service_id = source_payload.get("service_id") or state.get("service_id")
+    if not isinstance(service_id, str) or not service_id.strip():
+        return None
+
+    selected_slot = source_payload.get("selected_slot")
+    fallback_date = source_payload.get("fallback_date")
+    timezone_name = (
+        selected_slot.get("timezone")
+        if isinstance(selected_slot, dict) and isinstance(selected_slot.get("timezone"), str)
+        else None
+    )
+
+    return {
+        "operation": "availability_lookup",
+        "status": "completed",
+        "reason": "slot_conflict_same_day_fallback",
+        "capability_state": {
+            "capability": "scheduling",
+            "operation": "availability_lookup",
+            "status": "completed",
+            "service_id": service_id.strip(),
+            "slot_id": source_payload.get("slot_id"),
+            "timezone": timezone_name,
+            "missing_inputs": [],
+        },
+        "output_payload": {
+            "capability": "scheduling",
+            "operation": "availability_lookup",
+            "provider": booking_result.get("provider"),
+            "request": {
+                "service_id": service_id.strip(),
+                "date_from": fallback_date,
+                "date_to": fallback_date,
+                "timezone": timezone_name,
+                "preferred_days": [],
+                "preferred_time_range": None,
+            },
+            "result": {
+                "provider": booking_result.get("provider"),
+                "slots": [slot for slot in replacement_slots if isinstance(slot, dict)],
+            },
+            "reply_text": booking_result.get("confirmation_message"),
+        },
+        "booking_handoff_ready": True,
+    }
+
+
 def _complete_selected_slot_booking_if_ready(
     *,
     tenant: str,
@@ -151,16 +221,42 @@ def _complete_selected_slot_booking_if_ready(
         return None
 
     from app.services import scheduling_capability
+    from app.services.scheduling.service import SchedulingConfigError
 
-    booking_result = scheduling_capability.book_selected_slot(
-        tenant=tenant,
-        service_id=service_id.strip(),
-        slot_id=slot_id.strip(),
-        patient_name=patient_name.strip(),
-        patient_phone=data.get("phone"),
-        patient_email=data.get("email"),
-        note="Booked from main chat scheduling flow",
-    )
+    hold = scheduling_handoff.get("hold")
+    try:
+        booking_result = scheduling_capability.book_selected_slot(
+            tenant=tenant,
+            service_id=service_id.strip(),
+            slot_id=slot_id.strip(),
+            patient_name=patient_name.strip(),
+            patient_phone=data.get("phone"),
+            patient_email=data.get("email"),
+            note="Booked from main chat scheduling flow",
+            session_id=hold.get("session_id") if isinstance(hold, dict) else None,
+            hold_id=hold.get("hold_id") if isinstance(hold, dict) else None,
+            selected_slot=selected_slot,
+        )
+    except scheduling_capability.SchedulingSlotConflictError as exc:
+        booking_payload = exc.to_booking_result_payload(slot_id=slot_id.strip())
+        state["booking_result"] = booking_payload
+        return booking_payload
+    except SchedulingConfigError as exc:
+        booking_payload = {
+            "status": "slot_unavailable",
+            "provider": "scheduling",
+            "booking_id": "",
+            "start_at": selected_slot.get("start_at"),
+            "end_at": selected_slot.get("end_at"),
+            "display_label": selected_slot.get("display_label", ""),
+            "confirmation_message": str(exc),
+            "source_payload": {
+                "slot_id": slot_id.strip(),
+                "reason": "slot_conflict",
+            },
+        }
+        state["booking_result"] = booking_payload
+        return booking_payload
     booking_payload = booking_result.to_dict()
     state["booking_result"] = booking_payload
     return booking_payload
@@ -1409,8 +1505,12 @@ def maybe_handle_booking_turn(
         )
         if booking_result:
             save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
-
-        SESSION_STATE.pop(session_key, None)
+        fallback_scheduling_state = scheduling_fallback_state_from_booking_result(state, booking_result)
+        if isinstance(fallback_scheduling_state, dict):
+            state["scheduling"] = fallback_scheduling_state
+            SESSION_STATE[session_key] = state
+        else:
+            SESSION_STATE.pop(session_key, None)
         trace_stage_transition(
             tenant,
             session_id,

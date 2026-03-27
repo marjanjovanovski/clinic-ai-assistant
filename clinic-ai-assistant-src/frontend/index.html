@@ -335,6 +335,7 @@
         applyBackendConversationUpdate(data, {
           fallbackReply: "Изборот на термин е примен.",
           fallbackStatus: "Терминот е избран.",
+          includeWidget: true,
         });
       } catch (error) {
         addMessage(`Неуспешен избор на термин. ${error.message}`, "bot");

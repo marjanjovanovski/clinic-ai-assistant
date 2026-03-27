@@ -1,0 +1,117 @@
+{
+  "task_name": "TEST - Manual Verification Coverage Dashboard",
+  "task_file": "TEST - Manual Verification Coverage Dashboard.md",
+  "status": "pending_manual_verification",
+  "manual_verification": {
+    "branch_merge_ready": false
+  },
+  "categories": [
+    {
+      "name": "Category 1 - Task Discovery",
+      "tests": [
+        {
+          "name": "Test 1.1 - Pending task appears in selector",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Open `ManualTesting.html` through the local frontend surface.",
+              "what_is_tested": "The dashboard page loads successfully.",
+              "status": "Pass",
+              "comment": "1. Make sure to update (header row at top too large, there is no need for desciptive test. Reduce in heigh size is needed. ONly header in one white container is ebough. Read-Only review is not needed remove it.\n\n2. Comment and refernce files should have much wider display so it is easy to use them as typing. \n\n3. Use 100% width span of the whole dashboard so we can use up space more easily. \n\n4. Reduce the total heigh so there is no main page scrolling only the table.grid inner one is enough. \n\n5. Status Drop down should be colored, if Pass selected becomes green, if Fail it becomes Red. \n\n7. Add a filter at the top to filter by Status\n\n8. when you read the comments i left you will have to enter into Bug fixing part of the rules and guides, to create a new md file within the same folder. And yes you need to update the rules because you will have to produce another json file withi will have SUffiX ***_FIX01.json\nThis will serve to guide me to retest what you were doing.. It is a bit redundand if you have a better porposal go for it. But if not you will have to update the guide to include this rule. \nIf accepted than the Pending task drop down will have to have a subfeature...To next items, meaning if not Shows Test - Manual..... and if tehre are md fix files with fix json files it will list them all as options to be selected. ",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Inspect the top task selector after the page loads.",
+              "what_is_tested": "Pending tasks waiting for manual verification are listed.",
+              "status": "Pass",
+              "comment": "It should only list folders. I know these are from past resedu, but the gude and ruls must stay clear, this drop down only shows a value from folders in Pending folder that have json file applicable to be rendered",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 2 - JSON Load And Save",
+      "tests": [
+        {
+          "name": "Test 2.1 - Edit and save a row",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Select `TEST - Manual Verification Coverage Dashboard` from the task selector.",
+              "what_is_tested": "JSON-backed manual verification rows load into the table.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Change one row status and add a comment.",
+              "what_is_tested": "The row becomes dirty and the page shows unsaved changes.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Add one or more filenames in the separate `Reference Files` field.",
+              "what_is_tested": "Reference filenames are stored as plain text for the same row.",
+              "status": "Pass",
+              "comment": "dumm.jpgvalue, anotherone.jpg",
+              "reference_files": "manual-proof-1.png, manual-proof-2.pdf"
+            },
+            {
+              "step": 4,
+              "action": "Click `Save` and reload the page.",
+              "what_is_tested": "Saved values persist after reload.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 3 - Readiness Summary",
+      "tests": [
+        {
+          "name": "Test 3.1 - Summary reacts to row statuses",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Set one row to `Fail`.",
+              "what_is_tested": "Dashboard summary moves to blocked state.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Set all rows to `Pass`.",
+              "what_is_tested": "Dashboard summary shows the task as ready for merge discussion.",
+              "status": "Pass",
+              "comment": "postponed testing",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Leave at least one row as `Not Run`.",
+              "what_is_tested": "Dashboard summary remains in review and does not show ready state.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "not_run": 0,
+    "pass": 9,
+    "fail": 0
+  }
+}

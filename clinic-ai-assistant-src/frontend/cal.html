@@ -616,12 +616,57 @@
       bookingProgressWidget.update(progress);
     }
 
+    function syncSessionId(nextSessionId) {
+      if (!nextSessionId) {
+        return;
+      }
+      sessionId = nextSessionId;
+      window.localStorage.setItem(sessionStorageKey, sessionId);
+    }
+
+    function ensureSessionId() {
+      if (sessionId) {
+        return sessionId;
+      }
+      if (window.crypto?.randomUUID) {
+        syncSessionId(window.crypto.randomUUID());
+      } else {
+        syncSessionId(`cal-${Date.now()}`);
+      }
+      return sessionId;
+    }
+
     function addSlotChoices(slots, serviceId) {
       return addSlotListConversationWidget(conversationDispatcher, {
         title: "Изберете термин за sandbox booking:",
         slots,
         onSelect: (slot, widget) => bookSelectedSlot(slot, serviceId, widget),
       }, { sender: "bot" });
+    }
+
+    function renderBookingConflict(conflictPayload, serviceId, slotListWidget) {
+      const sourcePayload = conflictPayload?.source_payload && typeof conflictPayload.source_payload === "object"
+        ? conflictPayload.source_payload
+        : null;
+      const replacementSlots = Array.isArray(sourcePayload?.replacement_slots)
+        ? sourcePayload.replacement_slots
+        : [];
+      const confirmationMessage = String(conflictPayload?.confirmation_message || "").trim();
+
+      setInspector("Booking conflict", conflictPayload);
+      addMessage(
+        confirmationMessage || "ÐžÐ²Ð¾Ñ˜ Ñ‚ÐµÑ€Ð¼Ð¸Ð½ Ð¿Ð¾Ð²ÐµÑœÐµ Ð½Ðµ Ðµ Ð´Ð¾ÑÑ‚Ð°Ð¿ÐµÐ½.",
+        "bot"
+      );
+
+      if (replacementSlots.length) {
+        statusText.textContent = "ÐŸÑ€Ð¸ÐºÐ°Ð¶Ð°Ð½Ð¸ ÑÐµ Ð½Ð¾Ð²Ð¸ ÑÐ»Ð¾Ð±Ð¾Ð´Ð½Ð¸ Ñ‚ÐµÑ€Ð¼Ð¸Ð½Ð¸ Ð·Ð° Ð¸ÑÑ‚Ð¸Ð¾Ñ‚ Ð´ÐµÐ½.";
+        addSlotChoices(replacementSlots, serviceId);
+        return;
+      }
+
+      statusText.textContent = confirmationMessage || "ÐžÐ²Ð¾Ñ˜ Ñ‚ÐµÑ€Ð¼Ð¸Ð½ Ð¿Ð¾Ð²ÐµÑœÐµ Ð½Ðµ Ðµ Ð´Ð¾ÑÑ‚Ð°Ð¿ÐµÐ½.";
+      slotListWidget.enableAll();
     }
 
     async function performSend(userMessage, options = {}) {
@@ -662,8 +707,7 @@
 
         const data = await response.json();
         if (data.session_id) {
-          sessionId = data.session_id;
-          window.localStorage.setItem(sessionStorageKey, sessionId);
+          syncSessionId(data.session_id);
         }
 
         updateBookingProgress(data.booking_progress);
@@ -809,11 +853,14 @@
           body: JSON.stringify(payload)
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
         const data = await response.json();
+        if (!response.ok) {
+          if (data?.status === "slot_unavailable") {
+            renderBookingConflict(data, serviceId, slotListWidget);
+            return;
+          }
+          throw new Error(data?.detail || `HTTP ${response.status}`);
+        }
         const slots = Array.isArray(data.slots) ? data.slots : [];
         setInspector("Availability payload", data);
 
@@ -846,6 +893,7 @@
       }
 
       slotListWidget.disableAll();
+      const activeSessionId = ensureSessionId();
       addMessage(`Резервирај го овој термин: ${slot.display_label}`, "user");
       statusText.textContent = "Се испраќа барање за резервација...";
 
@@ -862,6 +910,8 @@
             patient_phone: patientPhone || null,
             patient_email: patientEmail || null,
             note: "Booked from cal.html scheduling sandbox",
+            session_id: activeSessionId,
+            selected_slot: slot,
           })
         });
 

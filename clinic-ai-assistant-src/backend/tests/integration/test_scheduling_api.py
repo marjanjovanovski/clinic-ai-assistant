@@ -108,6 +108,54 @@ def test_scheduling_booking_endpoint_confirms_selected_mock_slot(monkeypatch, tm
     assert "slot_id" in payload["source_payload"]
 
 
+def test_scheduling_booking_endpoint_returns_structured_slot_conflict_for_sandbox_flow(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+    import app.routes.scheduling as scheduling_route_module
+
+    availability = client.post(
+        "/scheduling/availability?tenant=milena_dental",
+        json={
+            "service_id": "consultation",
+            "date_from": "2026-03-23",
+            "date_to": "2026-03-24",
+            "timezone": "Europe/Skopje",
+        },
+    ).json()
+
+    first_slot = availability["slots"][0]
+    def fake_create_slot_hold(**kwargs):
+        return {
+            "hold_id": "hold-b",
+            "slot_id": kwargs["slot_id"],
+            "session_id": "another-session",
+            "status": "active",
+        }
+
+    monkeypatch.setattr(scheduling_route_module, "create_slot_hold", fake_create_slot_hold)
+
+    response = client.post(
+        "/scheduling/book?tenant=milena_dental",
+        json={
+            "service_id": "consultation",
+            "slot_id": first_slot["slot_id"],
+            "patient_name": "Bojan",
+            "patient_phone": "071111111",
+            "patient_email": "bojan@test.mk",
+            "session_id": "cal-session-b",
+            "selected_slot": first_slot,
+        },
+    )
+
+    assert response.status_code == 409
+    payload = response.json()
+    assert payload["status"] == "slot_unavailable"
+    assert payload["provider"] == "scheduling"
+    assert payload["source_payload"]["next_action"] == "refresh_availability"
+    assert payload["source_payload"]["fallback_scope"] == "same_day"
+    assert payload["source_payload"]["selected_slot"]["slot_id"] == first_slot["slot_id"]
+    assert isinstance(payload["source_payload"]["replacement_slots"], list)
+
+
 def test_scheduling_select_slot_endpoint_starts_contact_collection_from_session_state(monkeypatch, tmp_path):
     client = _build_client(monkeypatch, tmp_path)
 
@@ -156,6 +204,9 @@ def test_scheduling_select_slot_endpoint_starts_contact_collection_from_session_
     assert payload["session_status"] == "collecting_contact"
     assert payload["booking_progress"]["next_field"] == "name"
     assert payload["selected_slot"]["slot_id"] == availability["slots"][0]["slot_id"]
+    assert payload["hold"]["slot_id"] == availability["slots"][0]["slot_id"]
+    assert payload["hold"]["session_id"] == session_id
+    assert payload["hold"]["hold_status"] == "active"
 
 
 def test_scheduling_select_slot_rejects_slot_not_in_active_session_result(monkeypatch, tmp_path):
@@ -195,6 +246,74 @@ def test_scheduling_select_slot_rejects_slot_not_in_active_session_result(monkey
 
     assert response.status_code == 409
     assert "Selected slot is not part of the active availability result" in response.json()["detail"]
+
+
+def test_scheduling_select_slot_rejects_when_another_session_already_holds_slot(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+
+    from app.services import ai_agent
+    import app.routes.scheduling as scheduling_route_module
+
+    availability = client.post(
+        "/scheduling/availability?tenant=milena_dental",
+        json={
+            "service_id": "consultation",
+            "date_from": "2026-03-23",
+            "date_to": "2026-03-24",
+            "timezone": "Europe/Skopje",
+        },
+    ).json()
+
+    first_session_id = "slot-holder-a"
+    second_session_id = "slot-holder-b"
+    for session_id in (first_session_id, second_session_id):
+        session_key = ai_agent._session_key("milena_dental", session_id)
+        ai_agent.SESSION_STATE[session_key] = {
+            "stage": "active",
+            "scheduling": {
+                "operation": "availability_lookup",
+                "status": "completed",
+                "reason": "availability_lookup_completed",
+                "capability_state": {
+                    "service_id": "consultation",
+                },
+                "output_payload": {
+                    "result": availability,
+                },
+                "booking_handoff_ready": True,
+            },
+        }
+
+    trace_events = []
+    monkeypatch.setattr(
+        scheduling_route_module,
+        "trace_event",
+        lambda tenant, session_id, event, **fields: trace_events.append(
+            {"tenant": tenant, "session_id": session_id, "event": event, "fields": fields}
+        ),
+    )
+
+    first_response = client.post(
+        "/scheduling/select-slot?tenant=milena_dental",
+        json={
+            "session_id": first_session_id,
+            "service_id": "consultation",
+            "slot_id": availability["slots"][0]["slot_id"],
+        },
+    )
+    second_response = client.post(
+        "/scheduling/select-slot?tenant=milena_dental",
+        json={
+            "session_id": second_session_id,
+            "service_id": "consultation",
+            "slot_id": availability["slots"][0]["slot_id"],
+        },
+    )
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 409
+    assert second_response.json()["detail"] == "This slot was just taken by another booking. I will show available slots for the same day."
+    assert any(item["event"] == "SCHEDULING_SLOT_SELECTION_REJECTED" for item in trace_events)
 
 
 def test_scheduling_availability_rejects_reversed_date_range(monkeypatch, tmp_path):

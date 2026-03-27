@@ -55,6 +55,7 @@ Status values allowed in this document:
 - Prompt 9 - Pending
 - Prompt 10 - Pending
 - Prompt 11 - Pending
+- Prompt 12 - Pending
 
 ## Working Rules For The Implementing AI Agent
 
@@ -383,6 +384,27 @@ Requirements:
 ### Required Outcome
 
 The backend system message catalog feature is complete, verified, and documented without scope creep.
+
+## Prompt 12 - Pending
+
+### Goal
+
+Track branch-level manual verification and merge readiness before this task can move out of `ProjectTasks_Pending`.
+
+### Instructions
+
+After implementation and automated verification prompts are complete, wait for user-driven manual verification on the branch.
+
+Requirements:
+- keep this prompt `Pending` until the user confirms manual verification is complete
+- record which manual verification scenarios were performed
+- record the user decision on merge readiness
+- only after this prompt is completed should merge into `main` be considered
+- if manual verification finds issues, keep `Merge To Main` as `Pending` and continue the task with follow-up prompts or notes as needed
+
+### Required Outcome
+
+Manual verification and merge readiness are tracked explicitly as a prompt status rather than only as freeform discussion.
 
 ---
 

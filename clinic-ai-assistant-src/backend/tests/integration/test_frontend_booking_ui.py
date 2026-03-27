@@ -141,6 +141,7 @@ def test_agent_page_mounts_slot_list_widget_from_chat_response(monkeypatch, tmp_
     assert "readOnly: false," in response.text
     assert 'const primaryReplyText = getPrimaryReplyText(data.reply, includeWidget ? data.widget_payload : null);' in response.text
     assert 'applyBackendConversationUpdate(data, {' in response.text
+    assert 'includeWidget: true,' in response.text
     assert 'addResponseWidget(data.widget_payload, { hideTitle: Boolean(primaryReplyText) });' in response.text
 
 
@@ -225,3 +226,6 @@ def test_chat_sandbox_page_exposes_runtime_panel_and_config_previews(monkeypatch
     assert 'id="slotIdInput" class="inspector-field-textarea compact"' in response.text
     assert "overflow-wrap: anywhere;" in response.text
     assert 'setInspectorOpen(!sandboxShell.classList.contains("panel-open"));' in response.text
+    assert 'async function handleSlotSelection(slot, widgetPayload, slotListWidget)' in response.text
+    assert 'applyBackendConversationUpdate(data, {' in response.text
+    assert 'includeWidget: true,' in response.text

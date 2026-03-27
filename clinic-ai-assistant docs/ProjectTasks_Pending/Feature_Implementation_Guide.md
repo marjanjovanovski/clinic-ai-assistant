@@ -25,6 +25,22 @@ Feature-specific master prompt files should reference this guide instead of dupl
 Pending task files should live in `ProjectTasks_Pending`.
 Completed task files should be archived into `ProjectTasks_Done`.
 
+For new pending tasks, prefer a dedicated task folder inside `ProjectTasks_Pending` rather than a loose standalone markdown file.
+
+## Token Efficiency Rule
+
+To preserve weekly usage while keeping output quality high:
+- prefer one master task file per feature rather than splitting one feature across several markdown files
+- split work into prompts only when there is a real execution boundary, not just because another heading could be invented
+- prefer structured tracking such as compact status blocks, tables, or JSON for state-heavy data instead of repeatedly rewriting long prose
+- keep prompt completion notes compact:
+  - what changed
+  - what was verified
+  - blockers or warnings
+- avoid restating architecture, history, or guide rules in every prompt when they already exist unchanged above
+- use appendices and structured artifacts for manual verification data instead of growing narrative notes over time
+- when a feature needs heavy manual verification tracking, prefer a companion structured artifact over expanding the MD file into a large logbook
+
 ## Task File Naming Convention
 
 To keep pending work easy to scan and group visually, use this naming format for feature-specific task files:
@@ -49,6 +65,51 @@ Recommended category prefixes:
 
 Use one clear category prefix only.
 Keep the task description short, specific, and outcome-oriented.
+
+## Pending Task Folder Convention
+
+For new pending work, prefer this folder layout:
+
+`ProjectTasks_Pending/<CATEGORY> - <Task Descriptive Value>/`
+
+Inside that folder:
+- `<CATEGORY> - <Task Descriptive Value>.md`
+- `manual_testing_coverage.json` when the task is expected to reach manual verification
+- optional evidence files later added manually by the user, such as images or PDFs referenced from the JSON
+
+Required behavior:
+- the folder name should match the task markdown filename without the `.md` suffix
+- the master prompt markdown file remains the workflow authority for the task
+- `manual_testing_coverage.json` is the structured companion artifact for manual verification state, not a replacement for the task markdown file
+- reference files in `manual_testing_coverage.json` should be plain typed filenames only
+- do not add upload or preview requirements to the task-folder convention unless the task explicitly requires them
+- use `manual_testing_coverage.json` only when it materially simplifies repeated manual testing, retesting, or fix follow-up work
+- do not create the JSON companion for tiny tasks that do not need structured manual retest tracking
+
+Compatibility rule:
+- existing flat pending `.md` task files may remain in place until they are migrated or completed
+- new folder-based tooling should handle legacy flat task files explicitly during the transition period rather than assuming the repo is already fully migrated
+
+## Dashboard-Driven Fix Follow-Up Rule
+
+When manual verification of a folder-based task produces concrete UI or behavior feedback that should be implemented as a follow-up fix:
+- keep the follow-up fix inside the same parent task folder
+- create a dedicated fix markdown task file rather than mixing the fix scope back into the original completed prompts
+- create a dedicated companion JSON for retesting that fix
+
+Recommended naming inside the same task folder:
+- `<Original Task Name> FIX 01.md`
+- `manual_testing_coverage_FIX01.json`
+
+If later fixes are needed, increment the suffix:
+- `FIX 02`
+- `manual_testing_coverage_FIX02.json`
+
+Required behavior:
+- the fix task file should reference the original task briefly and list only the new fix scope
+- the fix JSON should contain only the retest coverage needed for that fix, not a copy of the entire original manual-testing matrix
+- keep the fix task lean and boundary-based; do not duplicate the original master prompt unless the fix is large enough to be its own feature
+- when dashboard discovery later supports fix-task entries, it should treat the original task and its fix follow-ups as separate selectable review items
 
 ## Required Tracking Format
 
@@ -86,6 +147,12 @@ Each feature-specific master prompt document should also contain:
   - `Merge To Main - Pending`
   - or `Merge To Main - Completed`
 
+Keep the tracking document lean:
+- status should be easy to scan in a few seconds
+- do not turn the task file into a long-running diary
+- if progress data becomes row-heavy or state-heavy, move that data into a structured companion artifact when practical
+- for tasks that require repeated manual verification updates, prefer `manual_testing_coverage.json` as the state-heavy companion artifact instead of repeatedly editing large markdown tables
+
 Strongly recommended standard sections:
 - `Execution Tracking Instructions`
 - `Last Updated By`
@@ -103,6 +170,7 @@ Strongly recommended standard sections:
 - The first prompt should usually focus on understanding the current implementation and reasoning for the change.
 - Later prompts should focus on schema, migration, code integration, and tests in a logical order.
 - Prompts should be specific enough to execute, but broad enough that the implementing agent does not need to be micromanaged line by line.
+- prefer fewer, boundary-based prompts over many tiny prompts that create repeated commit/status overhead
 - The tracking document must be treated as the single source of truth for feature progress.
 - After finishing any prompt, the agent must update the tracking document before moving on.
 - Any prompt not yet executed must remain marked as `Pending`.
@@ -145,8 +213,10 @@ Required behavior:
   - or `Merge To Main - Completed`
 - when implementation prompts are complete but the branch has not yet been manually verified and merged, the task file must remain in `ProjectTasks_Pending`
 - the task file should act as the final source of truth for whether the feature is only implemented on a branch or is actually merged into `main`
-- when all prompts are complete but merge is still pending, it is recommended to set:
-  - `Current Active Prompt` to `Manual Verification / Merge`
+- when implementation is complete but manual verification or merge is still pending, the task file should include one final tracked prompt such as:
+  - `Prompt N - Manual Verification / Merge Readiness`
+- while that work is still pending, set:
+  - `Current Active Prompt` to that manual-verification prompt
   - `Merge To Main` to `Pending`
 
 This rule exists so that implementation completion and merge completion are not treated as the same event.
@@ -221,6 +291,7 @@ Minimum merge readiness conditions:
 - implementation prompts are completed, or any blocked items are explicitly accepted by the user
 - the task file statuses are updated
 - required automated tests were run, or blockers were documented clearly
+- the manual verification / merge readiness prompt is completed
 - the user has performed manual verification on the branch
 - the user has decided the branch is ready for merge
 
@@ -253,6 +324,8 @@ Example final response when no pending prompts remain:
 
 If no prompts remain but merge is still pending, the task file must stay in `ProjectTasks_Pending` with `Merge To Main - Pending`.
 
+If merge is still pending because manual verification has not been completed yet, that state should be represented as its own final prompt rather than only as freeform prose.
+
 Only after the branch is merged into `main` should the task file be archived into `ProjectTasks_Done`.
 
 ## Master Prompt Authoring Rule
@@ -263,8 +336,12 @@ To keep the process bulletproof without unnecessary redundancy:
 - duplicate workflow rules into a feature file only when that feature needs a special exception
 - if an older pending file started as a proposal-only note but is now intended to drive implementation, rewrite it into a proper execution-ready master prompt document instead of appending more freeform proposal text
 - prefer prompt sections that map to real engineering boundaries such as architecture review, contracts, persistence, runtime integration, UI adaptation, logging, tests, and final verification
+- when branch-level human verification is required before merge, add one final prompt section for `Manual Verification / Merge Readiness`
 - split large features into enough prompts that each one has a clear verification target and a natural commit boundary
 - do not pack unrelated backend, frontend, and testing work into one oversized prompt when separate prompts would reduce token load and execution risk
+- do not split a single feature into multiple master prompt markdown files unless they are truly separate executable tasks
+- when tracking becomes repetitive, prefer structured tables or companion JSON over repeated prose edits
+- completion notes should stay operational and compact rather than changelog-heavy narrative
 
 Recommended reminder text for feature-specific master prompt files:
 
@@ -280,10 +357,25 @@ Required behavior:
 - if a tool or framework tends to generate artifacts, direct them to an approved temp location outside the repository when practical
 - if cleanup is required after verification, document it in the prompt completion note
 - if environment limits prevent clean automated execution, document the blocker instead of falling back to repo-local temp output
+- task files that include testing prompts should repeat a short repo-clean reminder inside the file so the rule is visible during execution and not only in this guide
+- at final verification, the agent must check whether the repo contains residual temp or scratch artifacts from testing and must warn the user clearly if any remain
+
+Environment-specific execution rule for this machine:
+- for this Windows environment, if a full pytest run needs writable temp space, do not spend time retrying multiple failing `F:\temp\...` or sandboxed temp-path variants first
+- use the proven external-user-temp pytest pattern as the first fallback:
+  - run outside sandbox when needed
+  - set `TMP` and `TEMP` under `C:\Users\Marjan Velika\AppData\Local\Temp\...`
+  - pass `--basetemp` under `C:\Users\Marjan Velika\AppData\Local\Temp\...`
+- treat this as the default escalated fallback for this environment once normal sandboxed execution shows temp or SQLite permission failures
+- do not burn extra prompt time trying multiple near-identical temp path variants before switching to this proven pattern
 
 Recommended wording for task files:
 
 `Follow the repo rule to keep test artifacts out of the repository. Use external TMP/TEMP and external basetemp locations for pytest or similar tooling.`
+
+Recommended short repeated wording for testing prompts or testing sections:
+
+`Use external TMP/TEMP and external basetemp paths. Do not leave repo-local temp artifacts. If cleanup is blocked, stop and warn that residual test artifacts remain in the repo.`
 
 ## Standard Master Prompt Skeleton
 
@@ -302,6 +394,8 @@ For new task files, prefer this top-level order:
 11. `Current Repo Truth`
 12. `Architecture Guidance`
 13. Prompt sections in execution order
+14. Final tracked `Manual Verification / Merge Readiness` prompt when the task remains pending until human verification
+15. Archive appendix sections at the end
 
 This keeps task files easier to continue across sessions and makes it easier for an implementing agent to identify status, constraints, architecture boundaries, and the next safe execution step quickly.
 
@@ -351,11 +445,47 @@ Required behavior:
 - make it possible for a reviewer to validate the feature without reverse-engineering the code
 - include separate scenario coverage when success path and conflict path differ meaningfully
 - keep steps practical, observable, and concise
+- organize the section into clear categories when the feature has multiple paths or surfaces
+- inside each category, group steps under named tests or scenarios rather than one long undifferentiated list
+- each named test should have a short purpose line when the outcome is not obvious from the title alone
+- prefer keeping the structure shallow and readable rather than deeply nested prose
 
 Recommended format:
-- Step
-- Action
-- Expected Result
+- `Manual Testing Steps`
+- `Category`
+- `Test`
+- `Step`
+- `Action`
+- `Expected Result`
+
+Recommended structure:
+
+`Manual Testing Steps`
+
+`Category 1 - <area or surface>`
+
+`Test 1 - <scenario name>`
+
+| Step | Action | Expected Result |
+|---|---|---|
+| 1 | Do the first action | The expected initial outcome appears |
+| 2 | Do the next action | The target behavior appears |
+
+`Test 2 - <scenario name>`
+
+| Step | Action | Expected Result |
+|---|---|---|
+| 1 | Do the first action | The expected initial outcome appears |
+| 2 | Do the next action | The target behavior appears |
+
+`Category 2 - <area or surface>`
+
+`Test 1 - <scenario name>`
+
+| Step | Action | Expected Result |
+|---|---|---|
+| 1 | Do the first action | The expected initial outcome appears |
+| 2 | Do the next action | The target behavior appears |
 
 Example compact table:
 
@@ -364,6 +494,36 @@ Example compact table:
 | 1 | Open the page or trigger the flow | Initial state loads correctly |
 | 2 | Perform the user action under test | Target state change appears |
 | 3 | Repeat the conflicting or recovery action | Conflict or recovery behavior matches the task definition |
+
+Recommended category examples:
+- `Category 1 - Happy Path`
+- `Category 2 - Conflict Or Recovery Path`
+- `Category 3 - Surface Parity`
+- `Category 4 - State Safety Or Regression Checks`
+
+When a task uses `manual_testing_coverage.json`:
+- keep the appendix as the human-readable source for what should be tested
+- keep pass/fail execution state in the JSON artifact rather than repeatedly editing the markdown file during every manual test pass
+- keep the JSON compact and operational
+- prefer row-level state for the actual manual steps
+- optional task-level manual-verification fields are allowed when they reduce friction, for example:
+  - `branch_merge_ready`
+  - `general_comment`
+- when adding a new optional JSON field, prefer a safe default in the loader instead of breaking older task JSON files
+
+## Final Residual Check Rule
+
+At the very end of every feature task file, include a compact final verification reminder that requires a repo-cleanliness check.
+
+Required behavior:
+- before considering the task complete, check whether test execution left residual temp, scratch, runtime, or pytest artifact folders in the repo
+- if residuals exist, warn the user explicitly and list the leftover paths
+- do not describe the repo as clean if residuals are still present
+- this check should be short and operational because it may repeat across many task files
+
+Recommended wording for task files:
+
+`Final repo check: confirm no repo-local temp or test-residual folders remain. If any residue exists, warn explicitly and list the paths before closing the task.`
 
 ## Minimal Token Guidance For Appendices
 
