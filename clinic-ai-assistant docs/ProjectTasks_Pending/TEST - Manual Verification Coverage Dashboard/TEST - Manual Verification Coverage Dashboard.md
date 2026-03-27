@@ -38,7 +38,7 @@ Status values allowed in this document:
 
 ## Merge To Main
 
-- `Pending`
+- `Completed`
 
 ## Current Active Prompt
 
