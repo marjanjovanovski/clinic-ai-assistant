@@ -13,7 +13,7 @@ The purpose of this template is to:
 
 Before executing any prompt in a fix task file, the implementing AI agent must first read the file and understand the current status.
 
-Execution of the fix must follow [Feature_Implementation_Guide.md](./Feature_Implementation_Guide.md).
+Execution of the fix must follow [Task_Workflow_Guide.md](./Task_Workflow_Guide.md) and [Core_Rules.md](./Core_Rules.md).
 After each completed prompt, stop, update prompt status in the file, and ask `Commit changes?`
 Do not auto-advance to the next prompt.
 

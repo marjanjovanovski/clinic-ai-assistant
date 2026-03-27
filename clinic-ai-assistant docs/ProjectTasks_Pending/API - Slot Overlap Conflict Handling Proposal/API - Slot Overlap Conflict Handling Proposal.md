@@ -15,7 +15,7 @@ This file replaces the older proposal-style structure with an implementation-rea
 
 Before executing any prompt in this document, the implementing AI agent must first read this file and understand the current status.
 
-Execution of this feature must follow [../Feature_Implementation_Guide.md](../Feature_Implementation_Guide.md).
+Execution of this feature must follow [../Task_Workflow_Guide.md](../Task_Workflow_Guide.md) and [../Core_Rules.md](../Core_Rules.md).
 After each completed prompt, stop, update prompt status in this file, and ask `Commit changes?`
 Do not auto-advance to the next prompt.
 
@@ -1236,148 +1236,54 @@ Confirm   Conflict  Confirm   Conflict +
 booking   response  booking   replacement slots
 ```
 
-### Manual Testing Steps
+### Manual Testing
 
-Manual verification status values to use in the tables below:
-- `Not Run`
-- `Pass`
-- `Fail`
+Execution-state tracking for manual verification should be kept in:
+- `manual_testing_coverage.json`
 
-Recommended usage:
-- mark `Status` after each test is performed
-- use `Comment / Failure Note` for observations, blockers, or unexpected behavior
-- if a test fails, keep the exact failing detail in the same row instead of writing a separate loose note
+Use this markdown section only as the compact human-readable overview of what must be covered.
 
 #### Category 1 - Happy Path
 
-##### Test 1.1 - Main chat normal booking
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | Open main chat and request availability | Main chat returns slot-list widget correctly | Not Run | |
-| 2 | Select a free slot | Hold is created on selection | Not Run | |
-| 3 | Enter name, phone, and email | Contact collection continues normally | Not Run | |
-| 4 | Complete booking | Valid hold leads to successful booking | Not Run | |
-| 5 | Review confirmation and summary | Final state shows correct confirmed slot | Not Run | |
-
-##### Test 1.2 - `cal.html` normal booking
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | Open `cal.html` and load availability | Sandbox page loads and shows current slots | Not Run | |
-| 2 | Book a free slot directly | Direct sandbox booking still succeeds | Not Run | |
-| 3 | Review returned confirmation | Sandbox success path remains intact | Not Run | |
+- `Test 1.1 - Main chat normal booking`
+  Purpose: confirm a normal main-chat booking still succeeds with the hold model in place.
+- `Test 1.2 - cal.html normal booking`
+  Purpose: confirm the sandbox direct-book success path remains intact.
 
 #### Category 2 - Conflict And Recovery Path
 
-##### Test 2.1 - Immediate selection conflict for User B
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | User A opens availability and selects slot `12:00` | First session acquires the active hold | Not Run | |
-| 2 | User B selects the same slot while A still owns the hold | Second session is rejected at selection time | Not Run | |
-| 3 | Review User B response | User B sees the immediate conflict message | Not Run | |
-| 4 | Review the next assistant reply for User B | Fresh same-day replacement slots are returned | Not Run | |
-| 5 | Try interacting with any stale prior widget if present | Old widget is not treated as the active recovery surface | Not Run | |
-
-##### Test 2.2 - Late booking conflict for User A after losing the slot
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | User A selects slot `12:00` and begins entering details | Main chat stores selected-slot handoff and hold | Not Run | |
-| 2 | Wait until User A hold expires | Hold-release timing path becomes reachable | Not Run | |
-| 3 | User B selects the same slot and completes booking | Another session can take the slot after expiry | Not Run | |
-| 4 | User A finishes the booking flow | Booking-time conflict path triggers correctly | Not Run | |
-| 5 | Review User A response | Lost-slot message plus same-day replacement slots are returned | Not Run | |
-| 6 | Review summary state | Lost original slot is not shown as still reserved | Not Run | |
-
-##### Test 2.3 - Replacement-slot recovery after conflict
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | Trigger a conflict that returns replacement slots | Recovery path is available | Not Run | |
-| 2 | Select one of the returned replacement slots | Replacement selection is accepted | Not Run | |
-| 3 | Continue or complete booking | Flow resumes without restarting the whole interaction | Not Run | |
-| 4 | Review preserved fields | Previously entered contact details remain usable | Not Run | |
+- `Test 2.1 - Immediate selection conflict for User B`
+  Purpose: confirm the losing user is rejected at selection time and receives same-day replacement slots.
+- `Test 2.2 - Late booking conflict for User A after losing the slot`
+  Purpose: confirm the stale-slot conflict appears at final booking and the original slot is no longer shown as reserved.
+- `Test 2.3 - Replacement-slot recovery after conflict`
+  Purpose: confirm the user can continue from replacement slots without restarting the whole flow.
 
 #### Category 3 - Timed Hold Lifecycle
 
-##### Test 3.1 - Hold expires and slot becomes available again
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | Select a slot but do not complete booking | Hold exists without consumption | Not Run | |
-| 2 | Wait past the hold timeout | Expiry path is triggered | Not Run | |
-| 3 | In another session, request availability or select the same slot | Expired hold no longer blocks the slot | Not Run | |
-
-##### Test 3.2 - Silent recovery succeeds
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | User A selects a slot and waits until the hold expires | Expired-hold recovery precondition is reached | Not Run | |
-| 2 | Ensure no other user takes the slot | Same slot remains free for silent recovery | Not Run | |
-| 3 | User A completes booking | Backend silently refreshes and confirms booking | Not Run | |
-| 4 | Review user-visible response | Normal confirmation appears with no conflict message | Not Run | |
-
-##### Test 3.3 - Silent recovery fails because another user takes the slot
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | User A selects a slot and waits until the hold expires | Expired-hold recovery precondition is reached | Not Run | |
-| 2 | User B takes that same slot before A finishes | Silent recovery should no longer succeed | Not Run | |
-| 3 | User A finishes booking | Backend returns recoverable lost-slot conflict | Not Run | |
-| 4 | Review User A response | Same-day replacements are returned when available | Not Run | |
+- `Test 3.1 - Hold expires and slot becomes available again`
+  Purpose: confirm expired holds release the slot for another session.
+- `Test 3.2 - Silent recovery succeeds`
+  Purpose: confirm one silent recovery attempt succeeds when the same slot is still free.
+- `Test 3.3 - Silent recovery fails because another user takes the slot`
+  Purpose: confirm the backend returns the recoverable lost-slot path when the slot is no longer free.
 
 #### Category 4 - Surface Parity
 
-##### Test 4.1 - Main chat parity in `index.html`
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | Run a conflict-and-recovery scenario in main chat | `index.html` handles overlap recovery correctly | Not Run | |
-| 2 | Review returned widget behavior | Returned slot-list widget is rendered from the correct reply | Not Run | |
-
-##### Test 4.2 - `ChatSandBox.html` parity
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | Run the same main-chat conflict scenario in `ChatSandBox.html` | Sandbox chat shell matches main chat behavior | Not Run | |
-| 2 | Review recovery rendering | Returned widget and follow-through remain consistent | Not Run | |
-
-##### Test 4.3 - `cal.html` sandbox direct-book conflict
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | Open `cal.html` and choose a slot that becomes unavailable | Sandbox conflict path is reachable | Not Run | |
-| 2 | Review returned error payload and UI state | Structured `slot_unavailable` conflict is shown | Not Run | |
-| 3 | Review replacement choices | Same-day fallback slots are rendered when available | Not Run | |
+- `Test 4.1 - Main chat parity in index.html`
+  Purpose: confirm overlap recovery works in the main chat surface.
+- `Test 4.2 - ChatSandBox.html parity`
+  Purpose: confirm the sandbox chat shell matches the main chat recovery behavior.
+- `Test 4.3 - cal.html sandbox direct-book conflict`
+  Purpose: confirm `cal.html` shows the structured conflict and same-day fallback behavior.
 
 #### Category 5 - State Safety And Regression Checks
 
-##### Test 5.1 - No double booking
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | Race two users on the same slot | Only one active owner should survive | Not Run | |
-| 2 | Complete both flows as far as possible | Only one confirmed booking should exist for that slot | Not Run | |
-
-##### Test 5.2 - No false success for losing user
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | Force a losing-user scenario | Conflict path is reached | Not Run | |
-| 2 | Review final user-visible state | Losing user never sees success or false confirmation | Not Run | |
-
-##### Test 5.3 - Wrong-session hold cannot be reused
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | Let User A hold a slot | Hold ownership is session-bound | Not Run | |
-| 2 | Try to continue or finish from another session context | Wrong-session reuse is rejected safely | Not Run | |
-
-##### Test 5.4 - Availability refresh reflects current truth after timeout
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | Let a hold expire without booking | Expiry releases the claim | Not Run | |
-| 2 | Refresh availability in a fresh session | Latest available slots reflect current backend truth | Not Run | |
+- `Test 5.1 - No double booking`
+  Purpose: confirm only one booking survives when two users race the same slot.
+- `Test 5.2 - No false success for losing user`
+  Purpose: confirm the losing user never sees a false confirmation.
+- `Test 5.3 - Wrong-session hold cannot be reused`
+  Purpose: confirm hold ownership remains session-bound.
+- `Test 5.4 - Availability refresh reflects current truth after timeout`
+  Purpose: confirm refreshed availability matches the released/held backend truth.

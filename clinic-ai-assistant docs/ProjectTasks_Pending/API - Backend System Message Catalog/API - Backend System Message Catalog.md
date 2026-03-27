@@ -13,7 +13,7 @@ The purpose of this work is to:
 
 Before executing any prompt in this document, the implementing AI agent must first read this file and understand the current status.
 
-Execution of this feature must follow [../Feature_Implementation_Guide.md](../Feature_Implementation_Guide.md).
+Execution of this feature must follow [../Task_Workflow_Guide.md](../Task_Workflow_Guide.md) and [../Core_Rules.md](../Core_Rules.md).
 After each completed prompt, stop, update prompt status in this file, and ask `Commit changes?`
 Do not auto-advance to the next prompt.
 
@@ -481,55 +481,28 @@ Format variables if needed
 Return final user-facing message
 ```
 
-## Manual Testing Steps
+## Manual Testing
 
-Manual verification status values to use in the companion JSON:
-- `Not Run`
-- `Pass`
-- `Fail`
+Execution-state tracking for manual verification should be kept in:
+- `manual_testing_coverage.json`
 
-Recommended usage:
-- mark `Status` after each test is performed
-- use `Comment / Failure Note` for observations, blockers, or unexpected behavior
-- if a test fails, keep the failing detail in the same row
+Use this markdown section only as the compact human-readable overview of what must be covered.
 
 ### Category 1 - Booking Workflow Messages
 
-#### Test 1.1 - Contact field prompt comes from the system catalog
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | Start a booking flow that asks for contact details | The backend resolves the field prompt from the system message catalog | Not Run | |
-| 2 | Review the returned user-facing prompt | The reply appears correct and is not coming from a hard-coded backend literal path | Not Run | |
-
-#### Test 1.2 - Validation retry uses the catalog
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | Enter an invalid phone or email value | The backend reaches the retry-validation path | Not Run | |
-| 2 | Review the retry message | The retry message comes from the system message catalog and matches the active locale | Not Run | |
+- `Test 1.1 - Contact field prompt comes from the system catalog`
+  Purpose: confirm booking field prompts are resolved from the catalog instead of hard-coded backend literals.
+- `Test 1.2 - Validation retry uses the catalog`
+  Purpose: confirm retry-validation messages are catalog-backed and locale-correct.
 
 ### Category 2 - Scheduling Conflict Messages
 
-#### Test 2.1 - Lost-slot conflict uses the catalog
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | Trigger a scheduling conflict such as a lost selected slot | The backend reaches a conflict-message path | Not Run | |
-| 2 | Review the returned conflict message | The conflict message comes from the system message catalog rather than hard-coded backend text | Not Run | |
+- `Test 2.1 - Lost-slot conflict uses the catalog`
+  Purpose: confirm conflict messaging is sourced from the system catalog rather than backend literals.
 
 ### Category 3 - Locale And Ownership Boundary
 
-#### Test 3.1 - Locale switch changes system messages without code changes
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | Switch to another configured locale if supported in scope | Locale resolution changes the message source file | Not Run | |
-| 2 | Re-run a booking or conflict state already covered above | The same backend state returns the translated system message | Not Run | |
-
-#### Test 3.2 - Tenant conversational content remains outside the system catalog
-
-| Step | Action | What Is Tested | Status | Comment / Failure Note |
-|---|---|---|---|---|
-| 1 | Review tenant-driven replies such as greetings, services, or business overview | Tenant profile content ownership remains unchanged | Not Run | |
-| 2 | Compare those replies with system workflow messages | System messages come from the new catalog while tenant conversational content still comes from tenant profile behavior | Not Run | |
+- `Test 3.1 - Locale switch changes system messages without code changes`
+  Purpose: confirm locale switching changes system messages through catalog files only.
+- `Test 3.2 - Tenant conversational content remains outside the system catalog`
+  Purpose: confirm tenant greetings, services, and business overview replies still remain outside the system message catalog.

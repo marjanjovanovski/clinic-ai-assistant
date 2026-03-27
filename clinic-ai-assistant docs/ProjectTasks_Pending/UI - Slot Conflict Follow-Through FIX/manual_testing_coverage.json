@@ -1,0 +1,92 @@
+{
+  "task_name": "UI - Slot Conflict Follow-Through FIX",
+  "task_file": "UI - Slot Conflict Follow-Through FIX.md",
+  "status": "pending_manual_verification",
+  "manual_verification": {
+    "branch_merge_ready": false,
+    "general_comment": ""
+  },
+  "categories": [
+    {
+      "name": "Category 1 - Main Chat Recovery Follow-Through",
+      "tests": [
+        {
+          "name": "Test 1.1 - Fresh recovery reply appears after conflict",
+          "purpose": "Confirm the chat sends a new reply with current replacement slots instead of leaving the user on the old widget.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Open the main chat and load available slots.",
+              "what_is_tested": "The standard slot-list widget is present before the conflict path starts.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Trigger the known slot-conflict path for one of the shown slots.",
+              "what_is_tested": "The conflict branch is entered for the selected slot.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Inspect the next assistant reply after the conflict.",
+              "what_is_tested": "A new reply is returned with fresh replacement slots.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 4,
+              "action": "Select a replacement slot from the new reply.",
+              "what_is_tested": "The flow continues correctly from the fresh recovery reply.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 1.2 - Previous widget becomes non-interactive",
+          "purpose": "Confirm the outdated widget cannot be reused after the fresh recovery reply appears.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "After the fresh recovery reply appears, try interacting with the previous widget.",
+              "what_is_tested": "The old widget is disabled and no longer acts as the active recovery source.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 2 - Surface Parity",
+      "tests": [
+        {
+          "name": "Test 2.1 - ChatSandBox.html parity",
+          "purpose": "Confirm the same recovery follow-through exists on the matching sandbox surface if it shares the interaction path.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Repeat the same conflict-and-recovery path in ChatSandBox.html if it uses the same booking interaction path.",
+              "what_is_tested": "The sandbox surface shows the same fresh recovery reply behavior and disables the previous widget.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "not_run": 6,
+    "pass": 0,
+    "fail": 0
+  }
+}

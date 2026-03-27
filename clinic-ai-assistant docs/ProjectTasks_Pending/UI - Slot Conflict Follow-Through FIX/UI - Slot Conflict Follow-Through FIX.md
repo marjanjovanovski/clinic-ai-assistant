@@ -14,7 +14,7 @@ The purpose of this fix is to:
 
 Before executing any prompt in this document, the implementing AI agent must first read this file and understand the current status.
 
-Execution of this fix must follow [Feature_Implementation_Guide.md](./Feature_Implementation_Guide.md).
+Execution of this fix must follow [../Task_Workflow_Guide.md](../Task_Workflow_Guide.md) and [../Core_Rules.md](../Core_Rules.md).
 After each completed prompt, stop, update prompt status in this file, and ask `Commit changes?`
 Do not auto-advance to the next prompt.
 
@@ -283,10 +283,15 @@ Backend validates slot
 
 ## Manual Testing
 
-| Step | Action | Expected Result |
-|---|---|---|
-| 1 | Open the main chat and load available slots | A slot-list widget appears |
-| 2 | Simulate a conflict for one of the shown slots | The chat shows the conflict message |
-| 3 | Inspect the next assistant reply after the conflict | A new reply appears with fresh replacement slots and the previous widget is disabled |
-| 4 | Select a replacement slot from that new reply | The flow continues correctly |
-| 5 | Repeat the same path in `ChatSandBox.html` if it shares the same behavior | The same recovery follow-through behavior is present |
+Execution-state tracking for this fix should live in `manual_testing_coverage.json`.
+
+Keep markdown as the compact overview only:
+
+- Category 1 - Main Chat Recovery Follow-Through
+  - Test 1.1 - Fresh recovery reply appears after conflict
+    - Purpose: confirm the chat sends a new reply with current replacement slots instead of leaving the user on the old widget
+  - Test 1.2 - Previous widget becomes non-interactive
+    - Purpose: confirm the outdated widget can no longer be used after the fresh recovery reply appears
+- Category 2 - Surface Parity
+  - Test 2.1 - `ChatSandBox.html` parity
+    - Purpose: confirm the same follow-through fix is present if the sandbox shares the same interaction path
