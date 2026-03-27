@@ -86,6 +86,17 @@ Each feature-specific master prompt document should also contain:
   - `Merge To Main - Pending`
   - or `Merge To Main - Completed`
 
+Strongly recommended standard sections:
+- `Execution Tracking Instructions`
+- `Last Updated By`
+- `Last Updated On`
+- `Current Active Prompt`
+- `Working Rules For The Implementing AI Agent`
+- `Testing And Verification Rules`
+- `Do Not Break` for risky flows
+- `Current Repo Truth` when repo state matters for handoff
+- `Architecture Guidance` when ownership boundaries matter
+
 ## Rules For Multi-Prompt Feature Work
 
 - Never assume the next AI agent knows the repo context.
@@ -250,10 +261,118 @@ To keep the process bulletproof without unnecessary redundancy:
 - keep the detailed workflow rules in this guide
 - keep only a short workflow reminder inside each feature-specific master prompt file
 - duplicate workflow rules into a feature file only when that feature needs a special exception
+- if an older pending file started as a proposal-only note but is now intended to drive implementation, rewrite it into a proper execution-ready master prompt document instead of appending more freeform proposal text
+- prefer prompt sections that map to real engineering boundaries such as architecture review, contracts, persistence, runtime integration, UI adaptation, logging, tests, and final verification
+- split large features into enough prompts that each one has a clear verification target and a natural commit boundary
+- do not pack unrelated backend, frontend, and testing work into one oversized prompt when separate prompts would reduce token load and execution risk
 
 Recommended reminder text for feature-specific master prompt files:
 
 `Execution of this feature must follow Feature_Implementation_Guide.md. After each completed prompt, stop, update prompt status, and ask "Commit changes?" Do not auto-advance.`
+
+## Testing Hygiene Rule
+
+Task files that involve test execution should state repo-clean verification rules explicitly.
+
+Required behavior:
+- do not allow automated testing to create junk files or temp folders inside the repo
+- when using pytest, prefer external `TMP` / `TEMP` and an external `--basetemp`
+- if a tool or framework tends to generate artifacts, direct them to an approved temp location outside the repository when practical
+- if cleanup is required after verification, document it in the prompt completion note
+- if environment limits prevent clean automated execution, document the blocker instead of falling back to repo-local temp output
+
+Recommended wording for task files:
+
+`Follow the repo rule to keep test artifacts out of the repository. Use external TMP/TEMP and external basetemp locations for pytest or similar tooling.`
+
+## Standard Master Prompt Skeleton
+
+For new task files, prefer this top-level order:
+
+1. Title and short purpose
+2. `Execution Tracking Instructions`
+3. `Last Updated By`
+4. `Last Updated On`
+5. `Merge To Main`
+6. `Current Active Prompt`
+7. `Global Status Summary`
+8. `Working Rules For The Implementing AI Agent`
+9. `Testing And Verification Rules`
+10. `Do Not Break` when applicable
+11. `Current Repo Truth`
+12. `Architecture Guidance`
+13. Prompt sections in execution order
+
+This keeps task files easier to continue across sessions and makes it easier for an implementing agent to identify status, constraints, architecture boundaries, and the next safe execution step quickly.
+
+## End Of Document Appendix Rule
+
+When creating a new task markdown file, add a compact appendix at the very end of the document.
+
+Purpose:
+- preserve a simple business-level explanation of the feature
+- make handoff and manual verification easier
+- improve readability for future sessions without inflating the execution prompts
+
+Required appendix sections:
+- `Use Case`
+- `Manual Testing`
+
+Recommended optional sections when helpful:
+- `Scenarios`
+- `Simple Flow Chart`
+
+Required behavior:
+- clearly mark the appendix as archive and manual-verification guidance only
+- clearly state that the appendix must not be treated as additional implementation scope unless the user explicitly asks
+- keep the appendix concise and high-signal
+- prefer simple tables for actor/outcome comparisons when they improve clarity
+- include a small chart only when it makes the runtime flow easier to understand
+- avoid large narrative examples that consume tokens without improving execution clarity
+
+## Use Case Appendix Rule
+
+The `Use Case` section should explain the business logic in practical terms.
+
+Required behavior:
+- describe the real user flow in short, concrete steps
+- explain what the system is trying to protect or enable
+- show who does what and what the backend decides
+- use a compact table when multiple actors, paths, or outcomes are involved
+- optimize for fast understanding with minimal token usage
+
+## Manual Testing Appendix Rule
+
+The `Manual Testing` section should provide a step-by-step reproduction guide for verifying the feature.
+
+Required behavior:
+- list the exact actions to take in execution order
+- include expected results beside each step or immediately under it
+- make it possible for a reviewer to validate the feature without reverse-engineering the code
+- include separate scenario coverage when success path and conflict path differ meaningfully
+- keep steps practical, observable, and concise
+
+Recommended format:
+- Step
+- Action
+- Expected Result
+
+Example compact table:
+
+| Step | Action | Expected Result |
+|---|---|---|
+| 1 | Open the page or trigger the flow | Initial state loads correctly |
+| 2 | Perform the user action under test | Target state change appears |
+| 3 | Repeat the conflicting or recovery action | Conflict or recovery behavior matches the task definition |
+
+## Minimal Token Guidance For Appendices
+
+To preserve high quality output with low token usage:
+- keep appendix language direct and operational
+- prefer one compact table over several repetitive bullet lists
+- prefer one small flow chart over a long prose explanation when sequence matters
+- do not restate the full prompt document in the appendix
+- include only the scenarios needed for business understanding and manual verification
 
 ## Recommended Prompt Order
 

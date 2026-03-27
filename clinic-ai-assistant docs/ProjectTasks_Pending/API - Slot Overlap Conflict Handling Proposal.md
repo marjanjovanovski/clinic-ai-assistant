@@ -1,145 +1,178 @@
-# Slot Overlap Conflict Handling Proposal
+# Slot Overlap Conflict Handling Master Prompt
 
-This document is a proposal and planning artifact only. It does not represent implemented behavior.
+This document defines the execution-ready task plan for preventing double booking when two users compete for the same slot.
 
-The purpose of this proposal is to define the most practical service-oriented way to prevent double booking when two users select the same time slot close together, while still preserving a smooth UX for users who take longer to finish the flow.
+The purpose of this work is to:
+- prevent silent double booking across main chat and sandbox flows
+- keep scheduling as the authority for slot reservation, revalidation, and final booking
+- preserve a smooth UX for slower users through one silent same-slot recovery attempt
+- return explicit, recoverable conflict outcomes when a selected slot is no longer bookable
+- leave durable operator-visible traces for overlap, stale-slot, and booking-mismatch incidents
 
-## Proposal Status
+This file replaces the older proposal-style structure with an implementation-ready master prompt format aligned to the current task guide.
 
-- `Proposal Only - Not Implemented`
+## Execution Tracking Instructions
 
-## Workflow Authority
+Before executing any prompt in this document, the implementing AI agent must first read this file and understand the current status.
 
-Execution of any future implementation based on this proposal must follow [Feature_Implementation_Guide.md](./Feature_Implementation_Guide.md).
+Execution of this feature must follow [Feature_Implementation_Guide.md](./Feature_Implementation_Guide.md).
+After each completed prompt, stop, update prompt status in this file, and ask `Commit changes?`
+Do not auto-advance to the next prompt.
 
-## Why This Proposal Exists
+As soon as a prompt is executed, this file must be updated in two places:
+- at the very top of the document in the global status summary
+- in the corresponding prompt section header
 
-The current system now supports:
-- scheduling-first slot selection in the main chat
-- direct sandbox booking in `cal.html`
-- provider-backed booking through the scheduling subsystem
+Status values allowed in this document:
+- `Pending`
+- `Completed`
+- `Blocked`
 
-That means the overlap risk is now real:
-- User A can view slot `26 Mar 2026 во 12:00`
-- User B can view the same slot at nearly the same time
-- both users may proceed believing the slot is still available
-- only one booking should succeed authoritatively
+## Last Updated By
 
-Without an explicit strategy, the losing user may experience:
-- a false booking success
-- a stale summary still showing the old slot as if it were valid
-- no guided recovery path back to fresh availability
-- no operator-visible trace that this race happened at all
+- `Codex`
 
-## Investigation Findings That Refined This Proposal
+## Last Updated On
 
-Runtime investigation on `2026-03-25` showed this is no longer theoretical.
+- `2026-03-27`
 
-Observed outcome:
-- session `e1b02d0c-8d44-4dce-8d72-d5fb3c8ce690` booked `26 Mar 2026 во 12:00` for `marjan.jovanovski@gmail.com`
-- session `c7b84d84-e06a-4b6f-baf8-d1f6a793c216` also booked `26 Mar 2026 во 12:00` for `marjan.j@gmail.com`
+## Merge To Main
+
+- `Pending`
+
+## Current Active Prompt
+
+- `Prompt 1`
+
+## Global Status Summary
+
+- Prompt 1 - Pending
+- Prompt 2 - Pending
+- Prompt 3 - Pending
+- Prompt 4 - Pending
+- Prompt 5 - Pending
+- Prompt 6 - Pending
+- Prompt 7 - Pending
+- Prompt 8 - Pending
+- Prompt 9 - Pending
+- Prompt 10 - Pending
+- Prompt 11 - Pending
+- Prompt 12 - Pending
+
+## Working Rules For The Implementing AI Agent
+
+- Inspect the existing repo logic before changing code.
+- Treat scheduling-owned backend code as the authority for slot holds, slot revalidation, and provider booking.
+- Reuse existing scheduling and booking services where possible instead of building a parallel reservation flow.
+- Keep `ai_agent.py` orchestration-focused rather than pushing provider-specific booking logic into agent orchestration.
+- Keep `index.html` and `cal.html` thin clients that render backend-owned state and conflict responses.
+- Preserve both current entry points:
+  - main chat scheduling-first flow through `/chat`
+  - sandbox booking flow through `/scheduling/book`
+- Prefer one focused prompt per engineering boundary so each prompt has a clear verification target and natural commit point.
+- Update this file immediately after each prompt is completed.
+- Do not mark a prompt as completed unless the requested work for that prompt has actually been implemented and verified as far as possible.
+
+## Testing And Verification Rules
+
+- Follow the repo rule to keep test artifacts out of the repository.
+- When running pytest, use external `TMP` / `TEMP` and an external `--basetemp`.
+- Add or update focused automated coverage for any changed hold, conflict, booking, or UI behavior.
+- If cleanup is required after verification, document it in the prompt completion note.
+- If a test cannot run because of environment permissions, document that clearly in the prompt completion note.
+- Manual verification is allowed when the environment blocks full automated execution, but it must be described concretely.
+
+## Do Not Break
+
+- current `cal.html` sandbox booking behavior outside the intentional overlap-hardening change
+- current `/scheduling/select-slot` selection flow
+- current `/scheduling/book` provider-backed booking authority
+- booking-first chat flow
+- scheduling-first chat flow
+- booking summary widget rendering
+- slot-list widget rendering
+- persisted contact collection and existing lead/session ownership behavior
+
+## Current Repo Truth
+
+- The system currently supports scheduling-first slot selection in the main chat.
+- The sandbox page `cal.html` can book directly through `/scheduling/book`.
+- A selected slot can remain visible to a user for some time before final booking is attempted.
+- Runtime investigation on `2026-03-25` showed that the same exact slot could be booked twice in close succession.
+- The overlap issue currently behaves like a stale-slot / double-booking gap rather than a session-state leak.
+- The current system has no dedicated hold lifecycle, no conflict-specific backend contract, and no overlap-focused operator trace event set.
+
+Observed investigation outcome:
+- session `e1b02d0c-8d44-4dce-8d72-d5fb3c8ce690` booked `26 Mar 2026 at 12:00` for `marjan.jovanovski@gmail.com`
+- session `c7b84d84-e06a-4b6f-baf8-d1f6a793c216` also booked `26 Mar 2026 at 12:00` for `marjan.j@gmail.com`
 - both lead records were stored independently with correct contact data
 - both sessions persisted `booking_result.status = confirmed`
 - both sessions received separate Google Calendar booking ids
-- Google Calendar later showed two overlapping events for the same slot
-- the latest runtime traces showed no warning, no rejection, and no overlap-specific alert
+- Google Calendar later showed overlapping events for the same slot
+- the latest runtime traces showed no warning, rejection, or overlap-specific alert
 
-Meaning:
-- this does not currently look like a session data leak in the assistant DB
-- it does look like a stale-slot / double-booking gap
-- the current system has no built-in operator trace for this class of miss
+## Why This Feature Exists
 
-## Current Risk Surfaces
+Without explicit overlap handling, the losing user may experience:
+- a false booking success
+- a stale booking summary that still looks valid
+- no guided recovery path back to fresh availability
+- no operator-visible evidence that slot contention happened
 
-### Main Chat
+The target outcome is a simple, service-oriented reservation model:
+- availability remains advisory
+- slot selection acquires a short-lived hold
+- final booking revalidates the hold and provider availability
+- one silent same-slot recovery attempt is allowed if the hold expired but the slot is still free
+- explicit recovery responses are returned when the slot is no longer available
 
-- the user selects a slot from `/scheduling/select-slot`
-- the chosen slot is carried through contact collection
-- the final booking occurs later during the `/chat` completion step
-- a slot can become stale between selection time and final booking time
+## Target Architecture
 
-### Sandbox `cal.html`
+### Reservation Model
 
-- the user views availability and clicks a slot
-- `cal.html` calls `/scheduling/book` directly
-- a slot can become stale between the availability response and the booking request
+- Viewing availability does not reserve a slot.
+- Reservation starts only when the user actively selects a slot.
+- Scheduling creates and owns a short-lived exclusive hold for exact `tenant + slot_id`.
+- The hold belongs to one `session_id`.
+- Only one active hold may exist for the same `tenant + slot_id`.
+- Successful booking consumes the hold.
+- Inactive holds must expire or be released automatically.
 
-## Proposal Goals
+### Hold Fields
 
-- prevent silent double booking
-- leave a durable trace whenever slot contention or booking mismatch is detected
-- establish a scheduling-owned temporary hold before final booking
-- allow one silent recovery attempt when the hold expired but the same slot is still available
-- return a clean recovery response only when the slot is actually no longer bookable
-
-## Refined Proposed Strategy
-
-### 1. Treat Availability As Advisory
-
-Viewing availability must not reserve a slot permanently.
-
-Implication:
-- availability remains informational
-- reservation starts only when the user actively selects a slot
-
-### 2. Create A Short-Lived Scheduling Hold On Slot Selection
-
-When the user selects a slot, scheduling should create a short-lived exclusive hold for that exact `tenant + slot_id`.
-
-Recommended behavior:
-- hold is created by scheduling, not by the frontend
-- hold belongs to a single `session_id`
-- only one active hold can exist for the same `tenant + slot_id`
-- hold expiration window should be short, for example `3-5 minutes`
-- hold is consumed on successful booking
-- hold is released or expired automatically if the user does not complete in time
-
-Recommended hold fields:
 - `hold_id`
 - `tenant`
 - `service_id`
 - `slot_id`
 - `session_id`
-- `status` such as `active`, `expired`, `released`, `consumed`
+- `status`
 - `created_at`
 - `expires_at`
 - `released_reason`
 
-### 3. Revalidate At Final Booking Time
+### Booking Boundary
 
-Before the provider booking is executed, scheduling must validate that:
-- the active hold still belongs to the same session
+Before provider booking executes, scheduling must verify:
+- the active hold still belongs to the same session, or can be silently refreshed under the approved recovery rule
 - the slot is still valid for booking
-- the provider/calendar still allows the booking
+- the provider or calendar still accepts the booking
 
-This remains necessary even if a hold exists because external calendar changes can still happen outside our app.
+### Silent Recovery Rule
 
-### 4. Silent Recovery If The Hold Expired But The Slot Is Still Free
-
-This is the key UX refinement.
-
-If the user reaches the final booking step after the hold expired:
-- do not immediately interrupt the user
-- scheduling should make one dedicated backend re-check for the same selected slot
-- if the same slot is still available:
+If the user reaches final booking after the hold expired:
+- do not interrupt the user immediately
+- perform one backend re-check for the same exact selected slot
+- if the slot is still available:
   - recreate or refresh the hold internally
-  - continue the booking flow without notifying the user
-  - proceed to final provider booking normally
+  - continue booking without notifying the user
 - if the slot is no longer available:
-  - return a conflict / expiry response
-  - keep the already collected patient details
-  - offer fresh slots for the same selected day when possible
+  - return an explicit conflict outcome
+  - preserve already collected contact data
+  - return fresh same-day alternatives when possible
 
-This gives the best balance between:
-- protecting the calendar
-- avoiding fake success
-- not punishing a slow user unnecessarily
+### Conflict Contract Direction
 
-### 5. Return Dedicated Conflict Outcomes
-
-If the slot can no longer be booked, the backend should return an explicit outcome instead of a generic failure.
-
-Recommended response shapes:
+Recommended status and reason values:
 - `status = hold_rejected`
 - `status = hold_expired`
 - `status = slot_unavailable`
@@ -147,34 +180,29 @@ Recommended response shapes:
 - `reason = hold_expired_recheck_failed`
 - `next_action = refresh_availability`
 
-Recommended payload fields:
+Recommended response payload fields:
 - `message`
 - `selected_slot`
 - `selected_date`
 - optional `replacement_slots`
 - optional `service_id`
 
-### 6. Same-Day Recovery UX
+Recommended user-facing conflict messages:
+- User B immediate hold rejection at slot click:
+  - `This slot was just taken by another booking. I will show available slots for the same day.`
+- User A late failure at final booking after losing the slot:
+  - `The selected slot is no longer available. I will show you other available slots for the same day.`
 
-If the slot is no longer available:
-- keep the transcript intact
-- keep already collected name/phone/email when safe
-- do not restart the whole booking flow
-- show a clear message that the selected slot is no longer available
-- show fresh slots for the same day the user had already selected
+Messaging intent:
+- use the first message when the user tried to claim the slot but never obtained the hold
+- use the second message when the user had progressed further and the slot was lost before final booking
+- avoid generic error wording such as `booking failed`
+- avoid false-confirmation language
+- immediately pair the message with same-day replacement slots when available
 
-Recommended user-facing wording:
-- `Овој термин повеќе не е достапен. Ќе ви прикажам слободни термини за истиот ден.`
+### Trace Events
 
-If the hold expired but silent re-check succeeds:
-- do not notify the user
-- continue as if the reservation had remained valid
-
-### 7. Add Conflict And Anomaly Trace Logging
-
-Scheduling must emit explicit trace events for overlap-related misses and suspicious outcomes.
-
-Minimum recommended trace events:
+Minimum recommended event set:
 - `SLOT_HOLD_CREATED`
 - `SLOT_HOLD_REJECTED`
 - `SLOT_HOLD_EXPIRED`
@@ -198,36 +226,15 @@ Each trace should include:
 - `hold_id` when a reservation is involved
 - a short machine-readable `reason`
 
-Purpose:
-- leave operator evidence when a stale-slot race occurs
-- make post-incident debugging possible without digging only through chat text
-- surface possible leak-like symptoms early, even when the real issue is slot contention
-
-### 8. Preserve Service-Oriented Ownership
-
-The overlap solution should not be implemented separately in each page.
-
-Ownership split:
-- frontend:
-  - display selected slots
-  - show recovery messages
-  - render same-day replacement slots when returned
-- scheduling backend:
-  - own hold creation, expiration, refresh, and release
-  - own final revalidation
-  - own provider booking authority
-  - own overlap and anomaly trace logging
-  - return explicit recovery contracts
-
-## Expected User Outcomes
+## User Outcome Expectations
 
 ### User Who Books First
 
-- slot hold is created
+- hold is created
 - booking succeeds normally
-- user receives standard confirmation
+- user receives the usual confirmation
 
-### User Who Is Slightly Delayed But Slot Is Still Free
+### User Who Is Delayed But The Slot Is Still Free
 
 - original hold may expire
 - backend silently rechecks the same slot
@@ -238,63 +245,387 @@ Ownership split:
 
 - booking does not succeed
 - user receives a clear explanation
-- user keeps already entered patient details
-- user is offered fresh slots for the same day when possible
+- already entered patient details remain usable
+- same-day replacement slots are offered when possible
 
-## Recommended Backend Validation Point
+Recommended user-facing wording when the slot is no longer available:
+- `This slot is no longer available. I will show available slots for the same day.`
 
-The authoritative booking boundary remains the scheduling-owned booking path.
+## Prompt Strategy
 
-For current architecture this likely means:
-- hold creation or refresh in the slot-selection path
-- final hold validation and provider booking in scheduling execution
-- reuse for both:
-  - main chat booking completion bridge
-  - direct sandbox booking flow
+This feature should be implemented in small prompt units because it spans contracts, persistence, backend flow control, two UI surfaces, logging, and concurrency-oriented tests.
 
-## Reservation Feasibility
+The prompts below are intentionally split so the implementing agent can:
+- keep context windows smaller
+- verify each boundary independently
+- reduce the chance of mixing API, UI, and test work in one oversized step
+- stop cleanly after every meaningful checkpoint
 
-An application-level reservation mechanism is feasible.
+## Prompt 1 - Pending
 
-Recommended first version:
-- create a lightweight DB-backed hold table or scheduling module
-- enforce one active hold per exact `tenant + slot_id`
-- expire holds automatically by timestamp
-- allow one silent same-slot recheck when the hold expired
-- require final booking to confirm hold ownership or refreshed hold ownership
+### Goal
 
-Important limitation:
-- a hold only protects against races inside this application
-- final provider validation is still required because external calendar changes can happen outside our app
+Trace the exact current slot-selection and final-booking flow across main chat and sandbox paths, then confirm the precise overlap failure boundaries.
 
-Therefore the safest architecture is:
-- hold on selection
-- revalidate at booking time
-- if hold expired, try one silent same-slot recovery
-- if recovery fails, return same-day alternatives
-- then create the provider event
-- log any mismatch or conflict at each boundary
+### Instructions
 
-## Refined Future Implementation Prompts
+Inspect the repo end to end before changing code.
 
-- Prompt 1 - Map the exact hold lifecycle, expired-hold recovery path, and same-day fallback contract across main chat and sandbox flows
-- Prompt 2 - Add scheduling-owned hold persistence, expiration handling, and overlap trace events
-- Prompt 3 - Add response contracts for hold rejection, hold expiry, silent same-slot recheck, and slot-unavailable outcomes
-- Prompt 4 - Implement hold acquisition on selection plus final booking revalidation in the scheduling-owned booking path
-- Prompt 5 - Implement silent expired-hold recheck for the same slot and same-day fallback slot generation when recovery fails
-- Prompt 6 - Update main chat UI to support silent recovery, same-day replacement slots, and preserved contact data
-- Prompt 7 - Update `cal.html` sandbox UI to support the same scheduling-owned recovery and conflict responses
-- Prompt 8 - Add regression coverage for simultaneous booking, hold expiry, silent recheck success, silent recheck failure, and duplicate-booking anomaly traces
+Requirements:
+- identify where slot selection currently becomes durable state
+- identify where booking authority actually executes for:
+  - main chat
+  - `cal.html`
+- map where a stale slot can survive between selection and booking
+- identify existing persistence, service, or route boundaries that should own the hold lifecycle
+- document the recommended insertion points for hold creation, hold validation, hold consumption, and hold release
 
-## Recommended Simplicity Principle
+### Required Outcome
 
-Do not jump straight to complex distributed locking or provider-specific reservation tricks.
+A precise architecture map exists in this file or in prompt notes, and the exact integration points for the hold model are clear before implementation starts.
 
-Start with:
-- application-level short hold
-- final scheduling revalidation
-- one silent same-slot recovery attempt after expired hold
-- same-day replacement slot response when recovery fails
-- overlap/anomaly trace logging
+## Prompt 2 - Pending
 
-Only introduce more advanced reservation behavior later if real usage proves the simple hold-plus-recheck model is insufficient.
+### Goal
+
+Define the backend contract for hold lifecycle and conflict outcomes before runtime changes are introduced.
+
+### Instructions
+
+Design the scheduling-owned API and service contract for:
+- hold creation on slot selection
+- hold validation at booking time
+- expired-hold same-slot recheck
+- explicit conflict and fallback responses
+
+Requirements:
+- keep the contract compatible with both main chat and sandbox flows
+- prefer explicit machine-readable statuses over vague failure strings
+- define which fields are required versus optional in success, conflict, and fallback responses
+- define which response fields the frontend may safely rely on
+
+### Required Outcome
+
+The booking and conflict contract is explicit enough that backend, UI, and tests can be implemented without guessing response shape.
+
+## Prompt 3 - Pending
+
+### Goal
+
+Add scheduling-owned persistence or equivalent state support for slot holds.
+
+### Instructions
+
+Implement the minimal persistence layer needed for short-lived holds.
+
+Requirements:
+- store exact hold ownership by `tenant + slot_id + session_id`
+- support statuses such as `active`, `expired`, `released`, and `consumed`
+- support deterministic expiration checks
+- keep the implementation simple and maintainable
+- avoid introducing distributed-lock complexity unless the existing architecture truly requires it
+
+### Required Outcome
+
+A minimal scheduling-owned hold store exists and can represent the required hold lifecycle safely.
+
+## Prompt 4 - Pending
+
+### Goal
+
+Acquire or reject a hold when a user selects a slot.
+
+### Instructions
+
+Update the slot-selection path so scheduling attempts to create the hold at selection time.
+
+Requirements:
+- only one active hold may exist per exact `tenant + slot_id`
+- if another active hold already owns the slot, return a clear conflict outcome
+- persist enough hold metadata for later booking validation
+- keep the slot-selection flow compatible with existing selection payloads where possible
+
+### Required Outcome
+
+Slot selection becomes the point where reservation starts, and stale advisory availability no longer behaves like a claim of ownership by itself.
+
+## Prompt 5 - Pending
+
+### Goal
+
+Enforce hold ownership and provider revalidation at final booking time.
+
+### Instructions
+
+Update the scheduling-owned booking execution path so final booking requires a valid hold or an approved silent-refresh path.
+
+Requirements:
+- verify hold ownership against the current session
+- verify the slot is still valid before provider booking
+- consume the hold on successful booking
+- reject booking cleanly if the hold belongs to another session or the slot is no longer bookable
+- keep provider-booking authority inside scheduling-owned code
+
+### Required Outcome
+
+Final booking becomes an authoritative guarded boundary rather than a best-effort attempt based only on earlier slot display.
+
+## Prompt 6 - Pending
+
+### Goal
+
+Implement one silent same-slot recovery attempt when the hold expired but the slot is still free.
+
+### Instructions
+
+Add the expired-hold recheck behavior to the final booking path.
+
+Requirements:
+- perform at most one silent recheck per booking attempt
+- recreate or refresh the hold only if the same slot is still available
+- continue booking without user-facing interruption when recheck succeeds
+- return the explicit expired-hold conflict contract when recheck fails
+
+### Required Outcome
+
+Slow users are not penalized unnecessarily, while stale-slot conflicts still fail safely when the slot was actually lost.
+
+## Prompt 7 - Pending
+
+### Goal
+
+Return same-day fallback options and preserve collected user data when a selected slot is lost.
+
+### Instructions
+
+Extend the conflict response path so the user can recover without restarting the whole booking flow.
+
+Requirements:
+- keep transcript and already collected contact details intact where safe
+- return fresh same-day replacement slots when possible
+- include enough metadata for the UI to explain the issue and render the alternatives
+- do not fake success or preserve stale booking-summary state
+
+### Required Outcome
+
+The backend can respond to lost-slot conflicts with a recoverable same-day fallback contract instead of a generic failure.
+
+## Prompt 8 - Pending
+
+### Goal
+
+Adapt the main chat flow to the new scheduling-owned hold and conflict contract.
+
+### Instructions
+
+Update the main chat surface and any supporting backend bridge logic to respect the new overlap-handling behavior.
+
+Requirements:
+- preserve the `/chat` driven interaction model
+- support silent recovery with no user-facing noise when recheck succeeds
+- show clear lost-slot messaging when recheck fails
+- preserve already collected patient details where the backend contract allows it
+- keep booking summary and transcript state consistent with actual booking outcome
+
+### Required Outcome
+
+The main chat flow remains smooth for valid bookings and recovers cleanly when a selected slot is lost.
+
+## Prompt 9 - Pending
+
+### Goal
+
+Adapt `cal.html` to the same scheduling-owned hold and conflict contract.
+
+### Instructions
+
+Update the sandbox booking surface so it no longer assumes a direct book request can succeed purely from stale availability display.
+
+Requirements:
+- support the new explicit conflict responses
+- render same-day fallback slots when returned
+- preserve the sandbox's value as a clear backend reference flow
+- avoid adding duplicate hold logic in frontend code
+
+### Required Outcome
+
+`cal.html` remains usable as a sandbox flow while following the same authoritative overlap rules as the main chat.
+
+## Prompt 10 - Pending
+
+### Goal
+
+Add overlap-focused trace logging and anomaly detection hooks.
+
+### Instructions
+
+Implement the recommended hold and conflict trace events in scheduling-owned code.
+
+Requirements:
+- emit trace events at hold creation, rejection, expiration, refresh, conflict, and booking mismatch boundaries
+- include stable machine-readable identifiers in each event
+- make post-incident debugging possible without relying only on transcript text
+- keep log volume focused on meaningful state transitions and anomalies
+
+### Required Outcome
+
+Operators have durable evidence when overlap, stale-slot conflict, or suspicious booking outcomes occur.
+
+## Prompt 11 - Pending
+
+### Goal
+
+Add focused regression coverage for overlap handling across backend and UI boundaries.
+
+### Instructions
+
+Create or update automated tests for the new behavior.
+
+Requirements:
+- cover simultaneous booking or equivalent contention scenarios
+- cover hold rejection on selection
+- cover final booking success with a valid hold
+- cover expired-hold silent recheck success
+- cover expired-hold silent recheck failure
+- cover same-day fallback responses
+- cover overlap trace emission where practical
+- follow repo-clean temp-path rules for all test execution
+
+### Required Outcome
+
+Automated coverage exists for the critical overlap-control paths and helps prevent silent regression.
+
+## Prompt 12 - Pending
+
+### Goal
+
+Perform final verification, tighten any rough edges, and document the completed behavior in this file.
+
+### Instructions
+
+After implementation prompts are complete, perform the final pass.
+
+Requirements:
+- re-check that both main chat and sandbox flows still work under their intended interaction models
+- verify no repo-local junk was left behind by testing
+- document automated and manual verification clearly
+- list any accepted limitations or follow-up ideas without silently expanding scope
+
+### Required Outcome
+
+The overlap-handling feature is verified, documented, and ready for user review and eventual merge approval.
+
+---
+
+## Archival Appendix - Do Not Extend Into More Prompts
+
+This appendix is for archive, handoff, and manual-verification guidance only.
+
+Execution rule for future implementing agents:
+- do not treat this appendix as additional implementation scope
+- do not create extra prompts from this appendix unless the user explicitly asks for that
+- use it only to understand expected runtime behavior and manual verification outcomes
+- once the implementation reaches the matching prompt stages above, this appendix should not consume further context planning time
+
+### Main Logic
+
+The system treats availability as view-only until a user actually selects a slot.
+
+When a user clicks a slot:
+1. The backend tries to create a short hold for that exact slot.
+2. If no one else holds it, the hold is assigned to that user session for a few minutes.
+3. The user continues entering contact details.
+4. At final booking, the backend checks:
+   - does this session still own the hold?
+   - is the slot still valid?
+   - does the provider or calendar still allow booking?
+5. If yes, booking is created and the hold is consumed.
+6. If the hold expired, the backend tries one silent re-check for the same slot.
+7. If the slot is still free, it refreshes the hold and continues.
+8. If the slot is gone, booking is rejected cleanly and fresh same-day slots are returned.
+
+### Practical Use Case
+
+Two users see the same available slot: `12:00`.
+
+| Step | User A | User B | Backend result |
+|---|---|---|---|
+| 1 | Opens availability | Opens availability | Both can see `12:00` because viewing does not reserve |
+| 2 | Clicks `12:00` first | Still looking at list | Hold for `12:00` is created for User A |
+| 3 | Enters details | Clicks `12:00` too | User B hold is rejected because User A already owns the active hold |
+| 4 | Completes booking | Sees conflict response plus fresh same-day slots | User A booking succeeds |
+| 5 | Gets confirmation | Chooses another slot | No double booking |
+
+### Scenarios
+
+#### Scenario A - User B loses immediately at slot selection
+
+Runtime:
+1. User A clicks `12:00` first.
+2. The backend creates the hold for User A.
+3. User B clicks `12:00` while that hold is still active.
+4. The backend rejects User B's hold request.
+5. User B sees:
+   - `This slot was just taken by another booking. I will show available slots for the same day.`
+6. The UI refreshes with same-day alternatives.
+
+#### Scenario B - User A loses later at final booking
+
+Runtime:
+1. User A clicked `12:00` earlier and had a valid hold.
+2. User A takes too long and the hold expires.
+3. User B then clicks `12:00` and gets the new active hold.
+4. User B completes booking successfully.
+5. User A later tries to finish booking.
+6. The backend checks the hold and sees User A no longer owns the slot.
+7. The backend performs one silent same-slot re-check.
+8. The slot is no longer free because User B already secured it.
+9. User A sees:
+   - `The selected slot is no longer available. I will show you other available slots for the same day.`
+10. The UI returns same-day replacement slots without forcing the user to restart from scratch.
+
+#### Scenario C - User A is delayed but silent recovery succeeds
+
+Runtime:
+1. User A clicked `12:00`.
+2. User A's hold expires before final confirmation.
+3. No one else has taken the slot.
+4. User A finishes booking.
+5. The backend performs one silent re-check.
+6. The slot is still free, so the backend refreshes the hold and completes booking.
+7. User A sees normal booking confirmation only.
+8. No conflict message is shown because recovery succeeded silently.
+
+### Simple Flow Chart
+
+```text
+User clicks slot
+   |
+   v
+Create short hold?
+   |
+   +-- No --> Return conflict + replacement slots
+   |
+   +-- Yes --> Continue booking flow
+                 |
+                 v
+          Final booking attempt
+                 |
+                 v
+      Hold still valid for this session?
+                 |
+        +--------+--------+
+        |                 |
+       Yes               No
+        |                 |
+        v                 v
+ Provider recheck     Silent same-slot recheck
+        |                 |
+   +----+----+       +----+----+
+   |         |       |         |
+ Success    Fail   Success     Fail
+   |         |       |         |
+   v         v       v         v
+Confirm   Conflict  Confirm   Conflict +
+booking   response  booking   replacement slots
+```
