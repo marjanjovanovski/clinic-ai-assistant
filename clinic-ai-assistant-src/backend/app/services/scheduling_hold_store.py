@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from app.services import lead_store
+from app.services.session_trace_logger import trace_event
 
 
 HOLD_STATUS_ACTIVE = "active"
@@ -114,8 +115,31 @@ def _expire_stale_holds_with_connection(connection, *, now_iso: str) -> int:
 def expire_stale_holds(*, now: datetime | None = None) -> int:
     effective_now = (now or _utc_now()).isoformat()
     with _connect() as connection:
+        stale_rows = connection.execute(
+            f"""
+            SELECT holds.hold_id, holds.tenant_id, holds.service_id, holds.slot_id, holds.session_id,
+                   holds.status, holds.created_at, holds.expires_at, holds.released_reason,
+                   holds.released_at, holds.consumed_at, tenants.name AS tenant_name
+            FROM scheduling_slot_holds AS holds
+            JOIN tenants ON tenants.id = holds.tenant_id
+            WHERE holds.status = '{HOLD_STATUS_ACTIVE}'
+              AND holds.expires_at <= ?
+            """,
+            (effective_now,),
+        ).fetchall()
         result_count = _expire_stale_holds_with_connection(connection, now_iso=effective_now)
         connection.commit()
+        for row in stale_rows:
+            hold = _row_to_public_hold(row)
+            if isinstance(hold, dict):
+                hold["status"] = HOLD_STATUS_EXPIRED
+                hold["released_reason"] = hold.get("released_reason") or "expired_by_time"
+            _trace_hold_event(
+                row["tenant_name"],
+                hold,
+                "SCHEDULING_HOLD_EXPIRED",
+                reason="expired_by_time",
+            )
         return result_count
 
 
@@ -142,6 +166,25 @@ def _row_to_public_hold(row: sqlite3.Row | None) -> dict | None:
         "released_at": row["released_at"],
         "consumed_at": row["consumed_at"],
     }
+
+
+def _trace_hold_event(tenant: str, hold: dict | None, event: str, **fields) -> None:
+    if not isinstance(hold, dict):
+        return
+    session_id = hold.get("session_id")
+    if not isinstance(session_id, str) or not session_id.strip():
+        return
+    trace_event(
+        tenant,
+        session_id.strip(),
+        event,
+        hold_id=hold.get("hold_id"),
+        service_id=hold.get("service_id"),
+        slot_id=hold.get("slot_id"),
+        hold_status=hold.get("status"),
+        expires_at=hold.get("expires_at"),
+        **fields,
+    )
 
 
 def get_slot_hold(
@@ -215,7 +258,15 @@ def create_slot_hold(
             (tenant_row["id"], slot_id, HOLD_STATUS_ACTIVE),
         ).fetchone()
         if existing_hold:
-            return _row_to_public_hold(existing_hold)
+            existing_public_hold = _row_to_public_hold(existing_hold)
+            _trace_hold_event(
+                tenant,
+                existing_public_hold,
+                "SCHEDULING_HOLD_REJECTED",
+                reason="slot_already_held",
+                requested_session_id=session_id,
+            )
+            return existing_public_hold
 
         connection.execute(
             """
@@ -255,7 +306,14 @@ def create_slot_hold(
             """,
             (hold_id,),
         ).fetchone()
-        return _row_to_public_hold(created_hold)
+        public_hold = _row_to_public_hold(created_hold)
+        _trace_hold_event(
+            tenant,
+            public_hold,
+            "SCHEDULING_HOLD_CREATED",
+            hold_minutes=hold_minutes,
+        )
+        return public_hold
 
 
 def update_hold_status(
@@ -300,4 +358,25 @@ def update_hold_status(
             """,
             (hold_id,),
         ).fetchone()
-        return _row_to_public_hold(row)
+        public_hold = _row_to_public_hold(row)
+        if isinstance(public_hold, dict):
+            if status == HOLD_STATUS_CONSUMED:
+                event_name = "SCHEDULING_HOLD_CONSUMED"
+            elif status == HOLD_STATUS_RELEASED:
+                event_name = "SCHEDULING_HOLD_RELEASED"
+            elif status == HOLD_STATUS_EXPIRED:
+                event_name = "SCHEDULING_HOLD_EXPIRED"
+            else:
+                event_name = "SCHEDULING_HOLD_UPDATED"
+            tenant_row = connection.execute(
+                "SELECT name FROM tenants WHERE id = ?",
+                (public_hold["tenant_id"],),
+            ).fetchone()
+            if tenant_row and tenant_row["name"]:
+                _trace_hold_event(
+                    tenant_row["name"],
+                    public_hold,
+                    event_name,
+                    reason=released_reason,
+                )
+        return public_hold

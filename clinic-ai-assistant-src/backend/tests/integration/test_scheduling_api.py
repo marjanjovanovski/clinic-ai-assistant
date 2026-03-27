@@ -252,6 +252,7 @@ def test_scheduling_select_slot_rejects_when_another_session_already_holds_slot(
     client = _build_client(monkeypatch, tmp_path)
 
     from app.services import ai_agent
+    import app.routes.scheduling as scheduling_route_module
 
     availability = client.post(
         "/scheduling/availability?tenant=milena_dental",
@@ -283,6 +284,15 @@ def test_scheduling_select_slot_rejects_when_another_session_already_holds_slot(
             },
         }
 
+    trace_events = []
+    monkeypatch.setattr(
+        scheduling_route_module,
+        "trace_event",
+        lambda tenant, session_id, event, **fields: trace_events.append(
+            {"tenant": tenant, "session_id": session_id, "event": event, "fields": fields}
+        ),
+    )
+
     first_response = client.post(
         "/scheduling/select-slot?tenant=milena_dental",
         json={
@@ -303,6 +313,7 @@ def test_scheduling_select_slot_rejects_when_another_session_already_holds_slot(
     assert first_response.status_code == 200
     assert second_response.status_code == 409
     assert second_response.json()["detail"] == "This slot was just taken by another booking. I will show available slots for the same day."
+    assert any(item["event"] == "SCHEDULING_SLOT_SELECTION_REJECTED" for item in trace_events)
 
 
 def test_scheduling_availability_rejects_reversed_date_range(monkeypatch, tmp_path):

@@ -106,3 +106,50 @@ def test_update_hold_status_supports_released_and_consumed_states(tmp_path):
     assert released["released_at"] is not None
     assert consumed["status"] == scheduling_hold_store.HOLD_STATUS_CONSUMED
     assert consumed["consumed_at"] is not None
+
+
+def test_hold_store_emits_trace_events_for_create_reject_expire_and_consume(tmp_path, monkeypatch):
+    _init_tmp_db(tmp_path)
+    captured = []
+
+    monkeypatch.setattr(
+        scheduling_hold_store,
+        "trace_event",
+        lambda tenant, session_id, event, **fields: captured.append(
+            {
+                "tenant": tenant,
+                "session_id": session_id,
+                "event": event,
+                "fields": fields,
+            }
+        ),
+    )
+
+    created_at = datetime(2026, 3, 27, 10, 0, tzinfo=timezone.utc)
+    first = scheduling_hold_store.create_slot_hold(
+        tenant="milena_dental",
+        service_id="consultation",
+        slot_id="mock|slot-1",
+        session_id="session-a",
+        hold_minutes=5,
+        now=created_at,
+    )
+    scheduling_hold_store.create_slot_hold(
+        tenant="milena_dental",
+        service_id="consultation",
+        slot_id="mock|slot-1",
+        session_id="session-b",
+        hold_minutes=5,
+        now=created_at,
+    )
+    scheduling_hold_store.expire_stale_holds(now=created_at + timedelta(minutes=6))
+    scheduling_hold_store.update_hold_status(
+        hold_id=first["hold_id"],
+        status=scheduling_hold_store.HOLD_STATUS_CONSUMED,
+    )
+
+    event_names = [item["event"] for item in captured]
+    assert "SCHEDULING_HOLD_CREATED" in event_names
+    assert "SCHEDULING_HOLD_REJECTED" in event_names
+    assert "SCHEDULING_HOLD_EXPIRED" in event_names
+    assert "SCHEDULING_HOLD_CONSUMED" in event_names

@@ -42,7 +42,7 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 10`
+- `Prompt 11`
 
 ## Global Status Summary
 
@@ -55,7 +55,7 @@ Status values allowed in this document:
 - Prompt 7 - Completed
 - Prompt 8 - Completed
 - Prompt 9 - Completed
-- Prompt 10 - Pending
+- Prompt 10 - Completed
 - Prompt 11 - Pending
 - Prompt 12 - Pending
 
@@ -896,7 +896,7 @@ Verification completed for Prompt 9:
 Verification note:
 - direct pytest execution for the integration files remains blocked by Windows temp-directory cleanup permission errors on this machine, so Prompt 9 was verified with static checks plus direct runtime scripting instead of a clean integration pytest run.
 
-## Prompt 10 - Pending
+## Prompt 10 - Completed
 
 ### Goal
 
@@ -915,6 +915,58 @@ Requirements:
 ### Required Outcome
 
 Operators have durable evidence when overlap, stale-slot conflict, or suspicious booking outcomes occur.
+
+### Completion Note
+
+Prompt 10 is completed.
+
+Implemented:
+- scheduling hold-store trace events for:
+  - `SCHEDULING_HOLD_CREATED`
+  - `SCHEDULING_HOLD_REJECTED`
+  - `SCHEDULING_HOLD_EXPIRED`
+  - `SCHEDULING_HOLD_RELEASED`
+  - `SCHEDULING_HOLD_CONSUMED`
+- scheduling capability trace events for:
+  - `SCHEDULING_HOLD_REFRESHED`
+  - `SCHEDULING_SLOT_CONFLICT`
+  - `SCHEDULING_BOOKING_MISMATCH`
+  - `SCHEDULING_BOOKING_CONFIRMED`
+- route-level trace event for selection-time ownership rejection:
+  - `SCHEDULING_SLOT_SELECTION_REJECTED`
+- all events include stable identifiers such as `hold_id`, `slot_id`, `service_id`, `session_id`, and conflict/fallback metadata where relevant
+
+Behavioral result:
+- operators can now distinguish between:
+  - hold creation
+  - hold rejection due to active ownership
+  - time-based expiration
+  - silent refresh recovery
+  - booking confirmation
+  - selection-time conflict rejection
+  - stale-slot conflict outcomes
+- overlap incidents are no longer visible only through user-facing message text
+
+Verification completed for Prompt 10:
+- static verification:
+  - `py_compile` passed for:
+    - `app/services/scheduling_hold_store.py`
+    - `app/services/scheduling_capability.py`
+    - `app/routes/scheduling.py`
+- direct runtime verification:
+  - focused hold-store trace script emitted:
+    - `SCHEDULING_HOLD_CREATED`
+    - `SCHEDULING_HOLD_REJECTED`
+    - `SCHEDULING_HOLD_EXPIRED`
+    - `SCHEDULING_HOLD_CONSUMED`
+  - focused scheduling capability trace script emitted:
+    - `SCHEDULING_HOLD_REFRESHED`
+    - `SCHEDULING_BOOKING_CONFIRMED`
+  - focused route trace script emitted:
+    - `SCHEDULING_SLOT_SELECTION_REJECTED`
+
+Verification note:
+- direct pytest execution for the affected suites remains blocked by the same Windows temp-directory cleanup permission issue on this machine, so Prompt 10 was verified through targeted runtime scripts plus static checks.
 
 ## Prompt 11 - Pending
 
