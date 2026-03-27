@@ -42,7 +42,7 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 12`
+- `None - Ready for review`
 
 ## Global Status Summary
 
@@ -57,7 +57,7 @@ Status values allowed in this document:
 - Prompt 9 - Completed
 - Prompt 10 - Completed
 - Prompt 11 - Completed
-- Prompt 12 - Pending
+- Prompt 12 - Completed
 
 ## Working Rules For The Implementing AI Agent
 
@@ -1036,7 +1036,7 @@ Residual warning:
 - repo-local test residue is still present at `_tmp_pytest_p10`
 - this path is not part of the intended change set and should be removed before final verification is considered clean
 
-## Prompt 12 - Pending
+## Prompt 12 - Completed
 
 ### Goal
 
@@ -1059,6 +1059,45 @@ Requirements:
 ### Required Outcome
 
 The overlap-handling feature is verified, documented, and ready for user review and eventual merge approval.
+
+### Completion Note
+
+Prompt 12 is completed.
+
+Final verification summary:
+- the main chat scheduling-first flow remains intact:
+  - availability returns slot-list widgets
+  - slot selection starts contact collection under a scheduling-owned hold
+  - lost-slot conflicts return recoverable same-day replacement slots
+  - replacement selection can complete booking with preserved contact details
+- the sandbox scheduling flow remains intact:
+  - `cal.html` still loads as the direct sandbox surface
+  - `/scheduling/book` now returns structured `slot_unavailable` conflicts with same-day fallback metadata
+  - `cal.html` renders the conflict recovery path instead of only a generic booking failure
+- the overlap trace contract is now complete and regression-covered, including the missing-hold booking mismatch path
+
+Automated verification completed:
+- full final overlap regression suite:
+  - `.\\.venv\\Scripts\\python.exe -m pytest .\\tests\\unit\\test_scheduling_hold_store.py .\\tests\\unit\\test_scheduling_capability.py .\\tests\\unit\\test_booking_credentials.py .\\tests\\integration\\test_scheduling_api.py .\\tests\\integration\\test_availability_intent_gating.py .\\tests\\integration\\test_frontend_booking_ui.py .\\tests\\integration\\test_cal_html.py -q --basetemp="C:\\Users\\Marjan Velika\\AppData\\Local\\Temp\\clinic-ai-assistant-final\\pytest-slot-overlap-final-escalated"`
+- result:
+  - full suite passed
+- static verification:
+  - `python -m py_compile clinic-ai-assistant-src/backend/app/services/scheduling_hold_store.py clinic-ai-assistant-src/backend/app/services/scheduling_capability.py clinic-ai-assistant-src/backend/app/services/booking_credentials.py clinic-ai-assistant-src/backend/app/routes/scheduling.py clinic-ai-assistant-src/backend/app/services/ai_agent.py`
+
+Manual/runtime verification completed:
+- confirmed main-chat frontend still contains widget-aware slot-selection handling:
+  - `includeWidget: true`
+- confirmed `cal.html` still contains overlap-recovery hooks:
+  - `function ensureSessionId()`
+  - `renderBookingConflict(...)`
+  - `if (data?.status === "slot_unavailable")`
+
+Final repo residual check:
+- no repo-local `_tmp*`, `tmp*`, or `scratch*` residue remains at repo root
+
+Accepted environment note:
+- on this machine, sandboxed test execution could not reliably create or finalize external SQLite-backed temp paths for the full suite
+- the final automated verification therefore required one non-destructive escalated pytest run using an external temp directory outside the repo
 
 ---
 

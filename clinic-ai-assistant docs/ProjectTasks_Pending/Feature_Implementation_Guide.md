@@ -283,6 +283,15 @@ Required behavior:
 - task files that include testing prompts should repeat a short repo-clean reminder inside the file so the rule is visible during execution and not only in this guide
 - at final verification, the agent must check whether the repo contains residual temp or scratch artifacts from testing and must warn the user clearly if any remain
 
+Environment-specific execution rule for this machine:
+- for this Windows environment, if a full pytest run needs writable temp space, do not spend time retrying multiple failing `F:\temp\...` or sandboxed temp-path variants first
+- use the proven external-user-temp pytest pattern as the first fallback:
+  - run outside sandbox when needed
+  - set `TMP` and `TEMP` under `C:\Users\Marjan Velika\AppData\Local\Temp\...`
+  - pass `--basetemp` under `C:\Users\Marjan Velika\AppData\Local\Temp\...`
+- treat this as the default escalated fallback for this environment once normal sandboxed execution shows temp or SQLite permission failures
+- do not burn extra prompt time trying multiple near-identical temp path variants before switching to this proven pattern
+
 Recommended wording for task files:
 
 `Follow the repo rule to keep test artifacts out of the repository. Use external TMP/TEMP and external basetemp locations for pytest or similar tooling.`
