@@ -25,6 +25,8 @@ Feature-specific master prompt files should reference this guide instead of dupl
 Pending task files should live in `ProjectTasks_Pending`.
 Completed task files should be archived into `ProjectTasks_Done`.
 
+For new pending tasks, prefer a dedicated task folder inside `ProjectTasks_Pending` rather than a loose standalone markdown file.
+
 ## Token Efficiency Rule
 
 To preserve weekly usage while keeping output quality high:
@@ -63,6 +65,28 @@ Recommended category prefixes:
 
 Use one clear category prefix only.
 Keep the task description short, specific, and outcome-oriented.
+
+## Pending Task Folder Convention
+
+For new pending work, prefer this folder layout:
+
+`ProjectTasks_Pending/<CATEGORY> - <Task Descriptive Value>/`
+
+Inside that folder:
+- `<CATEGORY> - <Task Descriptive Value>.md`
+- `manual_testing_coverage.json` when the task is expected to reach manual verification
+- optional evidence files later added manually by the user, such as images or PDFs referenced from the JSON
+
+Required behavior:
+- the folder name should match the task markdown filename without the `.md` suffix
+- the master prompt markdown file remains the workflow authority for the task
+- `manual_testing_coverage.json` is the structured companion artifact for manual verification state, not a replacement for the task markdown file
+- reference files in `manual_testing_coverage.json` should be plain typed filenames only
+- do not add upload or preview requirements to the task-folder convention unless the task explicitly requires them
+
+Compatibility rule:
+- existing flat pending `.md` task files may remain in place until they are migrated or completed
+- new folder-based tooling should handle legacy flat task files explicitly during the transition period rather than assuming the repo is already fully migrated
 
 ## Required Tracking Format
 
@@ -104,6 +128,7 @@ Keep the tracking document lean:
 - status should be easy to scan in a few seconds
 - do not turn the task file into a long-running diary
 - if progress data becomes row-heavy or state-heavy, move that data into a structured companion artifact when practical
+- for tasks that require repeated manual verification updates, prefer `manual_testing_coverage.json` as the state-heavy companion artifact instead of repeatedly editing large markdown tables
 
 Strongly recommended standard sections:
 - `Execution Tracking Instructions`
@@ -452,6 +477,10 @@ Recommended category examples:
 - `Category 2 - Conflict Or Recovery Path`
 - `Category 3 - Surface Parity`
 - `Category 4 - State Safety Or Regression Checks`
+
+When a task uses `manual_testing_coverage.json`:
+- keep the appendix as the human-readable source for what should be tested
+- keep pass/fail execution state in the JSON artifact rather than repeatedly editing the markdown file during every manual test pass
 
 ## Final Residual Check Rule
 

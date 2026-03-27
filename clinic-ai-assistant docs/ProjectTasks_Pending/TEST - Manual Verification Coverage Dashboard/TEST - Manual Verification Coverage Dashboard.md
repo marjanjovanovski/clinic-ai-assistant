@@ -42,17 +42,17 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 1`
+- `Prompt 8`
 
 ## Global Status Summary
 
-- Prompt 1 - Pending
-- Prompt 2 - Pending
-- Prompt 3 - Pending
-- Prompt 4 - Pending
-- Prompt 5 - Pending
-- Prompt 6 - Pending
-- Prompt 7 - Pending
+- Prompt 1 - Completed
+- Prompt 2 - Completed
+- Prompt 3 - Completed
+- Prompt 4 - Completed
+- Prompt 5 - Completed
+- Prompt 6 - Completed
+- Prompt 7 - Completed
 - Prompt 8 - Pending
 
 ## Working Rules For The Implementing AI Agent
@@ -169,6 +169,54 @@ Recommended row-level status values:
 - `Pass`
 - `Fail`
 
+Recommended first-version schema:
+
+```json
+{
+  "task_name": "TEST - Manual Verification Coverage Dashboard",
+  "task_file": "TEST - Manual Verification Coverage Dashboard.md",
+  "status": "pending_manual_verification",
+  "categories": [
+    {
+      "name": "Category 1 - Example",
+      "tests": [
+        {
+          "name": "Test 1.1 - Example",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Do the action",
+              "what_is_tested": "The expected behavior",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "not_run": 1,
+    "pass": 0,
+    "fail": 0
+  }
+}
+```
+
+Schema decisions for version 1:
+- each row represents one manual verification step
+- `reference_files` is a plain text field containing typed filenames, optionally comma-separated
+- `summary` may be stored for convenience, but runtime should be able to recompute it from row statuses
+- merge readiness logic should derive from row status values, not from freeform comments
+- categories and tests should remain explicit in JSON so the HTML page does not need to infer structure from flat text
+
+Legacy compatibility direction:
+- folder-based tasks are the preferred first-class target
+- legacy flat `.md` tasks may still appear in task discovery during transition
+- legacy flat tasks should not block implementation of the folder-based contract
+- if a flat task has no `manual_testing_coverage.json`, the dashboard may either omit it from editable coverage or surface it as a migration-needed item, depending on the later discovery implementation choice
+
 ### Reuse Expectation
 
 Before implementing new JSON utilities, inspect the repo for:
@@ -188,7 +236,7 @@ After all prompts are complete, the repo should have:
 - guide updates enforcing the new folder-based task structure for future pending tasks
 - a migration or compatibility plan for current pending task files
 
-## Prompt 1 - Pending
+## Prompt 1 - Completed
 
 ### Goal
 
@@ -208,7 +256,38 @@ Requirements:
 
 The implementation boundary is clear and reuse opportunities are identified before design changes begin.
 
-## Prompt 2 - Pending
+### Completion Note
+
+Prompt 1 is completed.
+
+Repo audit findings:
+- static frontend serving already exists in:
+  - `clinic-ai-assistant-src/backend/app/main.py`
+  - the backend mounts `"/frontend"` through `StaticFiles(...)`
+  - this means `ManualTesting.html` can likely be served through the same frontend static surface instead of inventing a new serving model
+- existing JSON read/write patterns already exist and should be reused as style references rather than inventing a new serialization approach:
+  - `clinic-ai-assistant-src/backend/app/services/config_loader.py`
+    - uses `json.load(...)` for UTF-8 config files
+  - `clinic-ai-assistant-src/backend/app/services/lead_store.py`
+    - uses `json.loads(...)` / `json.dumps(...)`
+    - already persists structured state and demonstrates safe UTF-8 JSON handling patterns
+  - `clinic-ai-assistant-src/lessons_learned_repo/history_cli.py`
+    - uses `Path(...).read_text(...)` and `json.dumps(...)` for simple file-based prompt/evidence handling
+- no strong repo-wide implementation dependency was found that hardcodes `ProjectTasks_Pending` as flat `.md` files in runtime code
+- the current pending-task folder is now in a mixed state:
+  - legacy flat task files still exist directly in `ProjectTasks_Pending`
+  - the new dashboard task already exists as a folder with:
+    - `TEST - Manual Verification Coverage Dashboard.md`
+    - `manual_testing_coverage.json`
+- architecture conclusion for this feature:
+  - the safest first version is to keep the dashboard local and static
+  - reuse existing JSON handling patterns
+  - support folder-based tasks first while documenting how legacy flat files are handled during transition
+
+Branch note:
+- work is running on dedicated branch `task-manual-verification-dashboard`
+
+## Prompt 2 - Completed
 
 ### Goal
 
@@ -231,7 +310,39 @@ Requirements:
 
 The task-folder rule and JSON contract are explicit and implementation-ready.
 
-## Prompt 3 - Pending
+### Completion Note
+
+Prompt 2 is completed.
+
+Design decisions locked for version 1:
+- new pending tasks should live in their own folder under `ProjectTasks_Pending`
+- the task markdown file remains the workflow authority
+- `manual_testing_coverage.json` is the structured companion artifact for manual verification state
+- the JSON contract uses:
+  - `categories`
+  - `tests`
+  - `rows`
+  - row fields:
+    - `step`
+    - `action`
+    - `what_is_tested`
+    - `status`
+    - `comment`
+    - `reference_files`
+- `reference_files` is plain text only, optionally comma-separated, and refers to files manually placed in the same task folder
+- row status values for version 1 are:
+  - `Not Run`
+  - `Pass`
+  - `Fail`
+- merge readiness should be derived from row statuses, not from prose notes
+
+Guide updates completed in this prompt:
+- added a pending-task folder convention for new tasks
+- defined the role of `manual_testing_coverage.json`
+- documented legacy flat-task compatibility during transition
+- documented that state-heavy manual verification data should live in the JSON companion artifact rather than repeated markdown edits
+
+## Prompt 3 - Completed
 
 ### Goal
 
@@ -255,7 +366,56 @@ Requirements:
 
 The dashboard can discover candidate tasks and persist manual verification data reliably.
 
-## Prompt 4 - Pending
+### Completion Note
+
+Prompt 3 is completed.
+
+Implemented backend support:
+- added task discovery and JSON persistence service in:
+  - `clinic-ai-assistant-src/backend/app/services/manual_verification_dashboard.py`
+- added route layer in:
+  - `clinic-ai-assistant-src/backend/app/routes/manual_verification.py`
+- wired the new route into:
+  - `clinic-ai-assistant-src/backend/app/main.py`
+
+Discovery behavior implemented:
+- scans `ProjectTasks_Pending`
+- supports:
+  - folder-based tasks with `<Task Name>.md`
+  - legacy flat `.md` tasks during transition
+- identifies tasks that currently have a pending manual verification / merge readiness prompt
+- returns task metadata including:
+  - task id
+  - task name
+  - task file
+  - entry type
+  - pending manual prompt number
+  - current active prompt
+  - merge status
+  - whether `manual_testing_coverage.json` is available
+
+Persistence behavior implemented:
+- loads `manual_testing_coverage.json` for folder-based tasks
+- validates:
+  - categories
+  - tests
+  - rows
+  - allowed row status values
+- saves:
+  - `status`
+  - `comment`
+  - `reference_files`
+- recomputes `summary` from row statuses on save
+
+Compatibility decision in this prompt:
+- legacy flat tasks are discoverable during transition
+- if they do not yet have `manual_testing_coverage.json`, they are surfaced without editable coverage data rather than being silently ignored
+
+Verification completed for Prompt 3:
+- static verification:
+  - `python -m py_compile clinic-ai-assistant-src/backend/app/services/manual_verification_dashboard.py clinic-ai-assistant-src/backend/app/routes/manual_verification.py clinic-ai-assistant-src/backend/app/main.py`
+
+## Prompt 4 - Completed
 
 ### Goal
 
@@ -278,7 +438,51 @@ Requirements:
 
 The page shell and rendered table are usable for real manual verification review.
 
-## Prompt 5 - Pending
+### Completion Note
+
+Prompt 4 is completed.
+
+Implemented frontend surface:
+- added:
+  - `clinic-ai-assistant-src/frontend/ManualTesting.html`
+
+What the page now does:
+- loads pending manual-verification tasks from:
+  - `/manual-verification/tasks`
+- provides a top task selector
+- shows summary cards for:
+  - `Not Run`
+  - `Pass`
+  - `Fail`
+  - task state
+- renders a wide-screen fixed-header table with inner scrolling
+- renders row columns for:
+  - category
+  - test
+  - step
+  - action
+  - what is tested
+  - status
+  - comment
+  - reference files
+- handles both:
+  - folder-based tasks with editable coverage available later
+  - legacy flat tasks surfaced as migration-needed when coverage JSON is missing
+
+Scope note for this prompt:
+- this prompt intentionally built the read/review UI only
+- edit and save controls remain for Prompt 5
+
+Verification completed for Prompt 4:
+- static verification:
+  - `python -m py_compile clinic-ai-assistant-src/backend/app/services/manual_verification_dashboard.py clinic-ai-assistant-src/backend/app/routes/manual_verification.py clinic-ai-assistant-src/backend/app/main.py`
+- focused runtime verification:
+  - `GET /frontend/ManualTesting.html` returned `200`
+  - `GET /manual-verification/tasks` returned `200`
+  - the page rendered the dashboard shell title
+  - the task endpoint returned a task list payload
+
+## Prompt 5 - Completed
 
 ### Goal
 
@@ -303,7 +507,48 @@ Requirements:
 
 The dashboard is fully usable for tracking manual verification progress and readiness state.
 
-## Prompt 6 - Pending
+### Completion Note
+
+Prompt 5 is completed.
+
+Implemented interaction behavior in:
+- `clinic-ai-assistant-src/frontend/ManualTesting.html`
+
+What changed:
+- added explicit `Save` button
+- added save-state feedback:
+  - `No changes`
+  - `Unsaved changes`
+  - `Saving...`
+  - `Saved`
+- replaced read-only status badges with editable status dropdowns
+- added editable multiline comment field per row
+- added editable multiline `reference_files` field per row
+- added client-side dirty tracking
+- added client-side summary recomputation from current row values
+- added merge-readiness label behavior:
+  - `Blocked` when any row is `Fail`
+  - `In Review` when rows remain `Not Run`
+  - `Ready` when all rows are `Pass`
+- wired the page to save through:
+  - `PUT /manual-verification/tasks/{task_id}`
+
+Verification completed for Prompt 5:
+- static verification:
+  - `python -m py_compile clinic-ai-assistant-src/backend/app/services/manual_verification_dashboard.py clinic-ai-assistant-src/backend/app/routes/manual_verification.py clinic-ai-assistant-src/backend/app/main.py`
+- focused runtime verification:
+  - exercised `PUT /manual-verification/tasks/{task_id}` with a sample payload
+  - confirmed the saved response recomputed summary counts as:
+    - `{'not_run': 0, 'pass': 1, 'fail': 0}`
+  - confirmed `GET /frontend/ManualTesting.html` returned `200`
+  - confirmed the page source now includes:
+    - `saveButton`
+    - `status-select`
+
+Verification hygiene note:
+- the runtime save test restored the original `manual_testing_coverage.json` content immediately after verification
+
+## Prompt 6 - Completed
 
 ### Goal
 
@@ -322,7 +567,46 @@ Requirements:
 
 The dashboard can be opened against a realistic example dataset immediately.
 
-## Prompt 7 - Pending
+### Completion Note
+
+Prompt 6 is completed.
+
+Sample coverage dataset added:
+- updated:
+  - `clinic-ai-assistant docs/ProjectTasks_Pending/TEST - Manual Verification Coverage Dashboard/manual_testing_coverage.json`
+
+What the dataset now contains:
+- 3 realistic manual verification categories
+- 3 named tests
+- 9 row-level manual verification steps
+- row fields aligned with the locked schema:
+  - `step`
+  - `action`
+  - `what_is_tested`
+  - `status`
+  - `comment`
+  - `reference_files`
+- a ready-to-use `reference_files` example with plain typed filenames
+
+Why this sample was chosen:
+- it lets the dashboard render meaningful grouped rows immediately
+- it exercises:
+  - task discovery
+  - JSON-backed table rendering
+  - save/edit flow
+  - readiness summary behavior
+- it stays aligned with the manual testing structure already used in task markdown files
+
+Verification completed for Prompt 6:
+- focused runtime verification:
+  - loaded `GET /manual-verification/tasks/test-manual-verification-coverage-dashboard`
+  - confirmed:
+    - task name loaded correctly
+    - `3` categories were returned
+    - summary returned as:
+      - `{'not_run': 9, 'pass': 0, 'fail': 0}`
+
+## Prompt 7 - Completed
 
 ### Goal
 
@@ -343,6 +627,34 @@ Requirements:
 
 The dashboard feature is regression-protected and technically verified.
 
+### Completion Note
+
+Prompt 7 is completed.
+
+Added focused regression coverage in:
+- `clinic-ai-assistant-src/backend/tests/integration/test_manual_verification_dashboard.py`
+
+Covered behaviors:
+- task discovery for:
+  - folder-based tasks with editable JSON
+  - legacy flat tasks surfaced as migration-needed
+- coverage loading for a folder-based task
+- save behavior with persisted comment and `reference_files`
+- summary recomputation from row statuses on save
+- invalid status rejection
+- dashboard HTML entry-point wiring for:
+  - task selector
+  - save button
+  - task-state summary
+  - task-loading script path
+
+Verification completed for Prompt 7:
+- static verification:
+  - `python -m py_compile clinic-ai-assistant-src/backend/tests/integration/test_manual_verification_dashboard.py clinic-ai-assistant-src/backend/app/services/manual_verification_dashboard.py clinic-ai-assistant-src/backend/app/routes/manual_verification.py clinic-ai-assistant-src/backend/app/main.py`
+- focused pytest verification:
+  - `5 passed`
+  - executed with the proven external user-temp fallback after the standard `F:\temp` basetemp path hit a Windows permission blocker
+
 ## Prompt 8 - Pending
 
 ### Goal
@@ -361,6 +673,7 @@ Requirements:
 ### Required Outcome
 
 Manual verification and merge readiness are tracked explicitly before merge.
+
 
 ---
 
