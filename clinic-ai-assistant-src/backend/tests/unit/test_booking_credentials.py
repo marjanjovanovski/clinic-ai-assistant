@@ -111,6 +111,10 @@ def test_complete_selected_slot_booking_if_ready_books_once_and_stores_payload(m
         "note": "Booked from main chat scheduling flow",
         "session_id": None,
         "hold_id": None,
+        "selected_slot": {
+            "slot_id": "mock|slot-1",
+            "display_label": "26 Mar 2026 во 16:00",
+        },
     }
 
 
@@ -158,3 +162,53 @@ def test_complete_selected_slot_booking_if_ready_passes_hold_identity_and_return
     assert result["booking_id"] == ""
     assert "no longer available" in result["confirmation_message"]
     assert result["source_payload"]["reason"] == "slot_conflict"
+
+
+def test_complete_selected_slot_booking_if_ready_preserves_recovery_success_payload(monkeypatch):
+    class FakeBookingResult:
+        def to_dict(self):
+            return {
+                "status": "confirmed",
+                "provider": "mock",
+                "booking_id": "mock-booking-1",
+                "display_label": "26 Mar 2026 во 16:00",
+                "confirmation_message": "Терминот е резервиран во mock режим.",
+                "source_payload": {
+                    "slot_id": "mock|slot-1",
+                    "recovery_applied": True,
+                },
+            }
+
+    monkeypatch.setattr(
+        "app.services.scheduling_capability.book_selected_slot",
+        lambda **kwargs: FakeBookingResult(),
+    )
+
+    state = {
+        "stage": "completed",
+        "service_id": "consultation",
+        "scheduling_handoff": {
+            "service_id": "consultation",
+            "selected_slot": {
+                "slot_id": "mock|slot-1",
+                "display_label": "26 Mar 2026 во 16:00",
+                "start_at": "2026-03-26T16:00:00+01:00",
+                "end_at": "2026-03-26T16:30:00+01:00",
+                "timezone": "Europe/Skopje",
+            },
+            "hold": {
+                "hold_id": "hold-1",
+                "session_id": "session-1",
+            },
+        },
+    }
+
+    result = booking_credentials._complete_selected_slot_booking_if_ready(
+        tenant="milena_dental",
+        state=state,
+        data={"name": "Marjan", "phone": "070000000", "email": "mail@test.mk"},
+    )
+
+    assert result["status"] == "confirmed"
+    assert result["source_payload"]["recovery_applied"] is True
+    assert state["booking_result"]["source_payload"]["recovery_applied"] is True

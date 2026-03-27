@@ -166,6 +166,7 @@ def _complete_selected_slot_booking_if_ready(
             note="Booked from main chat scheduling flow",
             session_id=hold.get("session_id") if isinstance(hold, dict) else None,
             hold_id=hold.get("hold_id") if isinstance(hold, dict) else None,
+            selected_slot=selected_slot,
         )
     except SchedulingConfigError as exc:
         booking_payload = {

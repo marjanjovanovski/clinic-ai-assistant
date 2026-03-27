@@ -377,6 +377,127 @@ def test_book_selected_slot_rejects_booking_when_hold_is_missing_or_invalid(monk
         raise AssertionError("Expected active-hold validation to reject booking without a valid hold")
 
 
+def test_book_selected_slot_silently_recovers_expired_hold_when_slot_is_still_available(monkeypatch):
+    captured = {}
+
+    def fake_get_slot_hold(**kwargs):
+        captured["hold_lookup"] = kwargs
+        return {
+            "hold_id": "hold-1",
+            "slot_id": "mock|2026-03-23T09:00:00|consultation|mock-provider",
+            "session_id": "session-1",
+            "status": "expired",
+        }
+
+    def fake_lookup_availability(**kwargs):
+        captured["availability_lookup"] = kwargs
+        return AvailabilityResult(
+            provider="mock",
+            slots=[
+                AvailableSlot(
+                    provider="mock",
+                    slot_id="mock|2026-03-23T09:00:00|consultation|mock-provider",
+                    start_at="2026-03-23T09:00:00+01:00",
+                    end_at="2026-03-23T09:30:00+01:00",
+                    timezone="Europe/Skopje",
+                    display_label="23 Mar 2026 во 09:00",
+                )
+            ],
+        )
+
+    def fake_create_slot_hold(**kwargs):
+        captured["hold_create"] = kwargs
+        return {
+            "hold_id": "hold-2",
+            "slot_id": kwargs["slot_id"],
+            "session_id": kwargs["session_id"],
+            "status": "active",
+        }
+
+    def fake_book_slot(request):
+        return BookingResult(
+            status="confirmed",
+            provider="mock",
+            booking_id="mock-booking-1",
+            start_at="2026-03-23T09:00:00+01:00",
+            end_at="2026-03-23T09:30:00+01:00",
+            display_label="23 Mar 09:00",
+            confirmation_message="Confirmed",
+            source_payload={"slot_id": request.slot_id},
+        )
+
+    def fake_update_hold_status(**kwargs):
+        captured["hold_update"] = kwargs
+        return {"hold_id": kwargs["hold_id"], "status": "consumed"}
+
+    monkeypatch.setattr(scheduling_capability, "get_slot_hold", fake_get_slot_hold)
+    monkeypatch.setattr(scheduling_capability, "lookup_availability", fake_lookup_availability)
+    monkeypatch.setattr(scheduling_capability, "create_slot_hold", fake_create_slot_hold)
+    monkeypatch.setattr(scheduling_capability, "book_slot", fake_book_slot)
+    monkeypatch.setattr(scheduling_capability, "update_hold_status", fake_update_hold_status)
+
+    result = scheduling_capability.book_selected_slot(
+        tenant="milena_dental",
+        service_id="consultation",
+        slot_id="mock|2026-03-23T09:00:00|consultation|mock-provider",
+        patient_name="Marjan",
+        session_id="session-1",
+        hold_id="hold-1",
+        selected_slot={
+            "slot_id": "mock|2026-03-23T09:00:00|consultation|mock-provider",
+            "start_at": "2026-03-23T09:00:00+01:00",
+            "timezone": "Europe/Skopje",
+        },
+    )
+
+    assert result.status == "confirmed"
+    assert captured["availability_lookup"]["date_from"] == "2026-03-23"
+    assert captured["availability_lookup"]["date_to"] == "2026-03-23"
+    assert captured["hold_create"]["session_id"] == "session-1"
+    assert result.source_payload["recovery_applied"] is True
+    assert captured["hold_update"] == {
+        "hold_id": "hold-1",
+        "status": "consumed",
+    }
+
+
+def test_book_selected_slot_rejects_when_expired_hold_recheck_fails(monkeypatch):
+    monkeypatch.setattr(
+        scheduling_capability,
+        "get_slot_hold",
+        lambda **kwargs: {
+            "hold_id": "hold-1",
+            "slot_id": kwargs["slot_id"],
+            "session_id": "session-1",
+            "status": "expired",
+        },
+    )
+    monkeypatch.setattr(
+        scheduling_capability,
+        "lookup_availability",
+        lambda **kwargs: AvailabilityResult(provider="mock", slots=[]),
+    )
+
+    try:
+        scheduling_capability.book_selected_slot(
+            tenant="milena_dental",
+            service_id="consultation",
+            slot_id="mock|2026-03-23T09:00:00|consultation|mock-provider",
+            patient_name="Marjan",
+            session_id="session-1",
+            hold_id="hold-1",
+            selected_slot={
+                "slot_id": "mock|2026-03-23T09:00:00|consultation|mock-provider",
+                "start_at": "2026-03-23T09:00:00+01:00",
+                "timezone": "Europe/Skopje",
+            },
+        )
+    except scheduling_capability.SchedulingConfigError as exc:
+        assert "no longer available" in str(exc)
+    else:
+        raise AssertionError("Expected expired-hold recheck failure to reject booking")
+
+
 def test_selected_slot_handoff_payload_uses_authoritative_scheduling_state():
     state = {
         "stage": "active",

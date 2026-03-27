@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, replace
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from app.services.scheduling_hold_store import (
     HOLD_STATUS_ACTIVE,
     HOLD_STATUS_CONSUMED,
+    HOLD_STATUS_EXPIRED,
+    create_slot_hold,
     get_slot_hold,
     update_hold_status,
 )
-from app.services.scheduling.models import AvailabilityRequest, BookingRequest
+from app.services.scheduling.models import AvailabilityRequest, BookingRequest, BookingResult
 from app.services.scheduling.service import (
     SchedulingConfigError,
     SchedulingDisabledError,
@@ -592,6 +594,51 @@ def lookup_availability(
     return get_availability(request)
 
 
+def _slot_day_for_recheck(slot_id: str, selected_slot: dict | None) -> str | None:
+    start_at = selected_slot.get("start_at") if isinstance(selected_slot, dict) else None
+    if isinstance(start_at, str) and start_at.strip():
+        return datetime.fromisoformat(start_at.strip()).date().isoformat()
+
+    parts = slot_id.split("|")
+    if len(parts) >= 2:
+        candidate = parts[1].strip()
+        if candidate:
+            return datetime.fromisoformat(candidate).date().isoformat()
+    return None
+
+
+def _slot_timezone_for_recheck(tenant: str, selected_slot: dict | None) -> str:
+    timezone_name = selected_slot.get("timezone") if isinstance(selected_slot, dict) else None
+    if isinstance(timezone_name, str) and timezone_name.strip():
+        return timezone_name.strip()
+    return get_capability_snapshot(tenant).timezone
+
+
+def _slot_is_still_available(
+    *,
+    tenant: str,
+    service_id: str,
+    slot_id: str,
+    selected_slot: dict | None,
+) -> bool:
+    slot_day = _slot_day_for_recheck(slot_id, selected_slot)
+    if not slot_day:
+        return False
+    timezone_name = _slot_timezone_for_recheck(tenant, selected_slot)
+    availability = lookup_availability(
+        tenant=tenant,
+        service_id=service_id,
+        date_from=slot_day,
+        date_to=slot_day,
+        timezone=timezone_name,
+    )
+    availability_payload = availability.to_dict()
+    slots = availability_payload.get("slots") if isinstance(availability_payload, dict) else None
+    if not isinstance(slots, list):
+        return False
+    return any(isinstance(slot, dict) and slot.get("slot_id") == slot_id for slot in slots)
+
+
 def book_selected_slot(
     *,
     tenant: str,
@@ -603,7 +650,9 @@ def book_selected_slot(
     note: str | None = None,
     session_id: str | None = None,
     hold_id: str | None = None,
+    selected_slot: dict | None = None,
 ):
+    recovery_applied = False
     if session_id or hold_id:
         hold = get_slot_hold(
             tenant=tenant,
@@ -611,19 +660,43 @@ def book_selected_slot(
             session_id=session_id,
             include_inactive=True,
         )
-        if not isinstance(hold, dict):
-            raise SchedulingConfigError(
-                "The selected slot is no longer available. I will show you other available slots for the same day."
+        hold_is_active = (
+            isinstance(hold, dict)
+            and (not hold_id or hold.get("hold_id") == hold_id)
+            and (not session_id or hold.get("session_id") == session_id)
+            and hold.get("status") == HOLD_STATUS_ACTIVE
+        )
+        if not hold_is_active:
+            can_attempt_recovery = (
+                isinstance(hold, dict)
+                and hold.get("status") == HOLD_STATUS_EXPIRED
+                and (not hold_id or hold.get("hold_id") == hold_id)
+                and (not session_id or hold.get("session_id") == session_id)
             )
-        if hold_id and hold.get("hold_id") != hold_id:
-            raise SchedulingConfigError(
-                "The selected slot is no longer available. I will show you other available slots for the same day."
-            )
-        if session_id and hold.get("session_id") != session_id:
-            raise SchedulingConfigError(
-                "The selected slot is no longer available. I will show you other available slots for the same day."
-            )
-        if hold.get("status") != HOLD_STATUS_ACTIVE:
+            if can_attempt_recovery and _slot_is_still_available(
+                tenant=tenant,
+                service_id=service_id,
+                slot_id=slot_id,
+                selected_slot=selected_slot,
+            ):
+                refreshed_hold = create_slot_hold(
+                    tenant=tenant,
+                    service_id=service_id,
+                    slot_id=slot_id,
+                    session_id=session_id or str(hold.get("session_id") or ""),
+                )
+                if isinstance(refreshed_hold, dict) and refreshed_hold.get("session_id") == (session_id or hold.get("session_id")):
+                    hold = refreshed_hold
+                    recovery_applied = True
+                else:
+                    raise SchedulingConfigError(
+                        "The selected slot is no longer available. I will show you other available slots for the same day."
+                    )
+            else:
+                raise SchedulingConfigError(
+                    "The selected slot is no longer available. I will show you other available slots for the same day."
+                )
+        if not isinstance(hold, dict) or hold.get("status") != HOLD_STATUS_ACTIVE:
             raise SchedulingConfigError(
                 "The selected slot is no longer available. I will show you other available slots for the same day."
             )
@@ -638,6 +711,19 @@ def book_selected_slot(
         note=note,
     )
     result = book_slot(request)
+    if recovery_applied:
+        source_payload = dict(result.source_payload or {})
+        source_payload["recovery_applied"] = True
+        result = BookingResult(
+            status=result.status,
+            provider=result.provider,
+            booking_id=result.booking_id,
+            start_at=result.start_at,
+            end_at=result.end_at,
+            display_label=result.display_label,
+            confirmation_message=result.confirmation_message,
+            source_payload=source_payload,
+        )
     if session_id or hold_id:
         resolved_hold_id = hold_id or hold.get("hold_id")
         if isinstance(resolved_hold_id, str) and resolved_hold_id.strip():

@@ -42,7 +42,7 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 6`
+- `Prompt 7`
 
 ## Global Status Summary
 
@@ -51,7 +51,7 @@ Status values allowed in this document:
 - Prompt 3 - Completed
 - Prompt 4 - Completed
 - Prompt 5 - Completed
-- Prompt 6 - Pending
+- Prompt 6 - Completed
 - Prompt 7 - Pending
 - Prompt 8 - Pending
 - Prompt 9 - Pending
@@ -650,7 +650,7 @@ Verification completed for Prompt 5:
 - result:
   - `25 passed`
 
-## Prompt 6 - Pending
+## Prompt 6 - Completed
 
 ### Goal
 
@@ -669,6 +669,48 @@ Requirements:
 ### Required Outcome
 
 Slow users are not penalized unnecessarily, while stale-slot conflicts still fail safely when the slot was actually lost.
+
+### Prompt 6 Completion Note
+
+What changed:
+- added one silent same-slot recheck path inside the scheduling-owned booking bridge
+- the recheck only runs when:
+  - the same session's hold exists
+  - that hold is `expired`
+  - the exact slot can still be found in a fresh availability lookup for the same service and day
+- if the slot is still available:
+  - scheduling silently reacquires the hold for the same session
+  - booking proceeds normally
+  - the resulting booking payload is marked internally with `source_payload.recovery_applied = true`
+- if the slot is no longer available:
+  - booking is rejected with the same clear user-facing lost-slot message
+  - no fake success is returned
+
+Implementation notes:
+- recheck currently uses the selected slot's own day and timezone when available
+- the main-chat booking path now forwards `selected_slot` into the scheduling booking bridge so the recheck can target the exact slot window deterministically
+- the recovery stays backend-silent on success; there is no special user-facing message for a successful recovery
+
+Compatibility decision for this prompt:
+- kept recovery metadata additive inside `source_payload` so existing booking result consumers do not need a breaking contract change
+- kept the visible success path identical to normal booking confirmation when recovery succeeds
+
+Behavior after Prompt 6:
+- a slow user with an expired hold is no longer rejected immediately if the exact slot is still free
+- the system gives one silent recovery attempt only
+- if recovery fails, the booking still ends with a clean stale-slot conflict instead of a misleading confirmation
+
+Files changed for Prompt 6:
+- `clinic-ai-assistant-src/backend/app/services/scheduling_capability.py`
+- `clinic-ai-assistant-src/backend/app/services/booking_credentials.py`
+- `clinic-ai-assistant-src/backend/tests/unit/test_scheduling_capability.py`
+- `clinic-ai-assistant-src/backend/tests/unit/test_booking_credentials.py`
+
+Verification completed for Prompt 6:
+- automated test run:
+  - `.\\.venv\\Scripts\\python.exe -m pytest .\\tests\\unit\\test_scheduling_capability.py .\\tests\\unit\\test_booking_credentials.py -q --basetemp="F:\\temp\\clinic-ai-assistant\\pytest-slot-recovery"`
+- result:
+  - `22 passed`
 
 ## Prompt 7 - Pending
 
