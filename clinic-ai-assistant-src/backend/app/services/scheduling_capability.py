@@ -29,6 +29,57 @@ CAPABILITY_NEXT_RETURN = "return_response"
 OPERATION_AVAILABILITY = "availability_lookup"
 OPERATION_BOOK_SLOT = "book_selected_slot"
 AVAILABILITY_INTENT_MARKER_KEY = "_availability_intent_pending"
+SLOT_UNAVAILABLE_MESSAGE = "The selected slot is no longer available. I will show you other available slots for the same day."
+SLOT_CONFLICT_NEXT_ACTION = "refresh_availability"
+SLOT_CONFLICT_REASON = "slot_conflict"
+SLOT_CONFLICT_SCOPE = "same_day"
+
+
+class SchedulingSlotConflictError(SchedulingConfigError):
+    """Structured recoverable slot-conflict error for UI-safe fallback handling."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        service_id: str,
+        selected_slot: dict | None,
+        replacement_slots: list[dict] | None = None,
+        next_action: str = SLOT_CONFLICT_NEXT_ACTION,
+        reason: str = SLOT_CONFLICT_REASON,
+        fallback_scope: str = SLOT_CONFLICT_SCOPE,
+        fallback_date: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.service_id = service_id
+        self.selected_slot = selected_slot if isinstance(selected_slot, dict) else None
+        self.replacement_slots = replacement_slots if isinstance(replacement_slots, list) else []
+        self.next_action = next_action
+        self.reason = reason
+        self.fallback_scope = fallback_scope
+        self.fallback_date = fallback_date
+
+    def to_booking_result_payload(self, *, slot_id: str) -> dict:
+        selected_slot = self.selected_slot if isinstance(self.selected_slot, dict) else {}
+        return {
+            "status": "slot_unavailable",
+            "provider": "scheduling",
+            "booking_id": "",
+            "start_at": selected_slot.get("start_at"),
+            "end_at": selected_slot.get("end_at"),
+            "display_label": "",
+            "confirmation_message": str(self),
+            "source_payload": {
+                "slot_id": slot_id,
+                "service_id": self.service_id,
+                "reason": self.reason,
+                "next_action": self.next_action,
+                "fallback_scope": self.fallback_scope,
+                "fallback_date": self.fallback_date,
+                "selected_slot": dict(selected_slot) if isinstance(selected_slot, dict) else None,
+                "replacement_slots": [slot for slot in self.replacement_slots if isinstance(slot, dict)],
+            },
+        }
 
 
 @dataclass(slots=True)
@@ -597,13 +648,19 @@ def lookup_availability(
 def _slot_day_for_recheck(slot_id: str, selected_slot: dict | None) -> str | None:
     start_at = selected_slot.get("start_at") if isinstance(selected_slot, dict) else None
     if isinstance(start_at, str) and start_at.strip():
-        return datetime.fromisoformat(start_at.strip()).date().isoformat()
+        try:
+            return datetime.fromisoformat(start_at.strip()).date().isoformat()
+        except ValueError:
+            return None
 
     parts = slot_id.split("|")
     if len(parts) >= 2:
         candidate = parts[1].strip()
         if candidate:
-            return datetime.fromisoformat(candidate).date().isoformat()
+            try:
+                return datetime.fromisoformat(candidate).date().isoformat()
+            except ValueError:
+                return None
     return None
 
 
@@ -637,6 +694,59 @@ def _slot_is_still_available(
     if not isinstance(slots, list):
         return False
     return any(isinstance(slot, dict) and slot.get("slot_id") == slot_id for slot in slots)
+
+
+def _same_day_replacement_slots(
+    *,
+    tenant: str,
+    service_id: str,
+    slot_id: str,
+    selected_slot: dict | None,
+) -> tuple[str | None, list[dict]]:
+    slot_day = _slot_day_for_recheck(slot_id, selected_slot)
+    if not slot_day:
+        return None, []
+
+    timezone_name = _slot_timezone_for_recheck(tenant, selected_slot)
+    availability = lookup_availability(
+        tenant=tenant,
+        service_id=service_id,
+        date_from=slot_day,
+        date_to=slot_day,
+        timezone=timezone_name,
+    )
+    availability_payload = availability.to_dict()
+    slots = availability_payload.get("slots") if isinstance(availability_payload, dict) else None
+    if not isinstance(slots, list):
+        return slot_day, []
+    replacement_slots = [
+        dict(slot)
+        for slot in slots
+        if isinstance(slot, dict) and slot.get("slot_id") != slot_id
+    ]
+    return slot_day, replacement_slots[:6]
+
+
+def _raise_slot_unavailable(
+    *,
+    tenant: str,
+    service_id: str,
+    slot_id: str,
+    selected_slot: dict | None,
+) -> None:
+    fallback_date, replacement_slots = _same_day_replacement_slots(
+        tenant=tenant,
+        service_id=service_id,
+        slot_id=slot_id,
+        selected_slot=selected_slot,
+    )
+    raise SchedulingSlotConflictError(
+        SLOT_UNAVAILABLE_MESSAGE,
+        service_id=service_id,
+        selected_slot=selected_slot,
+        replacement_slots=replacement_slots,
+        fallback_date=fallback_date,
+    )
 
 
 def book_selected_slot(
@@ -689,16 +799,25 @@ def book_selected_slot(
                     hold = refreshed_hold
                     recovery_applied = True
                 else:
-                    raise SchedulingConfigError(
-                        "The selected slot is no longer available. I will show you other available slots for the same day."
+                    _raise_slot_unavailable(
+                        tenant=tenant,
+                        service_id=service_id,
+                        slot_id=slot_id,
+                        selected_slot=selected_slot,
                     )
             else:
-                raise SchedulingConfigError(
-                    "The selected slot is no longer available. I will show you other available slots for the same day."
+                _raise_slot_unavailable(
+                    tenant=tenant,
+                    service_id=service_id,
+                    slot_id=slot_id,
+                    selected_slot=selected_slot,
                 )
         if not isinstance(hold, dict) or hold.get("status") != HOLD_STATUS_ACTIVE:
-            raise SchedulingConfigError(
-                "The selected slot is no longer available. I will show you other available slots for the same day."
+            _raise_slot_unavailable(
+                tenant=tenant,
+                service_id=service_id,
+                slot_id=slot_id,
+                selected_slot=selected_slot,
             )
 
     request = BookingRequest(

@@ -49,6 +49,33 @@ def test_appointment_summary_projection_prefers_confirmed_booking_result():
     assert subtitle == "Терминот е резервиран во mock режим."
 
 
+def test_appointment_summary_projection_clears_stale_slot_display_when_booking_conflicts():
+    state = {
+        "stage": "completed",
+        "scheduling_handoff": {
+            "selected_slot": {
+                "slot_id": "mock|slot-1",
+                "display_label": "26 Mar 2026 во 16:00",
+            }
+        },
+        "booking_result": {
+            "status": "slot_unavailable",
+            "booking_id": "",
+            "display_label": "",
+            "confirmation_message": "The selected slot is no longer available. I will show you other available slots for the same day.",
+        },
+    }
+
+    appointment_display, appointment_status, appointment_source, subtitle = (
+        booking_credentials._appointment_summary_projection(state)
+    )
+
+    assert appointment_display == ""
+    assert appointment_status == "Терминот не е достапен"
+    assert appointment_source is None
+    assert "no longer available" in subtitle
+
+
 def test_complete_selected_slot_booking_if_ready_returns_none_without_selected_slot():
     result = booking_credentials._complete_selected_slot_booking_if_ready(
         tenant="milena_dental",
@@ -119,13 +146,25 @@ def test_complete_selected_slot_booking_if_ready_books_once_and_stores_payload(m
 
 
 def test_complete_selected_slot_booking_if_ready_passes_hold_identity_and_returns_conflict_payload(monkeypatch):
-    from app.services.scheduling.service import SchedulingConfigError
+    from app.services.scheduling_capability import SchedulingSlotConflictError
 
     def fake_book_selected_slot(**kwargs):
         assert kwargs["session_id"] == "session-1"
         assert kwargs["hold_id"] == "hold-1"
-        raise SchedulingConfigError(
-            "The selected slot is no longer available. I will show you other available slots for the same day."
+        raise SchedulingSlotConflictError(
+            "The selected slot is no longer available. I will show you other available slots for the same day.",
+            service_id="consultation",
+            selected_slot=kwargs["selected_slot"],
+            fallback_date="2026-03-26",
+            replacement_slots=[
+                {
+                    "slot_id": "mock|slot-2",
+                    "display_label": "26 Mar 2026 во 16:30",
+                    "start_at": "2026-03-26T16:30:00+01:00",
+                    "end_at": "2026-03-26T17:00:00+01:00",
+                    "timezone": "Europe/Skopje",
+                }
+            ],
         )
 
     monkeypatch.setattr(
@@ -162,6 +201,12 @@ def test_complete_selected_slot_booking_if_ready_passes_hold_identity_and_return
     assert result["booking_id"] == ""
     assert "no longer available" in result["confirmation_message"]
     assert result["source_payload"]["reason"] == "slot_conflict"
+    assert result["source_payload"]["next_action"] == "refresh_availability"
+    assert result["source_payload"]["fallback_scope"] == "same_day"
+    assert result["source_payload"]["fallback_date"] == "2026-03-26"
+    assert result["source_payload"]["service_id"] == "consultation"
+    assert result["source_payload"]["selected_slot"]["slot_id"] == "mock|slot-1"
+    assert result["source_payload"]["replacement_slots"][0]["slot_id"] == "mock|slot-2"
 
 
 def test_complete_selected_slot_booking_if_ready_preserves_recovery_success_payload(monkeypatch):

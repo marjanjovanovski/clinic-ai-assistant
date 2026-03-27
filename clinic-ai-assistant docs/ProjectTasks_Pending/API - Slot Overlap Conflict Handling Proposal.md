@@ -42,7 +42,7 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 7`
+- `Prompt 8`
 
 ## Global Status Summary
 
@@ -52,7 +52,7 @@ Status values allowed in this document:
 - Prompt 4 - Completed
 - Prompt 5 - Completed
 - Prompt 6 - Completed
-- Prompt 7 - Pending
+- Prompt 7 - Completed
 - Prompt 8 - Pending
 - Prompt 9 - Pending
 - Prompt 10 - Pending
@@ -712,7 +712,7 @@ Verification completed for Prompt 6:
 - result:
   - `22 passed`
 
-## Prompt 7 - Pending
+## Prompt 7 - Completed
 
 ### Goal
 
@@ -731,6 +731,33 @@ Requirements:
 ### Required Outcome
 
 The backend can respond to lost-slot conflicts with a recoverable same-day fallback contract instead of a generic failure.
+
+### Completion Note
+
+Prompt 7 is completed.
+
+Implemented:
+- structured recoverable same-day fallback handling in `scheduling_capability.py` through a dedicated slot-conflict error carrying:
+  - lost-slot message
+  - `next_action = refresh_availability`
+  - `fallback_scope = same_day`
+  - `fallback_date`
+  - `selected_slot`
+  - `replacement_slots`
+- same-day replacement slot lookup using scheduling-owned availability for the exact service and slot day
+- booking-result projection in `booking_credentials.py` now stores the structured fallback payload instead of only a plain conflict string
+- booking summary projection now clears the stale selected-slot display when booking ended in `slot_unavailable`
+
+Behavioral result:
+- collected contact details remain in the completed booking summary fields
+- the lost slot is no longer presented as if it were still reserved
+- the UI contract now has enough metadata to render same-day replacement options in a later prompt without re-querying blindly
+
+Verification completed for Prompt 7:
+- automated test run:
+  - `.\\.venv\\Scripts\\python.exe -m pytest .\\tests\\unit\\test_scheduling_capability.py .\\tests\\unit\\test_booking_credentials.py -q --basetemp="F:\\temp\\clinic-ai-assistant\\pytest-slot-fallback"`
+- result:
+  - `24 passed`
 
 ## Prompt 8 - Pending
 

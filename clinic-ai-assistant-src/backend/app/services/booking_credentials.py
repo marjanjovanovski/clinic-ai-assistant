@@ -66,6 +66,10 @@ def _appointment_summary_projection(state: dict) -> tuple[str, str, str | None, 
         appointment_source = "selected_slot"
 
     if isinstance(booking_result, dict):
+        if booking_result.get("status") == "slot_unavailable":
+            appointment_display = ""
+            appointment_status = "Терминот не е достапен"
+            appointment_source = None
         booked_display_label = booking_result.get("display_label")
         if isinstance(booked_display_label, str) and booked_display_label.strip():
             appointment_display = booked_display_label.strip()
@@ -168,6 +172,10 @@ def _complete_selected_slot_booking_if_ready(
             hold_id=hold.get("hold_id") if isinstance(hold, dict) else None,
             selected_slot=selected_slot,
         )
+    except scheduling_capability.SchedulingSlotConflictError as exc:
+        booking_payload = exc.to_booking_result_payload(slot_id=slot_id.strip())
+        state["booking_result"] = booking_payload
+        return booking_payload
     except SchedulingConfigError as exc:
         booking_payload = {
             "status": "slot_unavailable",
