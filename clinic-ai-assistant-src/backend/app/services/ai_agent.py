@@ -552,6 +552,39 @@ def _is_catalog_reference_during_contact_collection(message: str, services: list
     return False
 
 
+def _redirect_contact_message_to_availability(message: str, state: dict | None, session_key: str) -> dict | None:
+    if not isinstance(state, dict) or state.get("stage") != "collecting_contact":
+        return None
+
+    scheduling_handoff = state.get("scheduling_handoff")
+    if not isinstance(scheduling_handoff, dict) or not scheduling_handoff:
+        return None
+
+    normalized_message = _normalize_lookup_text(message)
+    if not normalized_message or _has_contact_field_reference(message):
+        return None
+
+    transliterated_message = _normalize_lookup_text(_transliterate_macedonian_text(normalized_message))
+    availability_phrases = (
+        "slobodni termini",
+        "sloboden termin",
+        "ima termini",
+        "koi termini",
+        "available slots",
+        "free slots",
+        "availability",
+    )
+    availability_tokens = ("termin", "termini", "slot", "slots", "available", "availability", "slobodni")
+
+    if any(phrase in transliterated_message for phrase in availability_phrases):
+        return scheduling_capability.mark_availability_intent_pending(session_key, state, SESSION_STATE)
+
+    if "?" in message and any(token in transliterated_message for token in availability_tokens):
+        return scheduling_capability.mark_availability_intent_pending(session_key, state, SESSION_STATE)
+
+    return None
+
+
 def _classify_booking_input(message: str, profile: dict) -> str:
     normalized_message = _normalize_lookup_text(message)
     if not normalized_message:
@@ -1874,6 +1907,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         is_plausible_contact_phone=_is_plausible_contact_phone,
         conversation_rule_list=_conversation_rule_list,
         random_choice=random.choice,
+        redirect_contact_message_to_availability=_redirect_contact_message_to_availability,
     )
     state = booking_result.state
     if booking_result.next_action == booking_credentials.CAPABILITY_NEXT_RETURN:

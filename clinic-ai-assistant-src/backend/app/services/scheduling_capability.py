@@ -34,6 +34,7 @@ SLOT_UNAVAILABLE_MESSAGE = "The selected slot is no longer available. I will sho
 SLOT_CONFLICT_NEXT_ACTION = "refresh_availability"
 SLOT_CONFLICT_REASON = "slot_conflict"
 SLOT_CONFLICT_SCOPE = "same_day"
+NO_AVAILABILITY_MESSAGE = "Momentalno nema slobodni termini vo tekovniot period. Kazete drug datum ili drug period i ke proveram povtorno."
 
 
 class SchedulingSlotConflictError(SchedulingConfigError):
@@ -362,11 +363,19 @@ def _availability_default_service_id(context: CapabilityContext) -> str | None:
 def _availability_default_dates(context: CapabilityContext) -> tuple[str, str]:
     today = date.today()
     scheduling = context.profile.get("scheduling") if isinstance(context.profile, dict) else {}
-    lookahead_days = scheduling.get("lookahead_days") if isinstance(scheduling, dict) else None
-    if isinstance(lookahead_days, int) and lookahead_days > 1:
-        end_date = today + timedelta(days=1)
-    else:
+    reach_days = scheduling.get("default_availability_reach_days") if isinstance(scheduling, dict) else None
+    if isinstance(reach_days, int) and reach_days > 1:
+        counted_days = 1
         end_date = today
+        while counted_days < reach_days:
+            end_date += timedelta(days=1)
+            if end_date.weekday() >= 5:
+                continue
+            counted_days += 1
+        return today.isoformat(), end_date.isoformat()
+
+    lookahead_days = scheduling.get("lookahead_days") if isinstance(scheduling, dict) else None
+    end_date = today + timedelta(days=1) if isinstance(lookahead_days, int) and lookahead_days > 1 else today
     return today.isoformat(), end_date.isoformat()
 
 
@@ -560,6 +569,8 @@ def _availability_reply_text(context: CapabilityContext, slots_payload: list[dic
     slot_lines = [f"• {slot['display_label']}" for slot in slots_payload[:6] if isinstance(slot.get("display_label"), str)]
     if intro_message and slot_lines:
         return f"{intro_message}\n\n" + "\n".join(slot_lines)
+    if not slot_lines:
+        return NO_AVAILABILITY_MESSAGE
     if intro_message:
         return intro_message
     if slot_lines:

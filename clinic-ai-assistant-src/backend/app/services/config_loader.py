@@ -68,6 +68,15 @@ def _require_positive_integer(section_name: str, payload: dict, field_name: str)
     return value
 
 
+def _require_optional_positive_integer(section_name: str, payload: dict, field_name: str):
+    value = payload.get(field_name)
+    if value is None:
+        return None
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise TenantConfigError(f"{section_name}.{field_name} must be a positive integer")
+    return value
+
+
 def _validate_business_hours(section_name: str, business_hours):
     hours = _require_object(section_name, business_hours)
     for day_name, ranges in hours.items():
@@ -99,7 +108,19 @@ def _validate_scheduling(profile: dict, tenant: str):
     _require_positive_integer(f"Profile '{tenant}'.scheduling", scheduling, "slot_duration_minutes")
     _require_positive_integer(f"Profile '{tenant}'.scheduling", scheduling, "slot_interval_minutes")
     _require_positive_integer(f"Profile '{tenant}'.scheduling", scheduling, "minimum_notice_minutes")
-    _require_positive_integer(f"Profile '{tenant}'.scheduling", scheduling, "lookahead_days")
+    lookahead_days = _require_positive_integer(f"Profile '{tenant}'.scheduling", scheduling, "lookahead_days")
+    default_availability_reach_days = _require_optional_positive_integer(
+        f"Profile '{tenant}'.scheduling",
+        scheduling,
+        "default_availability_reach_days",
+    )
+    if (
+        isinstance(default_availability_reach_days, int)
+        and default_availability_reach_days > lookahead_days
+    ):
+        raise TenantConfigError(
+            f"Profile '{tenant}'.scheduling.default_availability_reach_days must not exceed lookahead_days"
+        )
     _validate_business_hours(
         f"Profile '{tenant}'.scheduling.business_hours",
         scheduling.get("business_hours"),

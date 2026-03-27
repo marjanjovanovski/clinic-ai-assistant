@@ -725,6 +725,7 @@
     "slot_duration_minutes": 30,
     "slot_interval_minutes": 30,
     "minimum_notice_minutes": 120,
+    "default_availability_reach_days": 3,
     "lookahead_days": 14,
     "business_hours": {
       "monday": [["09:00", "17:00"]],

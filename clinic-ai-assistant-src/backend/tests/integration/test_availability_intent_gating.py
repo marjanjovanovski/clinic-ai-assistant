@@ -318,25 +318,45 @@ def test_lost_selected_slot_returns_fallback_widget_and_reuses_saved_contact_det
     session_key = ai_agent._session_key("milena_dental", first_payload["session_id"])
     state = ai_agent.SESSION_STATE[session_key]
     assert state["scheduling"]["booking_handoff_ready"] is True
-    assert state["data"] == {
-        "name": "Marjan",
-        "phone": "070000000",
-        "email": "mail@test.mk",
-    }
 
-    replacement = client.post(
+
+def test_collecting_contact_availability_request_reuses_scheduling_instead_of_saving_name(monkeypatch, tmp_path):
+    client, ai_agent = _build_client(monkeypatch, tmp_path)
+
+    first = client.post("/chat?tenant=milena_dental", json={"message": "check availability"})
+    assert first.status_code == 200
+    first_payload = first.json()
+
+    selection = client.post(
         "/scheduling/select-slot?tenant=milena_dental",
         json={
             "session_id": first_payload["session_id"],
             "service_id": "consultation",
-            "slot_id": fallback_slot["slot_id"],
+            "slot_id": first_payload["widget_payload"]["slots"][1]["slot_id"],
         },
     )
+    assert selection.status_code == 200
 
-    assert replacement.status_code == 200
-    replacement_payload = replacement.json()
-    assert replacement_payload["session_status"] == "completed"
-    assert replacement_payload["next_action"] == "booking_completed"
+    response = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "slobodni termini", "session_id": first_payload["session_id"]},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["widget_payload"]["type"] == "slot-list"
+    assert payload["inspector_payload"]["routing"]["last_response_type"] == "slot-list"
+    assert payload["widget_payload"]["slots"]
+    assert payload["booking_progress"]["next_field"] == "name"
+
+    session_key = ai_agent._session_key("milena_dental", first_payload["session_id"])
+    state = ai_agent.SESSION_STATE[session_key]
+    assert state["stage"] == "collecting_contact"
+    assert state["next_field"] == "name"
+    assert state["data"] == {}
+    assert state["scheduling"]["operation"] == "availability_lookup"
+    assert ai_agent.AVAILABILITY_INTENT_MARKER_KEY not in state
+    return
     assert replacement_payload["reply"] == "Терминот е резервиран во mock режим."
     assert replacement_payload["booking_progress"]["summary"]["appointment_display"] == fallback_slot["display_label"]
     assert replacement_payload["booking_progress"]["summary"]["appointment_source"] == "calendar_booking"

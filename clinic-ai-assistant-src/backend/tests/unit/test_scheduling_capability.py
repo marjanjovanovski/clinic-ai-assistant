@@ -1,4 +1,6 @@
 # TEST EXECUTION MANIFESTO: Before running tests, follow clinic-ai-assistant-src/backend/pytest.ini and never create repo-local pytest temp folders; use external TMP/TEMP plus --basetemp.
+from datetime import date
+
 from app.services import scheduling_capability
 from app.services.scheduling.models import (
     AvailabilityResult,
@@ -219,6 +221,69 @@ def test_handle_scheduling_capability_executes_availability_lookup_when_ready(mo
     assert result.assessment.reason == "availability_lookup_completed"
     assert result.assessment.output_payload["result"]["provider"] == "mock"
     assert "09:00" in result.assessment.output_payload["reply_text"]
+
+
+def test_availability_default_dates_uses_business_day_reach_window(monkeypatch):
+    class _FakeDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 3, 27)
+
+    monkeypatch.setattr(scheduling_capability, "date", _FakeDate)
+
+    date_from, date_to = scheduling_capability._availability_default_dates(
+        _context(profile={"scheduling": {"default_availability_reach_days": 3}})
+    )
+
+    assert date_from == "2026-03-27"
+    assert date_to == "2026-03-31"
+
+
+def test_availability_default_dates_falls_back_to_existing_lookahead_behavior(monkeypatch):
+    class _FakeDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 3, 24)
+
+    monkeypatch.setattr(scheduling_capability, "date", _FakeDate)
+
+    date_from, date_to = scheduling_capability._availability_default_dates(
+        _context(profile={"scheduling": {"lookahead_days": 14}})
+    )
+
+    assert date_from == "2026-03-24"
+    assert date_to == "2026-03-25"
+
+
+def test_handle_scheduling_capability_returns_explicit_no_availability_message_when_slots_are_empty(monkeypatch):
+    monkeypatch.setattr(
+        scheduling_capability,
+        "get_scheduling_public_config",
+        lambda tenant: _snapshot(),
+    )
+
+    def fake_lookup_availability(**kwargs):
+        return AvailabilityResult(
+            provider="mock",
+            slots=[],
+        )
+
+    monkeypatch.setattr(scheduling_capability, "lookup_availability", fake_lookup_availability)
+
+    result = scheduling_capability.handle_scheduling_capability(
+        _context(
+            requested_operation=scheduling_capability.OPERATION_AVAILABILITY,
+            service_id="consultation",
+            date_from="2026-03-27",
+            date_to="2026-03-28",
+            intro_message="Za da proveram slobodni termini...",
+        )
+    )
+
+    assert result.assessment.status == "completed"
+    assert result.assessment.reason == "availability_lookup_completed"
+    assert result.assessment.output_payload["result"]["slots"] == []
+    assert result.assessment.output_payload["reply_text"] == scheduling_capability.NO_AVAILABILITY_MESSAGE
 
 
 def test_lookup_availability_builds_scheduling_request_and_delegates(monkeypatch):

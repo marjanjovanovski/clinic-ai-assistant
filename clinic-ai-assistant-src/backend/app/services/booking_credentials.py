@@ -849,6 +849,7 @@ def maybe_handle_booking_turn(
     is_plausible_contact_phone: Callable[[str], bool],
     conversation_rule_list: Callable[[dict, str], list[str]],
     random_choice: Callable[[tuple[str, str]], str],
+    redirect_contact_message_to_availability: Callable[[str, dict | None, str], dict | None],
 ) -> tuple[str, str] | None:
     if state and state.get("stage") in {"collecting_contact", "completed"}:
         edit_phase = state.get("edit_phase")
@@ -1035,6 +1036,12 @@ def maybe_handle_booking_turn(
         missing_fields = [field for field in collect_fields if field not in state.get("data", {})]
         pending_name_confirmation = state.get("pending_name_confirmation")
         force_accept_name = False
+
+        redirected_state = redirect_contact_message_to_availability(message, state, session_key)
+        if isinstance(redirected_state, dict):
+            state.clear()
+            state.update(redirected_state)
+            return None
 
         if next_field == "name" and isinstance(pending_name_confirmation, str) and pending_name_confirmation.strip():
             explicit_name = _extract_explicit_contact_name(
@@ -1628,6 +1635,7 @@ def handle_booking_capability(
     is_plausible_contact_phone: Callable[[str], bool],
     conversation_rule_list: Callable[[dict, str], list[str]],
     random_choice: Callable[[tuple[str, str]], str],
+    redirect_contact_message_to_availability: Callable[[str, dict | None, str], dict | None],
 ) -> CapabilityResult:
     preparation = prepare_booking_state(
         tenant=context.tenant,
@@ -1685,6 +1693,7 @@ def handle_booking_capability(
         is_plausible_contact_phone=is_plausible_contact_phone,
         conversation_rule_list=conversation_rule_list,
         random_choice=random_choice,
+        redirect_contact_message_to_availability=redirect_contact_message_to_availability,
     )
     if response:
         return CapabilityResult(

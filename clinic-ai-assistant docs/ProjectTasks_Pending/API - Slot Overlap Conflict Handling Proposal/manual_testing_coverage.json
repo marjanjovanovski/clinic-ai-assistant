@@ -4,7 +4,7 @@
   "status": "pending_manual_verification",
   "manual_verification": {
     "branch_merge_ready": false,
-    "general_comment": ""
+    "general_comment": "Asked for slobodni termini but the system now does not display the results at all\nUnder F:\\IT Projects\\clinic-ai-assistant\\clinic-ai-assistant-src\\backend\\runtime_traces you can review the last 4 created traces. "
   },
   "categories": [
     {
@@ -501,7 +501,7 @@
     }
   ],
   "summary": {
-    "not_run": 45,
+    "not_run": 49,
     "pass": 0,
     "fail": 0
   }
