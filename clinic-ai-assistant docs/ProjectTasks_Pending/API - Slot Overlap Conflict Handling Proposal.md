@@ -42,7 +42,7 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 11`
+- `Prompt 12`
 
 ## Global Status Summary
 
@@ -56,7 +56,7 @@ Status values allowed in this document:
 - Prompt 8 - Completed
 - Prompt 9 - Completed
 - Prompt 10 - Completed
-- Prompt 11 - Pending
+- Prompt 11 - Completed
 - Prompt 12 - Pending
 
 ## Working Rules For The Implementing AI Agent
@@ -968,7 +968,7 @@ Verification completed for Prompt 10:
 Verification note:
 - direct pytest execution for the affected suites remains blocked by the same Windows temp-directory cleanup permission issue on this machine, so Prompt 10 was verified through targeted runtime scripts plus static checks.
 
-## Prompt 11 - Pending
+## Prompt 11 - Completed
 
 ### Goal
 
@@ -992,6 +992,50 @@ Requirements:
 
 Automated coverage exists for the critical overlap-control paths and helps prevent silent regression.
 
+### Completion Note
+
+Prompt 11 is completed.
+
+Coverage status after the regression pass:
+- hold rejection on selection is covered in:
+  - `clinic-ai-assistant-src/backend/tests/integration/test_scheduling_api.py`
+- final booking success with a valid hold is covered in:
+  - `clinic-ai-assistant-src/backend/tests/unit/test_scheduling_capability.py`
+- expired-hold silent recheck success is covered in:
+  - `clinic-ai-assistant-src/backend/tests/unit/test_scheduling_capability.py`
+- expired-hold silent recheck failure is covered in:
+  - `clinic-ai-assistant-src/backend/tests/unit/test_scheduling_capability.py`
+- same-day fallback payloads are covered in:
+  - `clinic-ai-assistant-src/backend/tests/unit/test_scheduling_capability.py`
+  - `clinic-ai-assistant-src/backend/tests/unit/test_booking_credentials.py`
+  - `clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py`
+  - `clinic-ai-assistant-src/backend/tests/integration/test_scheduling_api.py`
+- overlap trace emission is covered in:
+  - `clinic-ai-assistant-src/backend/tests/unit/test_scheduling_hold_store.py`
+  - `clinic-ai-assistant-src/backend/tests/unit/test_scheduling_capability.py`
+  - `clinic-ai-assistant-src/backend/tests/integration/test_scheduling_api.py`
+- UI-facing recovery hooks remain covered in:
+  - `clinic-ai-assistant-src/backend/tests/integration/test_frontend_booking_ui.py`
+  - `clinic-ai-assistant-src/backend/tests/integration/test_cal_html.py`
+
+What was tightened in this prompt:
+- added a focused regression assertion so missing or invalid hold ownership now confirms both:
+  - `SCHEDULING_BOOKING_MISMATCH`
+  - `SCHEDULING_SLOT_CONFLICT`
+- aligned the runtime implementation so the missing-hold rejection path emits the documented mismatch trace before returning the recoverable lost-slot response
+
+Verification completed for Prompt 11:
+- automated unit test run:
+  - `.\\.venv\\Scripts\\python.exe -m pytest .\\tests\\unit\\test_scheduling_capability.py -q --basetemp="F:\\temp\\clinic-ai-assistant\\pytest-slot-overlap-p11"`
+- result:
+  - `18 passed`
+- static verification:
+  - `python -m py_compile clinic-ai-assistant-src/backend/app/services/scheduling_capability.py clinic-ai-assistant-src/backend/tests/unit/test_scheduling_capability.py`
+
+Residual warning:
+- repo-local test residue is still present at `_tmp_pytest_p10`
+- this path is not part of the intended change set and should be removed before final verification is considered clean
+
 ## Prompt 12 - Pending
 
 ### Goal
@@ -1004,7 +1048,11 @@ After implementation prompts are complete, perform the final pass.
 
 Requirements:
 - re-check that both main chat and sandbox flows still work under their intended interaction models
+- use external `TMP` / `TEMP` and external `--basetemp` for any remaining automated verification
+- do not create repo-local temp, scratch, runtime, or pytest fallback folders
+- if external temp execution fails, document the blocker instead of falling back to repo-local temp paths unless the user explicitly approves that exception
 - verify no repo-local junk was left behind by testing
+- perform a final repo residual check and warn explicitly if any temp or test residue remains
 - document automated and manual verification clearly
 - list any accepted limitations or follow-up ideas without silently expanding scope
 

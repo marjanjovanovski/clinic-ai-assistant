@@ -864,6 +864,15 @@ def book_selected_slot(
                         session_id=session_id,
                     )
             else:
+                _trace_scheduling_decision(
+                    tenant,
+                    session_id,
+                    "SCHEDULING_BOOKING_MISMATCH",
+                    service_id=service_id,
+                    slot_id=slot_id,
+                    hold_id=hold_id,
+                    observed_hold_status=hold.get("status") if isinstance(hold, dict) else None,
+                )
                 _raise_slot_unavailable(
                     tenant=tenant,
                     service_id=service_id,

@@ -360,7 +360,15 @@ def test_book_selected_slot_validates_active_hold_and_consumes_it(monkeypatch):
 
 
 def test_book_selected_slot_rejects_booking_when_hold_is_missing_or_invalid(monkeypatch):
+    trace_events = []
     monkeypatch.setattr(scheduling_capability, "get_slot_hold", lambda **kwargs: None)
+    monkeypatch.setattr(
+        scheduling_capability,
+        "trace_event",
+        lambda tenant, session_id, event, **fields: trace_events.append(
+            {"tenant": tenant, "session_id": session_id, "event": event, "fields": fields}
+        ),
+    )
 
     try:
         scheduling_capability.book_selected_slot(
@@ -373,6 +381,8 @@ def test_book_selected_slot_rejects_booking_when_hold_is_missing_or_invalid(monk
         )
     except scheduling_capability.SchedulingConfigError as exc:
         assert "no longer available" in str(exc)
+        assert any(item["event"] == "SCHEDULING_BOOKING_MISMATCH" for item in trace_events)
+        assert any(item["event"] == "SCHEDULING_SLOT_CONFLICT" for item in trace_events)
     else:
         raise AssertionError("Expected active-hold validation to reject booking without a valid hold")
 
