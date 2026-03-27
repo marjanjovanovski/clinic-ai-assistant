@@ -42,14 +42,14 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 4`
+- `Prompt 5`
 
 ## Global Status Summary
 
 - Prompt 1 - Completed
 - Prompt 2 - Completed
 - Prompt 3 - Completed
-- Prompt 4 - Pending
+- Prompt 4 - Completed
 - Prompt 5 - Pending
 - Prompt 6 - Pending
 - Prompt 7 - Pending
@@ -541,7 +541,7 @@ Architecture result after Prompt 3:
 - the repo now has the minimal persistence layer needed for the hold model
 - runtime selection and booking flows do not use it yet; that integration remains for the next prompts
 
-## Prompt 4 - Pending
+## Prompt 4 - Completed
 
 ### Goal
 
@@ -560,6 +560,41 @@ Requirements:
 ### Required Outcome
 
 Slot selection becomes the point where reservation starts, and stale advisory availability no longer behaves like a claim of ownership by itself.
+
+### Prompt 4 Completion Note
+
+What changed:
+- updated `/scheduling/select-slot` so slot selection now attempts to create a scheduling-owned hold before contact collection begins
+- if the hold belongs to the requesting session, the selection succeeds and the returned handoff payload now includes:
+  - `hold.hold_id`
+  - `hold.hold_status`
+  - `hold.hold_expires_at`
+  - `hold.session_id`
+  - `hold.service_id`
+  - `hold.slot_id`
+- if another session already owns the active hold for that slot, `/scheduling/select-slot` now returns a clear `409` conflict instead of silently continuing toward contact collection
+- updated the main-chat handoff response payload so the returned top-level response and inspector payload both include the hold metadata
+
+Compatibility decisions for this prompt:
+- kept the selection success response compatible with the current main chat flow by preserving `next_action = collect_contact`
+- kept selection conflict as a plain `409` string `detail` for now because the current frontend caller still expects string error handling
+- deferred richer structured conflict rendering to the later UI adaptation prompts instead of breaking the current caller contract prematurely
+
+Behavior after Prompt 4:
+- main chat selection now becomes the point where reservation starts
+- repeated selection of the same slot by another session is rejected before the losing user enters or completes contact collection
+- same-session selection remains allowed through the existing active hold ownership path
+
+Files changed for Prompt 4:
+- `clinic-ai-assistant-src/backend/app/routes/scheduling.py`
+- `clinic-ai-assistant-src/backend/app/services/ai_agent.py`
+- `clinic-ai-assistant-src/backend/tests/integration/test_scheduling_api.py`
+
+Verification completed for Prompt 4:
+- automated test run:
+  - `.\\.venv\\Scripts\\python.exe -m pytest .\\tests\\integration\\test_scheduling_api.py .\\tests\\unit\\test_scheduling_hold_store.py -q --basetemp="F:\\temp\\clinic-ai-assistant\\pytest-slot-hold-selection"`
+- result:
+  - `13 passed`
 
 ## Prompt 5 - Pending
 

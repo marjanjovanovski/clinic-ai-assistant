@@ -1496,12 +1496,14 @@ def start_contact_collection_from_scheduling_handoff(
         "session_status": session_status,
         "booking_progress": booking_progress,
         "selected_slot": scheduling_handoff.get("selected_slot"),
+        "hold": scheduling_handoff.get("hold"),
         "next_action": "collect_contact",
         "inspector_payload": build_runtime_inspector_payload(
             tenant,
             session_id,
             response_payload={
                 "selected_slot": scheduling_handoff.get("selected_slot"),
+                "hold": scheduling_handoff.get("hold"),
                 "next_action": "collect_contact",
             },
             session_status=session_status,

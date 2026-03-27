@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.services.ai_agent import get_runtime_session_state, start_contact_collection_from_scheduling_handoff
 from app.services.config_loader import TenantConfigError, TenantNotFoundError
+from app.services.scheduling_hold_store import create_slot_hold
 from app.services.scheduling_capability import selected_slot_handoff_payload
 from app.services.scheduling.models import AvailabilityRequest, BookingRequest
 from app.services.scheduling.service import (
@@ -150,6 +151,25 @@ def scheduling_select_slot(payload: SessionSlotSelectionRequest, tenant: str = Q
             service_id=payload.service_id,
             slot_id=payload.slot_id,
         )
+        hold = create_slot_hold(
+            tenant=tenant,
+            service_id=payload.service_id,
+            slot_id=payload.slot_id,
+            session_id=payload.session_id,
+        )
+        if not isinstance(hold, dict) or hold.get("session_id") != payload.session_id:
+            raise ValueError("This slot was just taken by another booking. I will show available slots for the same day.")
+        scheduling_handoff = {
+            **scheduling_handoff,
+            "hold": {
+                "hold_id": hold.get("hold_id"),
+                "hold_status": hold.get("status"),
+                "hold_expires_at": hold.get("expires_at"),
+                "session_id": hold.get("session_id"),
+                "service_id": hold.get("service_id"),
+                "slot_id": hold.get("slot_id"),
+            },
+        }
         return start_contact_collection_from_scheduling_handoff(
             tenant,
             payload.session_id,
