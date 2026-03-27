@@ -25,6 +25,20 @@ Feature-specific master prompt files should reference this guide instead of dupl
 Pending task files should live in `ProjectTasks_Pending`.
 Completed task files should be archived into `ProjectTasks_Done`.
 
+## Token Efficiency Rule
+
+To preserve weekly usage while keeping output quality high:
+- prefer one master task file per feature rather than splitting one feature across several markdown files
+- split work into prompts only when there is a real execution boundary, not just because another heading could be invented
+- prefer structured tracking such as compact status blocks, tables, or JSON for state-heavy data instead of repeatedly rewriting long prose
+- keep prompt completion notes compact:
+  - what changed
+  - what was verified
+  - blockers or warnings
+- avoid restating architecture, history, or guide rules in every prompt when they already exist unchanged above
+- use appendices and structured artifacts for manual verification data instead of growing narrative notes over time
+- when a feature needs heavy manual verification tracking, prefer a companion structured artifact over expanding the MD file into a large logbook
+
 ## Task File Naming Convention
 
 To keep pending work easy to scan and group visually, use this naming format for feature-specific task files:
@@ -86,6 +100,11 @@ Each feature-specific master prompt document should also contain:
   - `Merge To Main - Pending`
   - or `Merge To Main - Completed`
 
+Keep the tracking document lean:
+- status should be easy to scan in a few seconds
+- do not turn the task file into a long-running diary
+- if progress data becomes row-heavy or state-heavy, move that data into a structured companion artifact when practical
+
 Strongly recommended standard sections:
 - `Execution Tracking Instructions`
 - `Last Updated By`
@@ -103,6 +122,7 @@ Strongly recommended standard sections:
 - The first prompt should usually focus on understanding the current implementation and reasoning for the change.
 - Later prompts should focus on schema, migration, code integration, and tests in a logical order.
 - Prompts should be specific enough to execute, but broad enough that the implementing agent does not need to be micromanaged line by line.
+- prefer fewer, boundary-based prompts over many tiny prompts that create repeated commit/status overhead
 - The tracking document must be treated as the single source of truth for feature progress.
 - After finishing any prompt, the agent must update the tracking document before moving on.
 - Any prompt not yet executed must remain marked as `Pending`.
@@ -271,6 +291,9 @@ To keep the process bulletproof without unnecessary redundancy:
 - when branch-level human verification is required before merge, add one final prompt section for `Manual Verification / Merge Readiness`
 - split large features into enough prompts that each one has a clear verification target and a natural commit boundary
 - do not pack unrelated backend, frontend, and testing work into one oversized prompt when separate prompts would reduce token load and execution risk
+- do not split a single feature into multiple master prompt markdown files unless they are truly separate executable tasks
+- when tracking becomes repetitive, prefer structured tables or companion JSON over repeated prose edits
+- completion notes should stay operational and compact rather than changelog-heavy narrative
 
 Recommended reminder text for feature-specific master prompt files:
 

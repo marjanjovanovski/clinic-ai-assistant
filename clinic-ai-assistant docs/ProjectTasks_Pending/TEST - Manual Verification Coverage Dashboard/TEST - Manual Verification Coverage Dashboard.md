@@ -7,7 +7,7 @@ The purpose of this work is to:
 - load manual testing coverage from JSON instead of writing results directly into code
 - support switching between multiple pending tasks waiting for final manual verification
 - allow manual testers to mark each step as `Not Run`, `Pass`, or `Fail`
-- allow failure comments and reference-file notes per row
+- allow failure comments and a separate reference-file field per row
 - save progress locally without creating repo junk
 - align future task creation so each pending task lives in its own folder with its own `manual_testing_coverage.json`
 
@@ -54,10 +54,6 @@ Status values allowed in this document:
 - Prompt 6 - Pending
 - Prompt 7 - Pending
 - Prompt 8 - Pending
-- Prompt 9 - Pending
-- Prompt 10 - Pending
-- Prompt 11 - Pending
-- Prompt 12 - Pending
 
 ## Working Rules For The Implementing AI Agent
 
@@ -68,6 +64,17 @@ Status values allowed in this document:
 - Keep the UI optimized for wide screens and desk use; mobile responsiveness is not required for this task.
 - Use inner scrolling for the main table area so the page remains stable on large verification sets.
 - Keep save behavior explicit and reliable.
+- Keep reference handling text-only:
+  - no upload
+  - no preview
+  - no attachment management UI
+  - only a separate field where the reviewer types filenames that already exist in the same task folder
+- Prefer broader execution boundaries over many micro-prompts for this task.
+- Keep prompt completion notes short:
+  - what changed
+  - what was verified
+  - blockers or warnings
+- Use short descriptive commit messages rather than long narrative commit text.
 - Update this file immediately after each prompt is completed.
 - Do not mark a prompt as completed unless the requested work has actually been implemented and verified as far as possible.
 
@@ -119,7 +126,7 @@ Future pending tasks should use a folder like:
 Inside each task folder:
 - `<Task Name>.md`
 - `manual_testing_coverage.json`
-- optional evidence files later added by the user such as images or PDFs
+- optional evidence files later added manually by the user such as images or PDFs
 
 ### Dashboard Scope
 
@@ -137,6 +144,15 @@ The HTML page should support:
 - save capability
 - merge-readiness summary derived from row statuses
 
+The HTML page should not support in this version:
+- file upload
+- image preview
+- PDF preview
+- automatic merge actions
+- automatic markdown rewriting
+- mobile-focused responsive behavior
+- advanced filtering or search
+
 ### Storage Shape Direction
 
 The JSON should represent:
@@ -146,7 +162,7 @@ The JSON should represent:
 - rows or steps
 - status values
 - comment field
-- reference-files field
+- separate reference-files field storing plain typed filenames
 
 Recommended row-level status values:
 - `Not Run`
@@ -168,6 +184,7 @@ After all prompts are complete, the repo should have:
 - a task-discovery mechanism for pending tasks awaiting manual verification
 - a per-task `manual_testing_coverage.json` contract
 - save and reload behavior for manual verification progress
+- a separate comment field and a separate reference-files field for each verification row
 - guide updates enforcing the new folder-based task structure for future pending tasks
 - a migration or compatibility plan for current pending task files
 
@@ -195,7 +212,7 @@ The implementation boundary is clear and reuse opportunities are identified befo
 
 ### Goal
 
-Design the JSON schema and task-folder contract for manual verification coverage.
+Design the JSON schema and task-folder contract, and update the guide for the new folder-based workflow.
 
 ### Instructions
 
@@ -205,146 +222,78 @@ Requirements:
 - define required task-folder structure
 - define the JSON schema for categories, tests, and rows
 - define status values and merge-readiness rules
-- define how reference filenames are stored
+- define how reference filenames are stored as plain text in a dedicated field
+- update the guide so future tasks use task folders with `manual_testing_coverage.json`
+- keep compatibility guidance clear for existing flat task files
 - keep the schema simple enough for direct HTML rendering
 
 ### Required Outcome
 
-The task-folder and JSON contract are explicit and implementation-ready.
+The task-folder rule and JSON contract are explicit and implementation-ready.
 
 ## Prompt 3 - Pending
 
 ### Goal
 
-Update the guide so future pending tasks use task folders with `manual_testing_coverage.json`.
+Implement task discovery together with the JSON load/save layer.
 
 ### Instructions
 
 Apply the new rule to the guide before building the full feature.
 
 Requirements:
-- update naming and location rules for future pending tasks
-- define that new tasks live in their own folder
-- define that each task folder includes `manual_testing_coverage.json`
-- define when that JSON is generated and maintained
-- keep compatibility guidance clear for existing flat task files
+- identify pending tasks with a manual verification prompt still pending
+- support the new folder-based convention
+- define how to handle legacy flat task files during transition
+- load `manual_testing_coverage.json`
+- validate minimum required structure
+- save status, comments, and reference-file updates
+- avoid redundant helper code when existing utilities can be reused
+- keep the discovery and persistence logic deterministic and testable
 
 ### Required Outcome
 
-The guide reflects the new task-folder and manual-coverage workflow.
+The dashboard can discover candidate tasks and persist manual verification data reliably.
 
 ## Prompt 4 - Pending
 
 ### Goal
 
-Implement task discovery for pending tasks waiting for final manual verification.
+Create `ManualTesting.html` and render the JSON-driven table UI.
 
 ### Instructions
 
 Build the discovery path that powers the task selector.
 
 Requirements:
-- identify pending tasks with a manual verification prompt still pending
-- support the new folder-based convention
-- define how to handle legacy flat task files during transition
-- keep the discovery logic deterministic and testable
+- add a task selector at the top
+- add summary area for pass/fail/not-run counts
+- add a fixed-header, inner-scroll table area
+- render category/test grouping clearly
+- render row fields from JSON
+- keep the table readable for large task sets
+- optimize for desk and wide-screen use rather than mobile responsiveness
 
 ### Required Outcome
 
-The dashboard can identify which pending tasks should appear in the top selector.
+The page shell and rendered table are usable for real manual verification review.
 
 ## Prompt 5 - Pending
 
 ### Goal
 
-Implement the JSON load/save layer for manual verification coverage.
+Implement interaction controls, save behavior, and merge-readiness summary.
 
 ### Instructions
 
 Build the persistence layer using reused patterns where practical.
 
 Requirements:
-- load `manual_testing_coverage.json`
-- validate minimum required structure
-- save status, comments, and reference-file updates
-- avoid redundant helper code when existing utilities can be reused
-
-### Required Outcome
-
-The dashboard has reliable JSON persistence for manual verification progress.
-
-## Prompt 6 - Pending
-
-### Goal
-
-Create the initial `ManualTesting.html` structure and layout.
-
-### Instructions
-
-Build the wide-screen HTML shell and scrollable table area.
-
-Requirements:
-- add a task selector at the top
-- add summary area for pass/fail/not-run counts
-- add a fixed-header, inner-scroll table area
-- optimize for desk and wide-screen use rather than mobile responsiveness
-
-### Required Outcome
-
-The page shell is ready for data binding and manual verification use.
-
-## Prompt 7 - Pending
-
-### Goal
-
-Bind the HTML page to the JSON task data and render categories/tests/rows.
-
-### Instructions
-
-Render the loaded task data into the table UI.
-
-Requirements:
-- render category/test grouping clearly
-- render row fields from JSON
-- keep the table readable for large task sets
-- preserve a stable wide-screen layout
-
-### Required Outcome
-
-The dashboard renders task coverage data from JSON correctly.
-
-## Prompt 8 - Pending
-
-### Goal
-
-Implement interaction controls for status, comments, reference files, and save behavior.
-
-### Instructions
-
-Add the manual testing interaction workflow.
-
-Requirements:
 - support `Not Run`, `Pass`, `Fail`
 - provide a comment field for failures or observations
-- provide a multiline reference-files field for comma-separated image/PDF names
+- provide a separate multiline reference-files field for comma-separated image/PDF names
 - add explicit save capability
 - reflect unsaved/saved state clearly
-
-### Required Outcome
-
-The dashboard is usable for real manual verification sessions.
-
-## Prompt 9 - Pending
-
-### Goal
-
-Implement merge-readiness calculation and task completion summary behavior.
-
-### Instructions
-
-Derive merge readiness from the JSON status state.
-
-Requirements:
 - compute pass/fail/not-run counts
 - define when a task is ready for merge
 - show blocked state clearly when any test is `Fail` or unfinished
@@ -352,17 +301,17 @@ Requirements:
 
 ### Required Outcome
 
-The dashboard gives a clear manual-verification readiness summary without replacing human merge approval.
+The dashboard is fully usable for tracking manual verification progress and readiness state.
 
-## Prompt 10 - Pending
+## Prompt 6 - Pending
 
 ### Goal
 
-Create sample JSON coverage for this feature and one compatibility example for future tasks.
+Create sample JSON coverage and one ready-to-use example dataset.
 
 ### Instructions
 
-Provide a real example so the dashboard can be exercised immediately.
+Build the wide-screen HTML shell and scrollable table area.
 
 Requirements:
 - create a realistic `manual_testing_coverage.json` example for this feature family
@@ -373,7 +322,7 @@ Requirements:
 
 The dashboard can be opened against a realistic example dataset immediately.
 
-## Prompt 11 - Pending
+## Prompt 7 - Pending
 
 ### Goal
 
@@ -381,7 +330,7 @@ Add focused regression coverage and final technical verification for the dashboa
 
 ### Instructions
 
-Verify task discovery, JSON handling, rendering, and save logic.
+Render the loaded task data into the table UI.
 
 Requirements:
 - cover task discovery
@@ -394,7 +343,7 @@ Requirements:
 
 The dashboard feature is regression-protected and technically verified.
 
-## Prompt 12 - Pending
+## Prompt 8 - Pending
 
 ### Goal
 
@@ -402,7 +351,7 @@ Track branch-level manual verification and merge readiness for this dashboard fe
 
 ### Instructions
 
-After implementation and automated verification are complete, keep this prompt pending until the user performs manual verification on the branch.
+Add the manual testing interaction workflow.
 
 Requirements:
 - record which manual checks were performed
@@ -433,7 +382,7 @@ The reviewer opens one HTML page and switches between pending tasks that are wai
 | 1 | Reviewer opens `ManualTesting.html` | Task selector loads pending tasks awaiting manual verification |
 | 2 | Reviewer chooses a task | JSON-driven test rows appear |
 | 3 | Reviewer marks rows `Pass` / `Fail` | Progress is tracked per row |
-| 4 | Reviewer writes comments and references | Evidence is captured inline |
+| 4 | Reviewer writes comments and reference filenames | Notes are captured inline and filenames point to files in the same task folder |
 | 5 | Reviewer saves | JSON is updated |
 | 6 | All tests are completed acceptably | Merge readiness can be discussed |
 
@@ -483,4 +432,5 @@ Review merge readiness summary
 |---|---|---|
 | 1 | Open a task from the selector | Task rows load from JSON |
 | 2 | Change one row status and add a comment | The row becomes dirty/modified |
-| 3 | Save | The updated values persist after reload |
+| 3 | Add one or more reference filenames in the separate reference field | Filenames are stored as plain text for that row |
+| 4 | Save | The updated values persist after reload |
