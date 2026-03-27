@@ -127,6 +127,71 @@ def booking_summary_payload(
     }
 
 
+def scheduling_fallback_state_from_booking_result(
+    state: dict,
+    booking_result: dict | None,
+) -> dict | None:
+    if not isinstance(state, dict) or not isinstance(booking_result, dict):
+        return None
+
+    if booking_result.get("status") != "slot_unavailable":
+        return None
+
+    source_payload = booking_result.get("source_payload")
+    if not isinstance(source_payload, dict):
+        return None
+
+    replacement_slots = source_payload.get("replacement_slots")
+    if not isinstance(replacement_slots, list) or not replacement_slots:
+        return None
+
+    service_id = source_payload.get("service_id") or state.get("service_id")
+    if not isinstance(service_id, str) or not service_id.strip():
+        return None
+
+    selected_slot = source_payload.get("selected_slot")
+    fallback_date = source_payload.get("fallback_date")
+    timezone_name = (
+        selected_slot.get("timezone")
+        if isinstance(selected_slot, dict) and isinstance(selected_slot.get("timezone"), str)
+        else None
+    )
+
+    return {
+        "operation": "availability_lookup",
+        "status": "completed",
+        "reason": "slot_conflict_same_day_fallback",
+        "capability_state": {
+            "capability": "scheduling",
+            "operation": "availability_lookup",
+            "status": "completed",
+            "service_id": service_id.strip(),
+            "slot_id": source_payload.get("slot_id"),
+            "timezone": timezone_name,
+            "missing_inputs": [],
+        },
+        "output_payload": {
+            "capability": "scheduling",
+            "operation": "availability_lookup",
+            "provider": booking_result.get("provider"),
+            "request": {
+                "service_id": service_id.strip(),
+                "date_from": fallback_date,
+                "date_to": fallback_date,
+                "timezone": timezone_name,
+                "preferred_days": [],
+                "preferred_time_range": None,
+            },
+            "result": {
+                "provider": booking_result.get("provider"),
+                "slots": [slot for slot in replacement_slots if isinstance(slot, dict)],
+            },
+            "reply_text": booking_result.get("confirmation_message"),
+        },
+        "booking_handoff_ready": True,
+    }
+
+
 def _complete_selected_slot_booking_if_ready(
     *,
     tenant: str,
@@ -1440,8 +1505,12 @@ def maybe_handle_booking_turn(
         )
         if booking_result:
             save_lead_checkpoint(tenant, session_id, state, required_fields=collect_fields)
-
-        SESSION_STATE.pop(session_key, None)
+        fallback_scheduling_state = scheduling_fallback_state_from_booking_result(state, booking_result)
+        if isinstance(fallback_scheduling_state, dict):
+            state["scheduling"] = fallback_scheduling_state
+            SESSION_STATE[session_key] = state
+        else:
+            SESSION_STATE.pop(session_key, None)
         trace_stage_transition(
             tenant,
             session_id,

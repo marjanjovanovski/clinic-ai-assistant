@@ -242,3 +242,101 @@ def test_non_availability_responses_keep_widget_payload_empty(monkeypatch, tmp_p
     payload = response.json()
     assert payload["session_status"] == "active"
     assert payload["widget_payload"] is None
+
+
+def test_lost_selected_slot_returns_fallback_widget_and_reuses_saved_contact_details(monkeypatch, tmp_path):
+    client, ai_agent = _build_client(monkeypatch, tmp_path)
+
+    first = client.post("/chat?tenant=milena_dental", json={"message": "check availability"})
+    assert first.status_code == 200
+    first_payload = first.json()
+    original_slot = first_payload["widget_payload"]["slots"][0]
+    fallback_slot = first_payload["widget_payload"]["slots"][1]
+
+    from app.services import scheduling_capability
+    from app.services.scheduling.models import BookingResult
+
+    def fake_book_selected_slot(**kwargs):
+        if kwargs["slot_id"] == original_slot["slot_id"]:
+            raise scheduling_capability.SchedulingSlotConflictError(
+                "The selected slot is no longer available. I will show you other available slots for the same day.",
+                service_id="consultation",
+                selected_slot=kwargs["selected_slot"],
+                fallback_date="2026-03-27",
+                replacement_slots=[fallback_slot],
+            )
+        return BookingResult(
+            status="confirmed",
+            provider="mock",
+            booking_id="mock-booking-2",
+            start_at=fallback_slot["start_at"],
+            end_at=fallback_slot["end_at"],
+            display_label=fallback_slot["display_label"],
+            confirmation_message="Терминот е резервиран во mock режим.",
+            source_payload={"slot_id": kwargs["slot_id"]},
+        )
+
+    monkeypatch.setattr(scheduling_capability, "book_selected_slot", fake_book_selected_slot)
+
+    selection = client.post(
+        "/scheduling/select-slot?tenant=milena_dental",
+        json={
+            "session_id": first_payload["session_id"],
+            "service_id": "consultation",
+            "slot_id": original_slot["slot_id"],
+        },
+    )
+    assert selection.status_code == 200
+
+    third = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "Marjan", "session_id": first_payload["session_id"]},
+    )
+    assert third.status_code == 200
+
+    fourth = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "070000000", "session_id": first_payload["session_id"]},
+    )
+    assert fourth.status_code == 200
+
+    fifth = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "mail@test.mk", "session_id": first_payload["session_id"]},
+    )
+    assert fifth.status_code == 200
+    fallback_payload = fifth.json()
+
+    assert fallback_payload["session_status"] == "completed"
+    assert "no longer available" in fallback_payload["reply"]
+    assert fallback_payload["widget_payload"]["type"] == "slot-list"
+    assert fallback_payload["widget_payload"]["slots"][0]["slot_id"] == fallback_slot["slot_id"]
+    assert fallback_payload["booking_progress"]["summary"]["appointment_display"] == ""
+    assert fallback_payload["booking_progress"]["summary"]["appointment_source"] is None
+    assert fallback_payload["booking_progress"]["summary"]["appointment_status"] == "Терминот не е достапен"
+
+    session_key = ai_agent._session_key("milena_dental", first_payload["session_id"])
+    state = ai_agent.SESSION_STATE[session_key]
+    assert state["scheduling"]["booking_handoff_ready"] is True
+    assert state["data"] == {
+        "name": "Marjan",
+        "phone": "070000000",
+        "email": "mail@test.mk",
+    }
+
+    replacement = client.post(
+        "/scheduling/select-slot?tenant=milena_dental",
+        json={
+            "session_id": first_payload["session_id"],
+            "service_id": "consultation",
+            "slot_id": fallback_slot["slot_id"],
+        },
+    )
+
+    assert replacement.status_code == 200
+    replacement_payload = replacement.json()
+    assert replacement_payload["session_status"] == "completed"
+    assert replacement_payload["next_action"] == "booking_completed"
+    assert replacement_payload["reply"] == "Терминот е резервиран во mock режим."
+    assert replacement_payload["booking_progress"]["summary"]["appointment_display"] == fallback_slot["display_label"]
+    assert replacement_payload["booking_progress"]["summary"]["appointment_source"] == "calendar_booking"

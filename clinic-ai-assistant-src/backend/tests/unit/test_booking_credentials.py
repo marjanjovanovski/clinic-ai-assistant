@@ -257,3 +257,40 @@ def test_complete_selected_slot_booking_if_ready_preserves_recovery_success_payl
     assert result["status"] == "confirmed"
     assert result["source_payload"]["recovery_applied"] is True
     assert state["booking_result"]["source_payload"]["recovery_applied"] is True
+
+
+def test_scheduling_fallback_state_from_booking_result_reseeds_slot_selection_contract():
+    state = {
+        "stage": "completed",
+        "service_id": "consultation",
+    }
+    booking_result = {
+        "status": "slot_unavailable",
+        "provider": "scheduling",
+        "source_payload": {
+            "slot_id": "mock|slot-1",
+            "service_id": "consultation",
+            "fallback_date": "2026-03-26",
+            "selected_slot": {
+                "slot_id": "mock|slot-1",
+                "timezone": "Europe/Skopje",
+            },
+            "replacement_slots": [
+                {
+                    "slot_id": "mock|slot-2",
+                    "display_label": "26 Mar 2026 во 16:30",
+                }
+            ],
+        },
+    }
+
+    fallback_state = booking_credentials.scheduling_fallback_state_from_booking_result(
+        state,
+        booking_result,
+    )
+
+    assert fallback_state["booking_handoff_ready"] is True
+    assert fallback_state["reason"] == "slot_conflict_same_day_fallback"
+    assert fallback_state["capability_state"]["service_id"] == "consultation"
+    assert fallback_state["output_payload"]["request"]["date_from"] == "2026-03-26"
+    assert fallback_state["output_payload"]["result"]["slots"][0]["slot_id"] == "mock|slot-2"

@@ -42,7 +42,7 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 8`
+- `Prompt 9`
 
 ## Global Status Summary
 
@@ -53,7 +53,7 @@ Status values allowed in this document:
 - Prompt 5 - Completed
 - Prompt 6 - Completed
 - Prompt 7 - Completed
-- Prompt 8 - Pending
+- Prompt 8 - Completed
 - Prompt 9 - Pending
 - Prompt 10 - Pending
 - Prompt 11 - Pending
@@ -759,7 +759,7 @@ Verification completed for Prompt 7:
 - result:
   - `24 passed`
 
-## Prompt 8 - Pending
+## Prompt 8 - Completed
 
 ### Goal
 
@@ -779,6 +779,50 @@ Requirements:
 ### Required Outcome
 
 The main chat flow remains smooth for valid bookings and recovers cleanly when a selected slot is lost.
+
+### Completion Note
+
+Prompt 8 is completed.
+
+Implemented:
+- main chat final replies now automatically surface the same-day fallback slot widget when booking ends in `slot_unavailable`
+- runtime state is preserved for recoverable lost-slot outcomes so `/scheduling/select-slot` can continue from the returned fallback list
+- the preserved contact details are reused when the user selects a replacement slot from the main chat flow
+- replacement slot selection now auto-completes booking when all required contact fields are already known
+- frontend main-chat selection handling now accepts widget-bearing selection responses so recovery stays within the same chat surface
+- confirmed `ChatSandBox.html` uses the same widget-bearing slot-selection handling path as the main chat shell
+
+Behavioral result:
+- valid bookings still complete through the existing `/chat` driven flow
+- lost-slot outcomes now return a visible recovery path in the main chat instead of a dead-end completed message
+- reselecting a replacement slot can complete immediately without forcing the user to re-enter contact details
+- booking summary state remains aligned with the actual outcome instead of showing the stale lost slot
+
+Verification completed for Prompt 8:
+- automated unit test run:
+  - `.\\.venv\\Scripts\\python.exe -m pytest .\\tests\\unit\\test_booking_credentials.py -q --basetemp="<workspace scratch path>"`
+- result:
+  - `8 passed`
+- direct runtime verification:
+  - executed a focused `TestClient` script covering:
+    - initial availability lookup
+    - original slot selection
+    - lost-slot conflict on final booking
+    - fallback slot-list returned in main chat response
+    - replacement slot selection with preserved contact data
+    - immediate successful rebook on replacement slot
+  - result:
+    - `runtime flow ok`
+- static verification:
+  - `py_compile` passed for:
+    - `app/services/ai_agent.py`
+    - `app/services/booking_credentials.py`
+    - `app/services/scheduling_capability.py`
+  - confirmed both `index.html` and `ChatSandBox.html` include `includeWidget: true` in slot-selection response handling
+
+Verification note:
+- direct pytest execution for the integration files remains blocked by Windows temp-directory permission errors during pytest tmp cleanup on this machine, so Prompt 8 was verified with a unit suite plus direct runtime scripting instead of a clean integration pytest run.
+- temporary pytest scratch folders could not be fully removed because Windows denied access to the generated `basetemp` directories after the failed cleanup phase; those directories should be removed manually once the lock is released.
 
 ## Prompt 9 - Pending
 

@@ -1080,6 +1080,10 @@ def _finalize_reply(
     if reformulated:
         final_reply = reformulated
 
+    if not isinstance(widget_payload, dict):
+        runtime_state = get_runtime_session_state(tenant, session_id)
+        widget_payload = _replacement_slot_widget_payload(runtime_state)
+
     _record_interaction(session_key, message, final_reply, response_type)
     log_chat_message(tenant, session_id, "assistant", final_reply)
     _trace_response(tenant, session_id, final_reply, stage_after)
@@ -1398,6 +1402,43 @@ def _runtime_response_type(response_payload: dict | None, session_status: str | 
     return "message"
 
 
+def _replacement_slot_widget_payload(runtime_state: dict | None) -> dict | None:
+    booking_result = runtime_state.get("booking_result") if isinstance(runtime_state, dict) else None
+    if not isinstance(booking_result, dict) or booking_result.get("status") != "slot_unavailable":
+        return None
+
+    source_payload = booking_result.get("source_payload")
+    if not isinstance(source_payload, dict):
+        return None
+
+    replacement_slots = source_payload.get("replacement_slots")
+    if not isinstance(replacement_slots, list) or not replacement_slots:
+        return None
+
+    selected_slot = source_payload.get("selected_slot")
+    timezone_name = (
+        selected_slot.get("timezone")
+        if isinstance(selected_slot, dict) and isinstance(selected_slot.get("timezone"), str)
+        else None
+    )
+
+    return {
+        "type": "slot-list",
+        "title": booking_result.get("confirmation_message"),
+        "service_id": source_payload.get("service_id") or runtime_state.get("service_id"),
+        "provider": booking_result.get("provider"),
+        "request": {
+            "service_id": source_payload.get("service_id") or runtime_state.get("service_id"),
+            "date_from": source_payload.get("fallback_date"),
+            "date_to": source_payload.get("fallback_date"),
+            "timezone": timezone_name,
+            "preferred_days": [],
+            "preferred_time_range": None,
+        },
+        "slots": [slot for slot in replacement_slots if isinstance(slot, dict)],
+    }
+
+
 def build_runtime_inspector_payload(
     tenant: str,
     session_id: str | None,
@@ -1476,7 +1517,77 @@ def start_contact_collection_from_scheduling_handoff(
         collect_fields = ["name", "phone", "email"]
 
     session_key = _session_key(tenant, session_id)
+    existing_runtime_state = get_runtime_session_state(tenant, session_id)
+    existing_data = existing_runtime_state.get("data") if isinstance(existing_runtime_state, dict) else None
     service_id = scheduling_handoff.get("service_id") if isinstance(scheduling_handoff.get("service_id"), str) else None
+    if isinstance(existing_data, dict):
+        preserved_data = {
+            field_name: existing_data.get(field_name).strip()
+            for field_name in collect_fields
+            if isinstance(existing_data.get(field_name), str) and existing_data.get(field_name).strip()
+        }
+    else:
+        preserved_data = {}
+
+    if len(preserved_data) == len(collect_fields):
+        SESSION_STATE[session_key] = {
+            "stage": "completed",
+            "service_id": service_id,
+            "next_field": None,
+            "data": preserved_data,
+            "scheduling_handoff": scheduling_handoff,
+        }
+        booking_result = booking_credentials._complete_selected_slot_booking_if_ready(
+            tenant=tenant,
+            state=SESSION_STATE[session_key],
+            data=SESSION_STATE[session_key]["data"],
+        )
+        if booking_result:
+            fallback_scheduling_state = booking_credentials.scheduling_fallback_state_from_booking_result(
+                SESSION_STATE[session_key],
+                booking_result,
+            )
+            if isinstance(fallback_scheduling_state, dict):
+                SESSION_STATE[session_key]["scheduling"] = fallback_scheduling_state
+            save_lead_checkpoint(tenant, session_id, SESSION_STATE[session_key], required_fields=collect_fields)
+
+        session_status = get_session_status(tenant, session_id)
+        booking_progress = get_booking_progress(tenant, session_id)
+        runtime_state = get_runtime_session_state(tenant, session_id)
+        reply = _profile_text(profile, "reply_texts", "booking_completed")
+        if isinstance(booking_result, dict):
+            confirmation_message = booking_result.get("confirmation_message")
+            if isinstance(confirmation_message, str) and confirmation_message.strip():
+                reply = confirmation_message.strip()
+        widget_payload = _replacement_slot_widget_payload(runtime_state)
+        next_action = "booking_completed"
+        if isinstance(booking_result, dict) and booking_result.get("status") == "slot_unavailable":
+            next_action = "refresh_availability"
+
+        return {
+            "reply": reply,
+            "session_id": session_id,
+            "session_status": session_status,
+            "booking_progress": booking_progress,
+            "selected_slot": scheduling_handoff.get("selected_slot"),
+            "hold": scheduling_handoff.get("hold"),
+            "widget_payload": widget_payload,
+            "next_action": next_action,
+            "inspector_payload": build_runtime_inspector_payload(
+                tenant,
+                session_id,
+                response_payload={
+                    "selected_slot": scheduling_handoff.get("selected_slot"),
+                    "hold": scheduling_handoff.get("hold"),
+                    "widget_payload": widget_payload,
+                    "next_action": next_action,
+                },
+                session_status=session_status,
+                booking_progress=booking_progress,
+                state=runtime_state,
+            ),
+        }
+
     reply, session_id = _start_collecting_contact(
         tenant=tenant,
         session_id=session_id,
