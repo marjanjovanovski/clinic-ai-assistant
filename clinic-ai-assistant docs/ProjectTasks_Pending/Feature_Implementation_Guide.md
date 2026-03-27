@@ -280,10 +280,16 @@ Required behavior:
 - if a tool or framework tends to generate artifacts, direct them to an approved temp location outside the repository when practical
 - if cleanup is required after verification, document it in the prompt completion note
 - if environment limits prevent clean automated execution, document the blocker instead of falling back to repo-local temp output
+- task files that include testing prompts should repeat a short repo-clean reminder inside the file so the rule is visible during execution and not only in this guide
+- at final verification, the agent must check whether the repo contains residual temp or scratch artifacts from testing and must warn the user clearly if any remain
 
 Recommended wording for task files:
 
 `Follow the repo rule to keep test artifacts out of the repository. Use external TMP/TEMP and external basetemp locations for pytest or similar tooling.`
+
+Recommended short repeated wording for testing prompts or testing sections:
+
+`Use external TMP/TEMP and external basetemp paths. Do not leave repo-local temp artifacts. If cleanup is blocked, stop and warn that residual test artifacts remain in the repo.`
 
 ## Standard Master Prompt Skeleton
 
@@ -302,6 +308,7 @@ For new task files, prefer this top-level order:
 11. `Current Repo Truth`
 12. `Architecture Guidance`
 13. Prompt sections in execution order
+14. Archive appendix sections at the end
 
 This keeps task files easier to continue across sessions and makes it easier for an implementing agent to identify status, constraints, architecture boundaries, and the next safe execution step quickly.
 
@@ -364,6 +371,20 @@ Example compact table:
 | 1 | Open the page or trigger the flow | Initial state loads correctly |
 | 2 | Perform the user action under test | Target state change appears |
 | 3 | Repeat the conflicting or recovery action | Conflict or recovery behavior matches the task definition |
+
+## Final Residual Check Rule
+
+At the very end of every feature task file, include a compact final verification reminder that requires a repo-cleanliness check.
+
+Required behavior:
+- before considering the task complete, check whether test execution left residual temp, scratch, runtime, or pytest artifact folders in the repo
+- if residuals exist, warn the user explicitly and list the leftover paths
+- do not describe the repo as clean if residuals are still present
+- this check should be short and operational because it may repeat across many task files
+
+Recommended wording for task files:
+
+`Final repo check: confirm no repo-local temp or test-residual folders remain. If any residue exists, warn explicitly and list the paths before closing the task.`
 
 ## Minimal Token Guidance For Appendices
 

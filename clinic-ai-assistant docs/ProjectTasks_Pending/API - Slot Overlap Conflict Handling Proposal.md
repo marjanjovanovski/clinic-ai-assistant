@@ -42,7 +42,7 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 9`
+- `Prompt 10`
 
 ## Global Status Summary
 
@@ -54,7 +54,7 @@ Status values allowed in this document:
 - Prompt 6 - Completed
 - Prompt 7 - Completed
 - Prompt 8 - Completed
-- Prompt 9 - Pending
+- Prompt 9 - Completed
 - Prompt 10 - Pending
 - Prompt 11 - Pending
 - Prompt 12 - Pending
@@ -824,7 +824,7 @@ Verification note:
 - direct pytest execution for the integration files remains blocked by Windows temp-directory permission errors during pytest tmp cleanup on this machine, so Prompt 8 was verified with a unit suite plus direct runtime scripting instead of a clean integration pytest run.
 - temporary pytest scratch folders could not be fully removed because Windows denied access to the generated `basetemp` directories after the failed cleanup phase; those directories should be removed manually once the lock is released.
 
-## Prompt 9 - Pending
+## Prompt 9 - Completed
 
 ### Goal
 
@@ -843,6 +843,58 @@ Requirements:
 ### Required Outcome
 
 `cal.html` remains usable as a sandbox flow while following the same authoritative overlap rules as the main chat.
+
+### Completion Note
+
+Prompt 9 is completed.
+
+Implemented:
+- `/scheduling/book` now supports sandbox booking requests that include `session_id` and `selected_slot`
+- the scheduling route acquires a backend-owned hold before direct sandbox booking and returns a structured `slot_unavailable` payload when the slot cannot be claimed
+- structured sandbox conflict responses now include:
+  - `confirmation_message`
+  - `next_action = refresh_availability`
+  - `fallback_scope = same_day`
+  - `fallback_date`
+  - `selected_slot`
+  - `replacement_slots`
+- `cal.html` now sends `session_id` and `selected_slot` when booking a slot from the sandbox surface
+- `cal.html` now detects structured slot-conflict responses and renders same-day replacement slots instead of only a generic booking failure
+- the direct sandbox page keeps backend-owned overlap logic in the route layer rather than duplicating hold or fallback computation in frontend JavaScript
+
+Behavioral result:
+- `cal.html` no longer assumes a visible slot can always be booked directly from a stale availability list
+- direct sandbox booking now follows the same authoritative conflict/fallback behavior as the main chat
+- when a slot is lost, the sandbox can show the clear conflict message and immediately offer replacement slots for the same day
+
+Verification completed for Prompt 9:
+- static verification:
+  - `py_compile` passed for:
+    - `app/routes/scheduling.py`
+    - `app/services/scheduling_capability.py`
+  - confirmed `cal.html` now contains:
+    - `function ensureSessionId()`
+    - `function renderBookingConflict(...)`
+    - `session_id: activeSessionId`
+    - `selected_slot: slot`
+    - `if (data?.status === "slot_unavailable")`
+- direct runtime verification:
+  - executed a focused `TestClient` script covering:
+    - direct availability lookup
+    - forced hold rejection inside `/scheduling/book`
+    - structured `409` sandbox conflict payload
+    - fallback metadata including `next_action = refresh_availability`
+    - replacement-slot presence in the returned payload
+    - `cal.html` serving the new recovery hooks
+  - result:
+    - `status 409`
+    - `payload-status slot_unavailable`
+    - `next_action refresh_availability`
+    - `replacement-count 2`
+    - `page-ensure True`
+
+Verification note:
+- direct pytest execution for the integration files remains blocked by Windows temp-directory cleanup permission errors on this machine, so Prompt 9 was verified with static checks plus direct runtime scripting instead of a clean integration pytest run.
 
 ## Prompt 10 - Pending
 

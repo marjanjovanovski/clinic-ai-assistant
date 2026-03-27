@@ -749,6 +749,29 @@ def _raise_slot_unavailable(
     )
 
 
+def slot_conflict_error(
+    *,
+    tenant: str,
+    service_id: str,
+    slot_id: str,
+    selected_slot: dict | None,
+    message: str = SLOT_UNAVAILABLE_MESSAGE,
+) -> SchedulingSlotConflictError:
+    fallback_date, replacement_slots = _same_day_replacement_slots(
+        tenant=tenant,
+        service_id=service_id,
+        slot_id=slot_id,
+        selected_slot=selected_slot,
+    )
+    return SchedulingSlotConflictError(
+        message,
+        service_id=service_id,
+        selected_slot=selected_slot,
+        replacement_slots=replacement_slots,
+        fallback_date=fallback_date,
+    )
+
+
 def book_selected_slot(
     *,
     tenant: str,

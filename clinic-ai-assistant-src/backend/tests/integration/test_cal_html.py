@@ -51,6 +51,13 @@ def test_cal_html_wires_slot_buttons_and_booking_request(monkeypatch, tmp_path):
     assert "slotListWidget.disableAll()" in response.text
     assert "/scheduling/book?tenant=" in response.text
     assert "Booked from cal.html scheduling sandbox" in response.text
+    assert "function syncSessionId(nextSessionId)" in response.text
+    assert "function ensureSessionId()" in response.text
+    assert "function renderBookingConflict(conflictPayload, serviceId, slotListWidget)" in response.text
+    assert "session_id: activeSessionId," in response.text
+    assert "selected_slot: slot," in response.text
+    assert 'if (data?.status === "slot_unavailable") {' in response.text
+    assert "renderBookingConflict(data, serviceId, slotListWidget);" in response.text
 
 
 def test_slot_list_widget_assets_are_served_for_scheduling_ui(monkeypatch, tmp_path):

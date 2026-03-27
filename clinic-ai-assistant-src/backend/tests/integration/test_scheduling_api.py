@@ -108,6 +108,54 @@ def test_scheduling_booking_endpoint_confirms_selected_mock_slot(monkeypatch, tm
     assert "slot_id" in payload["source_payload"]
 
 
+def test_scheduling_booking_endpoint_returns_structured_slot_conflict_for_sandbox_flow(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+    import app.routes.scheduling as scheduling_route_module
+
+    availability = client.post(
+        "/scheduling/availability?tenant=milena_dental",
+        json={
+            "service_id": "consultation",
+            "date_from": "2026-03-23",
+            "date_to": "2026-03-24",
+            "timezone": "Europe/Skopje",
+        },
+    ).json()
+
+    first_slot = availability["slots"][0]
+    def fake_create_slot_hold(**kwargs):
+        return {
+            "hold_id": "hold-b",
+            "slot_id": kwargs["slot_id"],
+            "session_id": "another-session",
+            "status": "active",
+        }
+
+    monkeypatch.setattr(scheduling_route_module, "create_slot_hold", fake_create_slot_hold)
+
+    response = client.post(
+        "/scheduling/book?tenant=milena_dental",
+        json={
+            "service_id": "consultation",
+            "slot_id": first_slot["slot_id"],
+            "patient_name": "Bojan",
+            "patient_phone": "071111111",
+            "patient_email": "bojan@test.mk",
+            "session_id": "cal-session-b",
+            "selected_slot": first_slot,
+        },
+    )
+
+    assert response.status_code == 409
+    payload = response.json()
+    assert payload["status"] == "slot_unavailable"
+    assert payload["provider"] == "scheduling"
+    assert payload["source_payload"]["next_action"] == "refresh_availability"
+    assert payload["source_payload"]["fallback_scope"] == "same_day"
+    assert payload["source_payload"]["selected_slot"]["slot_id"] == first_slot["slot_id"]
+    assert isinstance(payload["source_payload"]["replacement_slots"], list)
+
+
 def test_scheduling_select_slot_endpoint_starts_contact_collection_from_session_state(monkeypatch, tmp_path):
     client = _build_client(monkeypatch, tmp_path)
 
