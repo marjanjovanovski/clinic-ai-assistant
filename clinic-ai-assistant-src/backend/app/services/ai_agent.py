@@ -972,8 +972,8 @@ def _booking_guidance_reply(
                 field_name=field_name,
             )
             return reply
-    except (OpenAIError, RateLimitError, json.JSONDecodeError):
-        pass
+    except (OpenAIError, RateLimitError, json.JSONDecodeError) as exc:
+        logger.debug("Booking guidance fallback used due to model guidance error: %s", exc)
 
     return fallback_reply
 
@@ -2208,7 +2208,6 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             intent = _normalize_intent(raw_intent)
             service_id = parsed.get("service_id")
             message_text = parsed.get("message")
-            booking_input_type = _classify_booking_input(message, profile)
 
             if availability_intent_requested and allow_scheduling_first:
                 state = scheduling_capability.mark_availability_intent_pending(

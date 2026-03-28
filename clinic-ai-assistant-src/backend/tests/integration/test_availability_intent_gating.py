@@ -356,7 +356,3 @@ def test_collecting_contact_availability_request_reuses_scheduling_instead_of_sa
     assert state["data"] == {}
     assert state["scheduling"]["operation"] == "availability_lookup"
     assert ai_agent.AVAILABILITY_INTENT_MARKER_KEY not in state
-    return
-    assert replacement_payload["reply"] == "Терминот е резервиран во mock режим."
-    assert replacement_payload["booking_progress"]["summary"]["appointment_display"] == fallback_slot["display_label"]
-    assert replacement_payload["booking_progress"]["summary"]["appointment_source"] == "calendar_booking"

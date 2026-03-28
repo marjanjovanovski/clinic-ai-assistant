@@ -87,16 +87,16 @@ class SessionSlotSelectionRequest(BaseModel):
 def scheduling_config(tenant: str):
     try:
         return get_scheduling_public_config(tenant).to_dict()
-    except TenantNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found")
-    except TenantConfigError:
-        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid")
+    except TenantNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found") from exc
+    except TenantConfigError as exc:
+        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid") from exc
     except SchedulingConfigError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except SchedulingDisabledError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except SchedulingProviderError as exc:
-        raise HTTPException(status_code=503, detail=str(exc))
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @router.post("/scheduling/availability")
@@ -111,16 +111,16 @@ def scheduling_availability(payload: AvailabilityLookupRequest, tenant: str = Qu
                 timezone=payload.timezone,
             )
         )
-    except TenantNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found")
-    except TenantConfigError:
-        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid")
+    except TenantNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found") from exc
+    except TenantConfigError as exc:
+        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid") from exc
     except SchedulingDisabledError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except SchedulingConfigError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except SchedulingProviderError as exc:
-        raise HTTPException(status_code=503, detail=str(exc))
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return result.to_dict()
 
@@ -170,21 +170,21 @@ def scheduling_book(payload: SlotBookingRequest, tenant: str = Query(...)):
                     note=payload.note,
                 )
             )
-    except TenantNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found")
-    except TenantConfigError:
-        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid")
+    except TenantNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found") from exc
+    except TenantConfigError as exc:
+        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid") from exc
     except SchedulingDisabledError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except SchedulingSlotConflictError as exc:
         return JSONResponse(
             status_code=409,
             content=exc.to_booking_result_payload(slot_id=payload.slot_id),
         )
     except SchedulingConfigError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except SchedulingProviderError as exc:
-        raise HTTPException(status_code=503, detail=str(exc))
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return result.to_dict()
 
@@ -230,9 +230,9 @@ def scheduling_select_slot(payload: SessionSlotSelectionRequest, tenant: str = Q
             payload.session_id,
             scheduling_handoff,
         )
-    except TenantNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found")
-    except TenantConfigError:
-        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid")
+    except TenantNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found") from exc
+    except TenantConfigError as exc:
+        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid") from exc
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc

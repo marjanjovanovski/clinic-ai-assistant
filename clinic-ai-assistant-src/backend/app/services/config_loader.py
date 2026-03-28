@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -15,6 +16,18 @@ class TenantNotFoundError(FileNotFoundError):
 
 DEFAULT_ALLOW_SCHEDULING_FIRST = False
 DEFAULT_REQUIRE_CREDENTIALS_BEFORE_CONFIRM = True
+TENANT_SLUG_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def _normalize_tenant_slug(tenant: str) -> str:
+    if not isinstance(tenant, str):
+        raise TenantNotFoundError(f"Profile '{tenant}' not found")
+
+    normalized_tenant = tenant.strip()
+    if not normalized_tenant or not TENANT_SLUG_PATTERN.fullmatch(normalized_tenant):
+        raise TenantNotFoundError(f"Profile '{tenant}' not found")
+
+    return normalized_tenant
 
 
 def _require_non_empty_string(section_name: str, payload: dict, field_name: str):
@@ -240,18 +253,19 @@ def _validate_profile(tenant: str, profile: dict):
 
 
 def load_profile_config(tenant: str):
-    profile_path = PROFILES_DIR / f"{tenant}.json"
+    normalized_tenant = _normalize_tenant_slug(tenant)
+    profile_path = PROFILES_DIR / f"{normalized_tenant}.json"
 
     if not profile_path.exists():
-        raise TenantNotFoundError(f"Profile '{tenant}' not found")
+        raise TenantNotFoundError(f"Profile '{normalized_tenant}' not found")
 
     try:
         with open(profile_path, encoding="utf-8") as f:
             profile = json.load(f)
     except json.JSONDecodeError as exc:
-        raise TenantConfigError(f"Profile '{tenant}' contains invalid JSON") from exc
+        raise TenantConfigError(f"Profile '{normalized_tenant}' contains invalid JSON") from exc
 
-    _validate_profile(tenant, profile)
+    _validate_profile(normalized_tenant, profile)
     return profile
 
 

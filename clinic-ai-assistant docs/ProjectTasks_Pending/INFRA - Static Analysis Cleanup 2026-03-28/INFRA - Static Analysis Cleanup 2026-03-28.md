@@ -46,14 +46,14 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 2 - Awaiting Commit Decision`
+- `Prompt 4 - Awaiting Commit Decision`
 
 ## Global Status Summary
 
 - Prompt 1 - Completed
 - Prompt 2 - Completed
-- Prompt 3 - Pending
-- Prompt 4 - Pending
+- Prompt 3 - Completed
+- Prompt 4 - Completed
 - Prompt 5 - Pending
 - Prompt 6 - Pending
 
@@ -763,7 +763,7 @@ The most credible security and externally visible correctness issues are fixed w
 - `Deferred`
   - Left `lead_store.py`, `scheduling_hold_store.py`, and `config_loader.py` unchanged because the preserved findings still fit the Prompt 2 `Review Carefully Before Fixing` bucket and did not justify a behavior-preserving patch inside this prompt.
 
-## Prompt 3 - Pending
+## Prompt 3 - Completed
 
 ### Goal
 
@@ -790,7 +790,20 @@ Requirements:
 
 The dead test code and the route-layer exception-chaining debt are cleaned up with a narrow, safe diff.
 
-## Prompt 4 - Pending
+### Completion Note
+
+- `Changed`
+  - Removed the unreachable dead-test tail from `clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py`.
+  - Added explicit exception chaining in `clinic-ai-assistant-src/backend/app/main.py`, `clinic-ai-assistant-src/backend/app/routes/chat.py`, `clinic-ai-assistant-src/backend/app/routes/manual_verification.py`, and `clinic-ai-assistant-src/backend/app/routes/scheduling.py` while preserving existing messages and status codes.
+- `Verified`
+  - `clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py -q`
+  - `ruff check clinic-ai-assistant-src/backend/app/main.py clinic-ai-assistant-src/backend/app/routes/chat.py clinic-ai-assistant-src/backend/app/routes/manual_verification.py clinic-ai-assistant-src/backend/app/routes/scheduling.py`
+- `Blocked`
+  - None.
+- `Deferred`
+  - None.
+
+## Prompt 4 - Completed
 
 ### Goal
 
@@ -815,6 +828,23 @@ Requirements:
 ### Required Outcome
 
 The remaining low-risk service-layer findings are either fixed or explicitly justified.
+
+### Completion Note
+
+- `Changed`
+  - Removed the unused `booking_input_type` assignment in `clinic-ai-assistant-src/backend/app/services/ai_agent.py`.
+  - Replaced the silent guidance fallback in `clinic-ai-assistant-src/backend/app/services/ai_agent.py` with an explicit debug-logged fallback path.
+  - Added explicit exception chaining in `clinic-ai-assistant-src/backend/app/services/scheduling/providers/google_calendar.py` for unsupported timezone errors.
+  - Hardened `clinic-ai-assistant-src/backend/app/services/config_loader.py` with a tenant-slug validation boundary that accepts the current profile names and blocks path-style traversal input.
+  - Added focused regression coverage for the config-loader tenant boundary and the Google Calendar timezone fallback path.
+- `Verified`
+  - `clinic-ai-assistant-src/backend/tests/unit/test_ai_agent_helpers.py -q`
+  - `clinic-ai-assistant-src/backend/tests/unit/test_google_calendar_provider.py -q`
+  - `clinic-ai-assistant-src/backend/tests/test_config_loader.py -q`
+- `Blocked`
+  - None.
+- `Deferred`
+  - The preserved `SIM103` note in `ai_agent.py` no longer matched a useful behavior-preserving simplification in the current file, so no additional boolean-style cleanup was applied in this prompt.
 
 ## Prompt 5 - Pending
 
