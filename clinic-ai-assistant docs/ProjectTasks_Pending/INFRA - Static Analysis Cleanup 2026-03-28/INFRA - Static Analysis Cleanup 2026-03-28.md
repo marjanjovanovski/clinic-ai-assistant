@@ -46,12 +46,12 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 1`
+- `Prompt 2 - Awaiting Commit Decision`
 
 ## Global Status Summary
 
-- Prompt 1 - Pending
-- Prompt 2 - Pending
+- Prompt 1 - Completed
+- Prompt 2 - Completed
 - Prompt 3 - Pending
 - Prompt 4 - Pending
 - Prompt 5 - Pending
@@ -685,7 +685,7 @@ This task replaces that with a higher-signal workflow:
 - If a path- or log-related finding is left in place, document the specific boundary or normalization that makes it acceptable.
 - Prefer preserving readable SQLite code over forcing ORM-style abstractions into modules that currently use `sqlite3` directly.
 
-## Prompt 1 - Pending
+## Prompt 1 - Completed
 
 ### Goal
 
@@ -708,7 +708,18 @@ Requirements:
 
 The task has a repo-specific finding triage and a justified execution order instead of a raw scanner dump.
 
-## Prompt 2 - Pending
+### Completion Note
+
+- `Changed`
+  - Confirmed the existing normalized findings remain the execution source of truth for this task and locked Prompt 2 to Prompt 5 execution order as already defined in `Execution Order Baseline`.
+- `Verified`
+  - Re-reviewed the embedded `Fix Now`, `Likely Fix Now`, `Review Carefully Before Fixing`, `Verification Map`, `Accepted Residual Handling`, and prompt-specific scope guardrails for internal consistency.
+- `Blocked`
+  - None.
+- `Deferred`
+  - No triage-bucket changes were needed; production-code validation is deferred to the prompt-specific pre-edit checks starting in Prompt 2.
+
+## Prompt 2 - Completed
 
 ### Goal
 
@@ -737,6 +748,20 @@ Requirements:
 ### Required Outcome
 
 The most credible security and externally visible correctness issues are fixed without cargo-cult rewrites.
+
+### Completion Note
+
+- `Changed`
+  - Tightened `clinic-ai-assistant-src/lessons_learned_repo/history_store.py` so variable-length `IN (...)` placeholders are derived only from the id count and execution ids are normalized before binding.
+  - Replaced raw `SchedulingConfigError` text in `clinic-ai-assistant-src/backend/app/services/booking_credentials.py` with a stable user-safe fallback message.
+  - Added focused regression coverage for the history-store id path and the booking-credentials exception-text path.
+- `Verified`
+  - `clinic-ai-assistant-src/backend/tests/unit/test_booking_credentials.py -q`
+  - `clinic-ai-assistant-src/lessons_learned_repo/tests/test_history_store.py -q`
+- `Blocked`
+  - None.
+- `Deferred`
+  - Left `lead_store.py`, `scheduling_hold_store.py`, and `config_loader.py` unchanged because the preserved findings still fit the Prompt 2 `Review Carefully Before Fixing` bucket and did not justify a behavior-preserving patch inside this prompt.
 
 ## Prompt 3 - Pending
 

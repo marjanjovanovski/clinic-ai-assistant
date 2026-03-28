@@ -71,6 +71,12 @@ def _row_to_dict(row) -> dict | None:
     return dict(row)
 
 
+def _qmark_placeholder_list(count: int) -> str:
+    if count <= 0:
+        raise ValueError("At least one placeholder is required.")
+    return ",".join("?" for _ in range(count))
+
+
 def _category_row_by_code(connection: sqlite3.Connection, category_code: str):
     normalized_code = _normalize_required_text(category_code, "category_code")
     return connection.execute(
@@ -99,7 +105,8 @@ def _execution_rows_by_ids(connection: sqlite3.Connection, execution_ids: list[i
     if not execution_ids:
         raise ValueError("At least one execution_id is required.")
 
-    placeholders = ",".join("?" for _ in execution_ids)
+    normalized_execution_ids = tuple(int(execution_id) for execution_id in execution_ids)
+    placeholders = _qmark_placeholder_list(len(normalized_execution_ids))
     rows = connection.execute(
         f"""
         SELECT id, requirement_id, prompt_text, execution_summary, execution_impact, git_commit_hash, author_name, created_at
@@ -107,11 +114,11 @@ def _execution_rows_by_ids(connection: sqlite3.Connection, execution_ids: list[i
         WHERE id IN ({placeholders})
         ORDER BY id ASC
         """,
-        tuple(execution_ids),
+        normalized_execution_ids,
     ).fetchall()
-    if len(rows) != len(set(execution_ids)):
+    if len(rows) != len(set(normalized_execution_ids)):
         found_ids = {row["id"] for row in rows}
-        missing_ids = [execution_id for execution_id in execution_ids if execution_id not in found_ids]
+        missing_ids = [execution_id for execution_id in normalized_execution_ids if execution_id not in found_ids]
         raise ValueError(f"Unknown execution ids: {missing_ids}")
     return rows
 
@@ -735,4 +742,3 @@ def list_lessons_with_labels(*, lesson_code: str | None = None) -> list[dict]:
     with _connect() as connection:
         rows = connection.execute(query, params).fetchall()
     return [_row_to_dict(row) for row in rows]
-
