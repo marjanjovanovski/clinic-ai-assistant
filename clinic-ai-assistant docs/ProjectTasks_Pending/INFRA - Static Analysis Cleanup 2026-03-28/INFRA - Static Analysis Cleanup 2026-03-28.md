@@ -46,7 +46,7 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 4 - Awaiting Commit Decision`
+- `None - Branch Approved Pending Merge`
 
 ## Global Status Summary
 
@@ -54,8 +54,8 @@ Status values allowed in this document:
 - Prompt 2 - Completed
 - Prompt 3 - Completed
 - Prompt 4 - Completed
-- Prompt 5 - Pending
-- Prompt 6 - Pending
+- Prompt 5 - Completed
+- Prompt 6 - Completed
 
 ## Working Rules For The Implementing AI Agent
 
@@ -846,7 +846,7 @@ The remaining low-risk service-layer findings are either fixed or explicitly jus
 - `Deferred`
   - The preserved `SIM103` note in `ai_agent.py` no longer matched a useful behavior-preserving simplification in the current file, so no additional boolean-style cleanup was applied in this prompt.
 
-## Prompt 5 - Pending
+## Prompt 5 - Completed
 
 ### Goal
 
@@ -869,7 +869,53 @@ Requirements:
 
 The cleanup is technically verified and the new residual finding set is clear.
 
-## Prompt 6 - Pending
+### Completion Note
+
+- `Changed`
+  - Recorded the focused post-fix verification result and residual-finding summary for the Prompt 2 to 4 patch set.
+- `Verified`
+  - `clinic-ai-assistant-src/backend/tests/unit/test_booking_credentials.py -q`
+  - `clinic-ai-assistant-src/backend/tests/integration/test_scheduling_api.py -q`
+  - `clinic-ai-assistant-src/backend/tests/integration/test_req_booking_flow.py -q`
+  - `clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py -q`
+  - `clinic-ai-assistant-src/backend/tests/unit/test_ai_agent_helpers.py -q`
+  - `clinic-ai-assistant-src/backend/tests/unit/test_google_calendar_provider.py -q`
+  - `clinic-ai-assistant-src/backend/tests/test_config_loader.py -q`
+  - `clinic-ai-assistant-src/lessons_learned_repo/tests/test_history_store.py -q`
+  - `ruff check` on the touched Prompt 2 to 4 backend, test, and lessons-learned files
+- `Blocked`
+  - Repo residual cleanup was not completed because existing temp-path artifacts `.pytest_cache`, `pytest-cache-files-oy875ljp`, `pytest-cache-files-xtswtwzj`, and `clinic-ai-assistant-src/backend/_pytest_runtime_tmp` are present and at least some subpaths are permission-blocked in the current environment.
+- `Deferred`
+  - Targeted Ruff verification still reports residual findings outside the completed prompt set and one new low-risk lint issue in `booking_credentials.py`; these are summarized below instead of being auto-fixed inside Prompt 5.
+
+### Residual Finding Summary
+
+- `Finding`: `Ruff SIM103` in `clinic-ai-assistant-src/backend/app/services/ai_agent.py:664`
+  `Reason Left`: the preserved simplification note no longer matched a clearly better behavior-preserving rewrite in the current helper.
+  `Why Safe / Deferred`: the current guard-clause form is explicit and functionally correct.
+  `Revisit Trigger`: revisit only if `ai_agent.py` is reopened for a broader readability pass.
+- `Finding`: `Ruff B904` in `clinic-ai-assistant-src/backend/app/services/ai_agent.py:2497,2510`
+  `Reason Left`: the remaining service-layer exception chaining sites were outside the Prompt 3 route boundary and were not part of the narrow Prompt 4 changes applied.
+  `Why Safe / Deferred`: both branches raise stable user-safe `AIInferenceError` messages rather than exposing raw provider exceptions.
+  `Revisit Trigger`: revisit if a follow-up service-layer lint prompt reopens `ai_agent.py` exception handling.
+- `Finding`: `Ruff F841` in `clinic-ai-assistant-src/backend/app/services/booking_credentials.py:247`
+  `Reason Left`: the caught `SchedulingConfigError` object is no longer used after Prompt 2 replaced raw exception text with a bounded user-safe message.
+  `Why Safe / Deferred`: the unused local has no behavioral impact and the user-visible security fix is already verified.
+  `Revisit Trigger`: revisit on the next narrow lint cleanup touching `booking_credentials.py`.
+- `Finding`: preserved Semgrep SQL warning in `clinic-ai-assistant-src/backend/app/services/lead_store.py:34`
+  `Reason Left`: identifier construction still uses `PRAGMA table_info({table_name})`.
+  `Why Safe / Deferred`: accepted residual if `table_name` remains constrained to internal names and SQLite identifier parameterization remains unavailable.
+  `Revisit Trigger`: revisit if table names become externally influenced or an allowlist boundary is added nearby.
+- `Finding`: preserved Semgrep SQL warnings in `clinic-ai-assistant-src/backend/app/services/scheduling_hold_store.py`
+  `Reason Left`: current interpolated fragments still rely on internal status constants and readable SQLite update/query text.
+  `Why Safe / Deferred`: accepted residual while the interpolated values remain internal constants rather than user input.
+  `Revisit Trigger`: revisit if any interpolated status or identifier becomes request-derived.
+- `Finding`: preserved CodeQL `py/log-injection` findings in `ai_agent.py` and `lead_store.py`
+  `Reason Left`: Prompt 4 did not broaden into scanner-driven logging rewrites without evidence of unsafe concatenation or user-visible leakage.
+  `Why Safe / Deferred`: accepted residual where logging uses structured `%s` placeholders and does not feed executable contexts.
+  `Revisit Trigger`: revisit if logs begin concatenating raw user input or if a future scan preserves a concrete exploitable path.
+
+## Prompt 6 - Completed
 
 ### Goal
 
@@ -888,6 +934,55 @@ Requirements:
 ### Required Outcome
 
 Manual verification and merge readiness are tracked explicitly before the task leaves `ProjectTasks_Pending`.
+
+### Prompt 6 Review Notes
+
+- `Manual Review`
+  - User manually executed the backend automated test suite from `clinic-ai-assistant-src/backend` and reported `131 passed in 4.74s` on `2026-03-28`.
+  - User completed the guided manual verification recorded in `manual_testing_coverage.json` with `9` passing rows and `0` failures.
+- `Merge Readiness`
+  - User marked the branch as merge-ready in `manual_testing_coverage.json`; `Merge To Main` remains pending until the branch is actually merged.
+- `Out-Of-Scope Notes`
+  - Manual review surfaced two non-blocking UX observations for future follow-up: a post-name-edit flow that waits for another user message before prompting for the phone number, and long email text that should wrap to avoid UI breakage. These were treated as separate future-fix candidates rather than blockers for this static-analysis task.
+
+### Completion Note
+
+- `Changed`
+  - Added Prompt 6 manual-verification results from the shared `manual_testing_coverage.json` tracker and marked the branch approved pending merge.
+- `Verified`
+  - User-reported branch review includes manual execution of the backend automated test suite (`131 passed in 4.74s`) plus `9/9` passing guided manual-verification steps with `branch_merge_ready: true`.
+- `Blocked`
+  - None.
+- `Deferred`
+  - Two unrelated UX issues observed during manual review were recorded as out-of-scope future-fix candidates and did not block merge readiness for this task.
+
+## Manual Testing
+
+Execution-state tracking for manual verification should be kept in:
+- `manual_testing_coverage.json`
+
+Use this markdown section only as the compact human-readable overview of what must be covered.
+
+### Category 1 - Booking And Scheduling UX Guardrails
+
+- `Test 1.1 - Booking configuration failure stays user-safe`
+  Purpose: confirm the booking flow still returns a bounded user-safe message when scheduling configuration fails, without exposing raw internal exception text.
+- `Test 1.2 - Normal scheduling flow still completes`
+  Purpose: confirm the standard scheduling-first flow still reaches slot selection and booking completion behavior without regression.
+
+### Category 2 - Chat And Route Surface Stability
+
+- `Test 2.1 - Main chat still responds normally`
+  Purpose: confirm `/chat` behavior remains stable after route-layer exception-chaining cleanup.
+- `Test 2.2 - Scheduling route error handling still returns expected status and message shape`
+  Purpose: confirm the scheduling endpoints preserve their expected response semantics after the `B904` fixes.
+
+### Category 3 - Tenant Profile Boundary
+
+- `Test 3.1 - Valid tenant slug still loads`
+  Purpose: confirm a normal valid tenant profile still loads successfully after the config-loader hardening.
+- `Test 3.2 - Invalid traversal-style tenant input is rejected safely`
+  Purpose: confirm path-style or traversal-style tenant input is rejected cleanly at the validation boundary.
 
 ---
 

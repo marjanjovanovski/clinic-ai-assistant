@@ -1,0 +1,139 @@
+{
+  "task_name": "INFRA - Static Analysis Cleanup 2026-03-28",
+  "task_file": "INFRA - Static Analysis Cleanup 2026-03-28.md",
+  "status": "manual_verification_completed",
+  "manual_verification": {
+    "branch_merge_ready": true,
+    "general_comment": "Shared review tracker: the user performs the manual checks, and Codex records the results and any follow-up notes in the task workflow. Branch-level review evidence recorded on 2026-03-28: user manually executed the backend automated test suite and reported `131 passed in 4.74s` from `clinic-ai-assistant-src/backend`."
+  },
+  "categories": [
+    {
+      "name": "Category 1 - Booking And Scheduling UX Guardrails",
+      "tests": [
+        {
+          "name": "Test 1.1 - Booking configuration failure stays user-safe",
+          "purpose": "Confirm scheduling configuration failure paths do not leak raw internal exception text into user-facing booking responses.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Open a booking flow or sandbox path that exercises scheduling booking behavior.",
+              "what_is_tested": "The reviewer is on a surface where the booking error path can be observed.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Trigger the known booking-configuration failure path if your environment can reproduce it, or review the equivalent user-facing failure response from a controlled test path.",
+              "what_is_tested": "The user-facing message remains bounded and does not expose raw internal exception wording.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 1.2 - Normal scheduling flow still completes",
+          "purpose": "Confirm the standard scheduling-first user flow still behaves normally after the static-analysis cleanup.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Open the main booking or scheduling surface and request available appointment times.",
+              "what_is_tested": "The normal slot-discovery flow still starts correctly.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Select a valid slot and continue through the next booking step that is available in your environment.",
+              "what_is_tested": "Slot selection and follow-through still work without regression.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 2 - Chat And Route Surface Stability",
+      "tests": [
+        {
+          "name": "Test 2.1 - Main chat still responds normally",
+          "purpose": "Confirm route-layer exception-chaining cleanup did not alter standard chat behavior.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Open the main chat surface for a normal tenant and send a basic non-error message.",
+              "what_is_tested": "The chat route still returns a normal response for standard interaction.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "If you have a safe repro path for a handled chat error, trigger it and inspect the returned result.",
+              "what_is_tested": "Handled route errors keep their expected message and status behavior after explicit exception chaining.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 2.2 - Scheduling route error handling still returns expected status and message shape",
+          "purpose": "Confirm the scheduling routes preserve their existing API behavior after the `B904` fixes.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Exercise a normal scheduling request and then a known handled error case on the scheduling route if available.",
+              "what_is_tested": "The route still preserves the expected success and handled-error response shape.",
+              "status": "Pass",
+              "comment": "Well there is a glitch, you can check the latest \n\n-- SQLite\nSELECT id, chat_session_id, role, content, created_at\nFROM chat_messages ORDER BY id DESC;\n\nyou might notice when a name was edited the process informed the user that it was successfully saved, however it did not prompt for the phone number, user had to write some message to trigger the system back into action. This should only be recorded into a temp md file that should be incorporated in a latter fix, this is not related to this task, thus the test is Passed. \n\nAdditionally there is a EmailWrap_Enforce.png that will show that we need to enforce wrap on text because email is a non white space entry and it can break the GUI as shown on the picture. This is also for that Temp MD file that will be considered in future fixes. \n\n\n",
+              "reference_files": "EmailWrap_Enforce.png"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 3 - Tenant Profile Boundary",
+      "tests": [
+        {
+          "name": "Test 3.1 - Valid tenant slug still loads",
+          "purpose": "Confirm valid tenant slugs still load the expected profile after config-loader hardening.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Open a known valid tenant path such as a standard tenant-specific page or request path used in your environment.",
+              "what_is_tested": "A normal valid tenant slug still resolves successfully.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 3.2 - Invalid traversal-style tenant input is rejected safely",
+          "purpose": "Confirm traversal-style tenant input is blocked at the boundary instead of being treated as a profile path.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Attempt a safe non-destructive invalid tenant value that resembles path traversal, such as `../bad-tenant`, through a tenant-based route or request path if you have a local repro surface for it.",
+              "what_is_tested": "Invalid traversal-style tenant input is rejected cleanly and does not load a profile.",
+              "status": "Pass",
+              "comment": "returned as {\"detail\":\"Tenant 'milena_dental1' not found\"}",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "not_run": 0,
+    "pass": 9,
+    "fail": 0
+  }
+}
