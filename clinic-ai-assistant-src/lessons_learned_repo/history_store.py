@@ -1,8 +1,7 @@
 import sqlite3
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "project_history.db"
@@ -29,7 +28,7 @@ def _connect() -> sqlite3.Connection:
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _default_author_name() -> str:

@@ -20,8 +20,6 @@ import os
 import random
 import re
 
-from openai import OpenAI, OpenAIError, RateLimitError
-
 from app.services import booking_credentials, scheduling_capability
 from app.services.agent_profile_helpers import (
     _conversation_rule_list,
@@ -62,7 +60,7 @@ from app.services.chat_session_state import (
 from app.services.config_loader import load_profile_config
 from app.services.lead_store import log_chat_message, save_lead_checkpoint
 from app.services.session_trace_logger import trace_event
-
+from openai import OpenAI, OpenAIError, RateLimitError
 
 logger = logging.getLogger(__name__)
 DEBUG_AI = os.getenv("DEBUG_AI", "").strip().lower() == "true"

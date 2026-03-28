@@ -7,7 +7,6 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-
 BOOKING_REQUEST = "need appointment"
 BOOKING_CONFIRM = "da"
 BOOKING_REJECT = "ne"

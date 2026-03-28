@@ -6,7 +6,6 @@ import uuid
 
 from app.services.lead_store import load_lead_checkpoint
 
-
 SESSION_STATE = {}
 INTERACTION_HISTORY = {}
 MAX_INTERACTION_HISTORY = 6

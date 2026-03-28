@@ -61,7 +61,7 @@ class MockSchedulingProvider(SchedulingProvider):
         start_dt = datetime.fromisoformat(start_at)
         end_dt = start_dt + timedelta(minutes=30)
         booking_hash = hashlib.sha256(
-            f"{self._seed()}:{request.service_id}:{request.slot_id}:{request.patient_name}".encode("utf-8")
+            f"{self._seed()}:{request.service_id}:{request.slot_id}:{request.patient_name}".encode()
         ).hexdigest()[:12]
         return BookingResult(
             status="confirmed",

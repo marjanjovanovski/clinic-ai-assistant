@@ -1,11 +1,10 @@
 import json
 import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from app.services.session_trace_logger import trace_event
-
 
 logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -71,7 +70,7 @@ def _ensure_tenant_row(connection, tenant: str):
         (
             tenant,
             tenant,
-            datetime.now(timezone.utc).isoformat(),
+            datetime.now(UTC).isoformat(),
         ),
     )
     return _tenant_row_by_name(connection, tenant)
@@ -144,7 +143,7 @@ def _seed_default_tenant(connection) -> None:
         (
             DEFAULT_TENANT_UNIQUE_IDENTIFIER,
             DEFAULT_TENANT_NAME,
-            datetime.now(timezone.utc).isoformat(),
+            datetime.now(UTC).isoformat(),
             DEFAULT_TENANT_NAME,
         ),
     )
@@ -251,7 +250,7 @@ def _ensure_chat_session(connection, tenant: str, session_id: str):
         (
             session_id,
             tenant_row["id"],
-            datetime.now(timezone.utc).isoformat(),
+            datetime.now(UTC).isoformat(),
         ),
     )
     return connection.execute(
@@ -290,7 +289,7 @@ def log_chat_message(tenant: str, session_id: str, role: str, content: str):
                     chat_session["id"],
                     normalized_role,
                     normalized_content,
-                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(UTC).isoformat(),
                 ),
             )
             connection.commit()
@@ -416,7 +415,7 @@ def init_leads_db():
 
 
 def save_lead_checkpoint(tenant: str, session_id: str, state: dict, required_fields: list[str] | None = None):
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     data = state.get("data", {})
     stage = state.get("stage")
     required_fields = [field_name for field_name in (required_fields or []) if field_name in {"name", "phone", "email"}]

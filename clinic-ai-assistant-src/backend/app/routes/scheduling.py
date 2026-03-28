@@ -1,26 +1,28 @@
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, field_validator
-
-from app.services.ai_agent import get_runtime_session_state, start_contact_collection_from_scheduling_handoff
+from app.services.ai_agent import (
+    get_runtime_session_state,
+    start_contact_collection_from_scheduling_handoff,
+)
 from app.services.config_loader import TenantConfigError, TenantNotFoundError
-from app.services.session_trace_logger import trace_event
-from app.services.scheduling_hold_store import create_slot_hold
+from app.services.scheduling.models import AvailabilityRequest, BookingRequest
+from app.services.scheduling.service import (
+    SchedulingConfigError,
+    SchedulingDisabledError,
+    SchedulingProviderError,
+    book_slot,
+    get_availability,
+    get_scheduling_public_config,
+)
 from app.services.scheduling_capability import (
     SchedulingSlotConflictError,
     book_selected_slot,
     selected_slot_handoff_payload,
     slot_conflict_error,
 )
-from app.services.scheduling.models import AvailabilityRequest, BookingRequest
-from app.services.scheduling.service import (
-    book_slot,
-    get_availability,
-    get_scheduling_public_config,
-    SchedulingConfigError,
-    SchedulingDisabledError,
-    SchedulingProviderError,
-)
+from app.services.scheduling_hold_store import create_slot_hold
+from app.services.session_trace_logger import trace_event
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, field_validator
 
 router = APIRouter()
 

@@ -251,8 +251,8 @@ def test_scheduling_select_slot_rejects_slot_not_in_active_session_result(monkey
 def test_scheduling_select_slot_rejects_when_another_session_already_holds_slot(monkeypatch, tmp_path):
     client = _build_client(monkeypatch, tmp_path)
 
-    from app.services import ai_agent
     import app.routes.scheduling as scheduling_route_module
+    from app.services import ai_agent
 
     availability = client.post(
         "/scheduling/availability?tenant=milena_dental",

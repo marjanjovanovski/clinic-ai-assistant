@@ -2,7 +2,6 @@ import json
 import re
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
 PENDING_TASKS_DIR = REPO_ROOT / "clinic-ai-assistant docs" / "ProjectTasks_Pending"
 MANUAL_COVERAGE_FILENAME = "manual_testing_coverage.json"

@@ -1,6 +1,5 @@
 # TEST EXECUTION MANIFESTO: Before running tests, follow clinic-ai-assistant-src/backend/pytest.ini and never create repo-local pytest temp folders; use external TMP/TEMP plus --basetemp.
 import pytest
-
 from lessons_learned_repo import history_store
 
 

@@ -5,15 +5,6 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field, replace
 from datetime import date, datetime, timedelta
 
-from app.services.scheduling_hold_store import (
-    HOLD_STATUS_ACTIVE,
-    HOLD_STATUS_CONSUMED,
-    HOLD_STATUS_EXPIRED,
-    create_slot_hold,
-    get_slot_hold,
-    update_hold_status,
-)
-from app.services.session_trace_logger import trace_event
 from app.services.scheduling.models import AvailabilityRequest, BookingRequest, BookingResult
 from app.services.scheduling.service import (
     SchedulingConfigError,
@@ -23,7 +14,15 @@ from app.services.scheduling.service import (
     get_availability,
     get_scheduling_public_config,
 )
-
+from app.services.scheduling_hold_store import (
+    HOLD_STATUS_ACTIVE,
+    HOLD_STATUS_CONSUMED,
+    HOLD_STATUS_EXPIRED,
+    create_slot_hold,
+    get_slot_hold,
+    update_hold_status,
+)
+from app.services.session_trace_logger import trace_event
 
 CAPABILITY_NEXT_CONTINUE = "continue"
 CAPABILITY_NEXT_RETURN = "return_response"

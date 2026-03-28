@@ -3,7 +3,6 @@ import json
 import sqlite3
 
 import pytest
-
 from app.services import lead_store
 
 

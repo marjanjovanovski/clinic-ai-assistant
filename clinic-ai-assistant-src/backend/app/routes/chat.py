@@ -1,6 +1,3 @@
-from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field, field_validator
-
 from app.services.ai_agent import (
     AIInferenceError,
     build_runtime_inspector_payload,
@@ -9,6 +6,8 @@ from app.services.ai_agent import (
     get_session_status,
 )
 from app.services.config_loader import TenantConfigError, TenantNotFoundError
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field, field_validator
 
 router = APIRouter()
 

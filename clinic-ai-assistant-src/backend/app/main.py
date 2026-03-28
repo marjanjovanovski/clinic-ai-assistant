@@ -1,12 +1,6 @@
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
-from dotenv import load_dotenv
-
 from app.routes.chat import router as chat_router
 from app.routes.manual_verification import router as manual_verification_router
 from app.routes.scheduling import router as scheduling_router
@@ -18,6 +12,11 @@ from app.services.config_loader import (
 )
 from app.services.lead_store import init_leads_db
 from app.services.scheduling_hold_store import init_hold_store
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
 

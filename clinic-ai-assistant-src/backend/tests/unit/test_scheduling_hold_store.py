@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.services import lead_store, scheduling_hold_store
 
@@ -54,7 +54,7 @@ def test_create_slot_hold_returns_existing_active_hold_for_same_slot(tmp_path):
 def test_expire_stale_holds_marks_elapsed_active_hold_as_expired(tmp_path):
     _init_tmp_db(tmp_path)
 
-    created_at = datetime(2026, 3, 27, 10, 0, tzinfo=timezone.utc)
+    created_at = datetime(2026, 3, 27, 10, 0, tzinfo=UTC)
     hold = scheduling_hold_store.create_slot_hold(
         tenant="milena_dental",
         service_id="consultation",
@@ -125,7 +125,7 @@ def test_hold_store_emits_trace_events_for_create_reject_expire_and_consume(tmp_
         ),
     )
 
-    created_at = datetime(2026, 3, 27, 10, 0, tzinfo=timezone.utc)
+    created_at = datetime(2026, 3, 27, 10, 0, tzinfo=UTC)
     first = scheduling_hold_store.create_slot_hold(
         tenant="milena_dental",
         service_id="consultation",

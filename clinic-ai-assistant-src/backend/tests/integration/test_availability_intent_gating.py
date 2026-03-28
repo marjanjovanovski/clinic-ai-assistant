@@ -47,9 +47,9 @@ def _build_client(monkeypatch, tmp_path):
     tmp_path.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
-    from app.services import ai_agent, lead_store, session_trace_logger
     import app.services.config_loader as config_loader_module
     import app.services.scheduling.service as scheduling_service_module
+    from app.services import ai_agent, lead_store, session_trace_logger
 
     ai_agent.SESSION_STATE.clear()
     ai_agent.INTERACTION_HISTORY.clear()

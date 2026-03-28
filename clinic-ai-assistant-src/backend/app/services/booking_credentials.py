@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 from app.services.chat_session_state import SESSION_STATE, _recent_interactions
-
 
 UNKNOWN_NAME_CONFIRM_MODE = "confirm_candidate"
 UNKNOWN_NAME_REPEAT_MODE = "repeat_request"

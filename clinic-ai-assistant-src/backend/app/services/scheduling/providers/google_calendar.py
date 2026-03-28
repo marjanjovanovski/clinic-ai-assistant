@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta, timezone
+from datetime import UTC, datetime, time, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -21,7 +21,7 @@ class GoogleCalendarSchedulingProvider(SchedulingProvider):
     _CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar"
     _TIMEZONE_FALLBACKS = {
         "Europe/Skopje": timezone(timedelta(hours=1)),
-        "UTC": timezone.utc,
+        "UTC": UTC,
     }
 
     def get_availability(self, request: AvailabilityRequest) -> AvailabilityResult:

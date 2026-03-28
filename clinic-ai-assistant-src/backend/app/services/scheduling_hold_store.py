@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.services import lead_store
 from app.services.session_trace_logger import trace_event
-
 
 HOLD_STATUS_ACTIVE = "active"
 HOLD_STATUS_EXPIRED = "expired"
@@ -18,7 +17,7 @@ DEFAULT_HOLD_MINUTES = 5
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _connect():

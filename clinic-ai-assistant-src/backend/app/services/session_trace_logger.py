@@ -1,12 +1,10 @@
 import json
 import logging
-import os
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from dotenv import dotenv_values
-
 
 logger = logging.getLogger(__name__)
 _TRACE_LOCK = threading.Lock()
@@ -18,7 +16,7 @@ SETTINGS_PATH = BASE_DIR.parent / "configs" / "settings.env"
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _trace_key(tenant: str, session_id: str) -> str:
@@ -54,7 +52,7 @@ def _resolve_trace_file(tenant: str, session_id: str) -> Path:
         return existing_path
 
     TRACE_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%d_%H-%M-%S")
     filename = (
         f"trace_{timestamp}_{_sanitize_filename_part(tenant)}_"
         f"{_sanitize_filename_part(session_id)}.txt"

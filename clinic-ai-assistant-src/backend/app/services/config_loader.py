@@ -246,7 +246,7 @@ def load_profile_config(tenant: str):
         raise TenantNotFoundError(f"Profile '{tenant}' not found")
 
     try:
-        with open(profile_path, "r", encoding="utf-8") as f:
+        with open(profile_path, encoding="utf-8") as f:
             profile = json.load(f)
     except json.JSONDecodeError as exc:
         raise TenantConfigError(f"Profile '{tenant}' contains invalid JSON") from exc

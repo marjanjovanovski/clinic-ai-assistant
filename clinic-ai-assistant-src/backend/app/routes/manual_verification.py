@@ -1,6 +1,3 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-
 from app.services.manual_verification_dashboard import (
     ManualVerificationCoverageInvalid,
     ManualVerificationCoverageUnavailable,
@@ -9,6 +6,8 @@ from app.services.manual_verification_dashboard import (
     load_manual_verification_coverage,
     save_manual_verification_coverage,
 )
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter()
 
