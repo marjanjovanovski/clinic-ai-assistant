@@ -8,7 +8,7 @@ Execution must also follow [Core_Rules.md](./Core_Rules.md).
 
 Use:
 
-`<CATEGORY> - <Task Descriptive Value>`
+`YYYYMMDD_HHmm_<CATEGORY> - <Task Descriptive Value>`
 
 Recommended categories:
 - `DATA`
@@ -21,14 +21,22 @@ Recommended categories:
 
 Keep the name short, specific, and outcome-oriented.
 
+Timestamp rule:
+- prefix both the folder name and the main markdown filename with the creation timestamp in `YYYYMMDD_HHmm_` format
+- the timestamp should reflect the time the task was created
+- keep the timestamp unchanged after creation, even if the task is updated later
+
+Example:
+- `20260329_1542_API - Backend System Message Catalog`
+
 ## Pending Task Folder Convention
 
 Prefer:
 
-`ProjectTasks_Pending/<CATEGORY> - <Task Descriptive Value>/`
+`ProjectTasks_Pending/YYYYMMDD_HHmm_<CATEGORY> - <Task Descriptive Value>/`
 
 Inside the folder:
-- `<CATEGORY> - <Task Descriptive Value>.md`
+- `YYYYMMDD_HHmm_<CATEGORY> - <Task Descriptive Value>.md`
 - `manual_testing_coverage.json` when structured manual verification is truly useful
 - optional user-added evidence files referenced by filename only
 
@@ -93,11 +101,22 @@ Avoid splitting prompts just to create more headings.
 ## Prompt Status Tracking
 
 At the top of the task file, keep a compact status summary such as:
-- `Prompt 1 - Pending`
-- `Prompt 2 - Pending`
-- `Prompt 3 - Pending`
+- `Prompt 1 - Preparation - Pending`
+- `Prompt 2 - Implementation - Pending`
+- `Prompt 3 - Manual Testing - Pending`
 
 Each prompt section deeper in the file must mirror the same status.
+
+Prompt naming rule:
+- every prompt must include a short descriptive suffix between the prompt number and the status
+- use the suffix to state what that prompt actually solves
+- keep the suffix short and outcome-oriented
+- the summary entry and the full prompt section header must match exactly except for heading markers
+
+Examples:
+- `Prompt 1 - Preparation - Completed`
+- `Prompt 2 - Regression Coverage - Completed`
+- `Prompt 5 - Manual Testing - Pending`
 
 Allowed values:
 - `Pending`
@@ -164,7 +183,7 @@ Implementation completion alone is not merge completion.
 ## Suggested Task Skeleton
 
 ```md
-# <CATEGORY> - <Task Name>
+# YYYYMMDD_HHmm_<CATEGORY> - <Task Name>
 
 Short purpose.
 
@@ -177,17 +196,17 @@ Execution of this task must follow [Task_Workflow_Guide.md](...) and [Core_Rules
 - `Merge To Main - Pending`
 
 ## Prompt Status Summary
-- Prompt 1 - Pending
-- Prompt 2 - Pending
-- Prompt 3 - Pending
+- Prompt 1 - Preparation - Pending
+- Prompt 2 - Implementation - Pending
+- Prompt 3 - Manual Testing - Pending
 
 ## Current Active Prompt
 - `Prompt 1`
 
-## Prompt 1 - Pending
+## Prompt 1 - Preparation - Pending
 ...
 
-## Prompt 2 - Pending
+## Prompt 2 - Implementation - Pending
 ...
 
 ## Manual Testing

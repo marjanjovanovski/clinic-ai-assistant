@@ -86,6 +86,13 @@
       gap: 8px;
     }
 
+    .field-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+
     .field-label {
       font-size: 13px;
       font-weight: 600;
@@ -480,11 +487,19 @@
       </div>
 
       <div class="toolbar">
-        <div class="field-group">
-          <label class="field-label" for="taskSelector">Pending Task</label>
-          <select id="taskSelector" class="task-select">
-            <option>Loading tasks...</option>
-          </select>
+        <div class="field-stack">
+          <div class="field-group">
+            <label class="field-label" for="taskSelector">Pending Task</label>
+            <select id="taskSelector" class="task-select">
+              <option>Loading tasks...</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="promptStatusSelector">Prompt Progress</label>
+            <select id="promptStatusSelector" class="task-select" disabled>
+              <option>No prompt data available</option>
+            </select>
+          </div>
         </div>
 
         <div class="field-group">
@@ -577,6 +592,7 @@
   <script type="module">
     const TASKS_URL = "/manual-verification/tasks";
     const taskSelector = document.getElementById("taskSelector");
+    const promptStatusSelector = document.getElementById("promptStatusSelector");
     const coverageTableBody = document.getElementById("coverageTableBody");
     const notRunCount = document.getElementById("notRunCount");
     const passCount = document.getElementById("passCount");
@@ -623,10 +639,25 @@
       if (!task) {
         taskState.textContent = "-";
         taskMeta.textContent = "No task selected";
+        promptStatusSelector.innerHTML = `<option>No prompt data available</option>`;
+        promptStatusSelector.disabled = true;
         return;
       }
-      taskState.textContent = task.coverage_available ? "In Review / Pending" : "Needs JSON";
-      taskMeta.textContent = `${task.entry_type} | Prompt ${task.manual_prompt_number} | Merge: ${task.merge_to_main ?? "Pending"}`;
+      taskState.textContent = task.workflow_state || (task.coverage_available ? "Ready for Review" : "Needs JSON");
+      taskMeta.textContent = `${task.entry_type} | Manual review prompt: ${task.manual_prompt_number} | Merge: ${task.merge_to_main ?? "Pending"}`;
+      renderPromptStatuses(task.prompt_statuses);
+    }
+
+    function renderPromptStatuses(promptStatuses = []) {
+      if (!Array.isArray(promptStatuses) || !promptStatuses.length) {
+        promptStatusSelector.innerHTML = `<option>No prompt data available</option>`;
+        promptStatusSelector.disabled = true;
+        return;
+      }
+      promptStatusSelector.innerHTML = promptStatuses.map((prompt) => `
+        <option value="${escapeHtml(String(prompt.prompt_number ?? ""))}">${escapeHtml(prompt.label ?? "")}</option>
+      `).join("");
+      promptStatusSelector.disabled = false;
     }
 
     function computeSummaryFromCoverage(coverage) {
@@ -660,7 +691,8 @@
       setSummary(summary);
       if (selectedTask) {
         const branchApproved = Boolean(selectedCoverage?.manual_verification?.branch_merge_ready);
-        taskState.textContent = `${mergeReadinessLabel(summary)} / ${branchApproved ? "Approved" : "Pending"}`;
+        taskState.textContent = selectedTask.workflow_state || mergeReadinessLabel(summary);
+        taskMeta.textContent = `Manual review prompt: ${selectedTask.manual_prompt_number} | Merge review: ${branchApproved ? "Approved" : "Pending approval"}`;
       }
     }
 

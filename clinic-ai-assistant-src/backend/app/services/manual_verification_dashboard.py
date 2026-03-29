@@ -77,6 +77,32 @@ def _extract_merge_status(markdown_text: str) -> str | None:
     return match.group(1).strip()
 
 
+def _extract_prompt_statuses(markdown_text: str) -> list[dict]:
+    prompt_pattern = re.compile(
+        r"^## Prompt (\d+) - (Pending|Completed|Blocked)\s*$",
+        flags=re.MULTILINE,
+    )
+    prompt_statuses = []
+    for match in prompt_pattern.finditer(markdown_text):
+        prompt_statuses.append(
+            {
+                "prompt_number": int(match.group(1)),
+                "status": match.group(2),
+                "label": f"Prompt {int(match.group(1))} - {match.group(2)}",
+            }
+        )
+    return prompt_statuses
+
+
+def _prompt_number_from_label(prompt_label: str | None) -> int | None:
+    if not prompt_label:
+        return None
+    match = re.search(r"Prompt (\d+)", prompt_label)
+    if not match:
+        return None
+    return int(match.group(1))
+
+
 def _extract_pending_manual_prompt(markdown_text: str) -> dict | None:
     header_pattern = re.compile(
         r"^## Prompt (\d+) - (Pending|Completed|Blocked)\s*$",
@@ -99,6 +125,21 @@ def _extract_pending_manual_prompt(markdown_text: str) -> dict | None:
     return None
 
 
+def _derive_workflow_state(
+    *,
+    current_active_prompt: str | None,
+    manual_prompt_number: int,
+) -> str:
+    current_prompt_number = _prompt_number_from_label(current_active_prompt)
+    if current_prompt_number is None:
+        return "Development Pending"
+    if current_prompt_number >= manual_prompt_number:
+        return "Ready for Review"
+    if current_prompt_number > 1:
+        return "Development In Progress"
+    return "Development Pending"
+
+
 def _task_descriptor(folder: Path, markdown_path: Path, coverage_path: Path, *, entry_kind: str) -> dict | None:
     markdown_text = _read_text(markdown_path)
     pending_manual_prompt = _extract_pending_manual_prompt(markdown_text)
@@ -106,6 +147,8 @@ def _task_descriptor(folder: Path, markdown_path: Path, coverage_path: Path, *, 
         return None
 
     task_name = markdown_path.stem
+    current_active_prompt = _extract_current_active_prompt(markdown_text)
+    prompt_statuses = _extract_prompt_statuses(markdown_text)
     return {
         "id": _slugify(task_name),
         "task_name": task_name,
@@ -115,7 +158,12 @@ def _task_descriptor(folder: Path, markdown_path: Path, coverage_path: Path, *, 
         "entry_kind": entry_kind,
         "task_folder": folder.name,
         "manual_prompt_number": pending_manual_prompt["prompt_number"],
-        "current_active_prompt": _extract_current_active_prompt(markdown_text),
+        "current_active_prompt": current_active_prompt,
+        "prompt_statuses": prompt_statuses,
+        "workflow_state": _derive_workflow_state(
+            current_active_prompt=current_active_prompt,
+            manual_prompt_number=pending_manual_prompt["prompt_number"],
+        ),
         "merge_to_main": _extract_merge_status(markdown_text),
         "coverage_available": True,
         "coverage_relative_path": str(coverage_path.relative_to(REPO_ROOT)),

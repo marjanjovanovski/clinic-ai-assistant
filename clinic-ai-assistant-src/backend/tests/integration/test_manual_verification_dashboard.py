@@ -220,11 +220,16 @@ def test_dashboard_task_discovery_handles_folder_and_legacy_entries(monkeypatch,
     assert folder_task["coverage_available"] is True
     assert folder_task["manual_prompt_number"] == 4
     assert folder_task["current_active_prompt"] == "Prompt 4"
+    assert folder_task["workflow_state"] == "Ready for Review"
+    assert folder_task["prompt_statuses"] == [
+        {"prompt_number": 4, "status": "Pending", "label": "Prompt 4 - Pending"}
+    ]
     assert folder_task["entry_kind"] == "primary"
     assert fix_task["entry_type"] == "folder"
     assert fix_task["coverage_available"] is True
     assert fix_task["entry_kind"] == "fix_01"
     assert fix_task["manual_prompt_number"] == 5
+    assert fix_task["workflow_state"] == "Ready for Review"
     assert fix_task["task_folder"] == "Folder Manual Task"
 
 
@@ -347,6 +352,7 @@ def test_dashboard_html_exposes_task_switcher_and_save_controls(monkeypatch, tmp
     assert response.status_code == 200
     assert "Manual Testing Dashboard" in response.text
     assert 'id="taskSelector"' in response.text
+    assert 'id="promptStatusSelector"' in response.text
     assert 'id="saveButton"' in response.text
     assert 'id="branchMergeReadyInput"' in response.text
     assert 'id="generalCommentInput"' in response.text

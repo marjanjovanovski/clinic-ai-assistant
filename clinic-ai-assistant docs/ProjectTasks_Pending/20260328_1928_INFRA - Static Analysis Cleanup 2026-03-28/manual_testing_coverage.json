@@ -1,6 +1,6 @@
 {
-  "task_name": "INFRA - Static Analysis Cleanup 2026-03-28",
-  "task_file": "INFRA - Static Analysis Cleanup 2026-03-28.md",
+  "task_name": "20260328_1928_INFRA - Static Analysis Cleanup 2026-03-28",
+  "task_file": "20260328_1928_INFRA - Static Analysis Cleanup 2026-03-28.md",
   "status": "manual_verification_completed",
   "manual_verification": {
     "branch_merge_ready": true,
