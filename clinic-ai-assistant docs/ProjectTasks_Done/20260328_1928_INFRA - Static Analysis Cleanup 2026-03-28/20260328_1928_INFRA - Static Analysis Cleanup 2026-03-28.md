@@ -42,11 +42,11 @@ Status values allowed in this document:
 
 ## Merge To Main
 
-- `Pending`
+- `Completed`
 
 ## Current Active Prompt
 
-- `None - Branch Approved Pending Merge`
+- `Completed`
 
 ## Global Status Summary
 
@@ -56,6 +56,7 @@ Status values allowed in this document:
 - Prompt 4 - Completed
 - Prompt 5 - Completed
 - Prompt 6 - Completed
+- Prompt 7 - Merge To Main - Completed
 
 ## Working Rules For The Implementing AI Agent
 
@@ -955,6 +956,33 @@ Manual verification and merge readiness are tracked explicitly before the task l
   - None.
 - `Deferred`
   - Two unrelated UX issues observed during manual review were recorded as out-of-scope future-fix candidates and did not block merge readiness for this task.
+
+## Prompt 7 - Merge To Main - Completed
+
+### Goal
+
+Keep this task visible and tracked until the branch is actually merged to main.
+
+### Instructions
+
+Manual verification is complete and merge has been confirmed.
+
+Requirements:
+- record that the branch was merged
+- mark this prompt `Completed`
+- mark `Merge To Main` as `Completed`
+- move the task folder to `ProjectTasks_Done`
+
+### Required Outcome
+
+The task remains visible in the manual dashboard and cannot be mistaken for fully closed before merge.
+
+### Completion Note
+
+- `Changed`
+  - Marked `Merge To Main` as `Completed` and closed the final merge-tracking prompt.
+- `Verified`
+  - Merge to main was confirmed for this task.
 
 ## Manual Testing
 

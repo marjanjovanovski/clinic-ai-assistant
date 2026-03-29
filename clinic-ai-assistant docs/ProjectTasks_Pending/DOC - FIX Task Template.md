@@ -53,6 +53,7 @@ Status values allowed in fix task files:
 - Prompt 3 - Regression Coverage - Pending
 - Prompt 4 - Technical Verification - Pending
 - Prompt 5 - Manual Testing - Pending
+- Prompt 6 - Merge To Main - Pending
 
 ## Working Rules For The Implementing AI Agent
 
@@ -174,6 +175,25 @@ Requirements:
 ### Required Outcome
 
 Manual verification and merge readiness are tracked explicitly before merge.
+
+## Prompt 6 - Merge To Main - Pending
+
+### Goal
+
+Keep the task visible and tracked until the branch is actually merged.
+
+### Instructions
+
+This prompt stays pending after manual verification is complete and only closes once the merge has actually happened.
+
+Requirements:
+- keep this prompt `Pending` while the branch is approved but not yet merged
+- mark `Merge To Main` as `Completed` only after merge is confirmed
+- archive or move the task out of `ProjectTasks_Pending` only after merge is completed
+
+### Required Outcome
+
+The task cannot silently disappear into a pending-but-unmerged state.
 
 ---
 

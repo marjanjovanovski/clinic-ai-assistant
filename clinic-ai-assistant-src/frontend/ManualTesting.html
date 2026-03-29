@@ -287,6 +287,14 @@
       padding: 0 6px;
     }
 
+    .table-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      min-width: 160px;
+    }
+
     .table-title {
       margin: 0;
       font-size: 20px;
@@ -299,10 +307,27 @@
       font-size: 14px;
     }
 
-    .runtime-note {
+    .action-status {
       color: var(--text-muted);
       font-size: 13px;
       text-align: right;
+      min-height: 18px;
+    }
+
+    .secondary-button {
+      padding: 10px 18px;
+      border: 1px solid #d94645;
+      border-radius: 12px;
+      background: #ffffff;
+      color: #d94645;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .secondary-button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
     }
 
     .table-scroll {
@@ -562,7 +587,10 @@
           <h2 class="table-title" id="tableTitle">Manual Verification Rows</h2>
           <p class="table-subtitle" id="tableSubtitle">Select a task to load its coverage rows.</p>
         </div>
-        <div class="runtime-note" id="runtimeNote">Awaiting task selection</div>
+        <div class="table-actions">
+          <button id="archiveButton" class="secondary-button" disabled>Archive</button>
+          <span class="action-status" id="archiveStatus"></span>
+        </div>
       </div>
 
       <div class="table-scroll">
@@ -601,7 +629,8 @@
     const taskMeta = document.getElementById("taskMeta");
     const tableTitle = document.getElementById("tableTitle");
     const tableSubtitle = document.getElementById("tableSubtitle");
-    const runtimeNote = document.getElementById("runtimeNote");
+    const archiveButton = document.getElementById("archiveButton");
+    const archiveStatus = document.getElementById("archiveStatus");
     const saveButton = document.getElementById("saveButton");
     const saveStatus = document.getElementById("saveStatus");
     const statusFilter = document.getElementById("statusFilter");
@@ -614,6 +643,7 @@
     let selectedStatusFilter = "All";
     let isDirty = false;
     let isSaving = false;
+    let isArchiving = false;
 
     function escapeHtml(value) {
       return String(value ?? "")
@@ -644,7 +674,7 @@
         return;
       }
       taskState.textContent = task.workflow_state || (task.coverage_available ? "Ready for Review" : "Needs JSON");
-      taskMeta.textContent = `${task.entry_type} | Manual review prompt: ${task.manual_prompt_number} | Merge: ${task.merge_to_main ?? "Pending"}`;
+      taskMeta.textContent = `${task.entry_type} | Manual review prompt: ${task.manual_prompt_number ?? "-"} | Merge: ${task.merge_to_main ?? "Pending"}`;
       renderPromptStatuses(task.prompt_statuses);
     }
 
@@ -692,12 +722,13 @@
       if (selectedTask) {
         const branchApproved = Boolean(selectedCoverage?.manual_verification?.branch_merge_ready);
         taskState.textContent = selectedTask.workflow_state || mergeReadinessLabel(summary);
-        taskMeta.textContent = `Manual review prompt: ${selectedTask.manual_prompt_number} | Merge review: ${branchApproved ? "Approved" : "Pending approval"}`;
+        taskMeta.textContent = `Manual review prompt: ${selectedTask.manual_prompt_number ?? "-"} | Merge review: ${branchApproved ? "Approved" : "Pending approval"} | Merge to main: ${selectedTask.merge_to_main ?? "Pending"}`;
       }
     }
 
     function updateSaveState() {
       saveButton.disabled = !selectedTask || !selectedTask.coverage_available || !isDirty || isSaving;
+      archiveButton.disabled = !selectedTask || !selectedTask.archive_ready || isSaving || isArchiving || isDirty;
       branchMergeReadyInput.disabled = !selectedTask || !selectedTask.coverage_available || isSaving;
       generalCommentInput.disabled = !selectedTask || !selectedTask.coverage_available || isSaving;
       if (isSaving) {
@@ -706,6 +737,15 @@
         saveStatus.textContent = "Unsaved changes";
       } else {
         saveStatus.textContent = selectedTask && selectedTask.coverage_available ? "All changes saved" : "No changes";
+      }
+      if (isArchiving) {
+        archiveStatus.textContent = "Archiving...";
+      } else if (!selectedTask) {
+        archiveStatus.textContent = archiveStatus.textContent || "";
+      } else if (selectedTask.archive_ready) {
+        archiveStatus.textContent = isDirty ? "Save changes before archiving" : "Merged task can be archived";
+      } else {
+        archiveStatus.textContent = "Archive unlocks after Merge To Main is completed";
       }
     }
 
@@ -893,13 +933,57 @@
         isDirty = false;
         setTaskMeta(selectedTask);
         renderCoverageRows(selectedTask, selectedCoverage);
-        runtimeNote.textContent = `Saved ${selectedTask.task_name}`;
         saveStatus.textContent = "Saved";
       } catch (error) {
-        runtimeNote.textContent = "Save failed";
         saveStatus.textContent = error.message || "Save failed";
       } finally {
         isSaving = false;
+        updateSaveState();
+      }
+    }
+
+    async function archiveTask() {
+      if (!selectedTask || !selectedTask.archive_ready || isArchiving || isDirty) {
+        return;
+      }
+
+      isArchiving = true;
+      updateSaveState();
+
+      try {
+        const response = await fetch(`/manual-verification/tasks/${encodeURIComponent(selectedTask.id)}/archive`, {
+          method: "POST",
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(typeof data.detail === "string" ? data.detail : "Failed to archive task.");
+        }
+
+        const archivedTaskName = selectedTask.task_name;
+        discoveredTasks = discoveredTasks.filter((task) => task.id !== selectedTask.id);
+        selectedTask = null;
+        selectedCoverage = null;
+        isDirty = false;
+        setSummary({ not_run: 0, pass: 0, fail: 0 });
+        branchMergeReadyInput.checked = false;
+        generalCommentInput.value = "";
+
+        if (!discoveredTasks.length) {
+          taskSelector.innerHTML = `<option value="">No pending manual verification tasks found</option>`;
+          renderMessageRow("No pending tasks are currently waiting for manual verification or archiving.");
+          tableTitle.textContent = "Manual Verification Rows";
+          tableSubtitle.textContent = "Select a task to load its coverage rows.";
+        } else {
+          taskSelector.innerHTML = discoveredTasks.map((task) => `
+            <option value="${escapeHtml(task.id)}">${escapeHtml(task.task_name)}${task.coverage_available ? "" : " (needs JSON)"}</option>
+          `).join("");
+          await handleTaskSelection(taskSelector.value);
+        }
+        archiveStatus.textContent = `Archived ${archivedTaskName}`;
+      } catch (error) {
+        archiveStatus.textContent = error.message || "Archive failed";
+      } finally {
+        isArchiving = false;
         updateSaveState();
       }
     }
@@ -915,7 +999,6 @@
       if (!selectedTask) {
         tableTitle.textContent = "Manual Verification Rows";
         tableSubtitle.textContent = "Select a task to load its coverage rows.";
-        runtimeNote.textContent = "Awaiting task selection";
         branchMergeReadyInput.checked = false;
         generalCommentInput.value = "";
         renderMessageRow("Select a task to inspect manual verification coverage.");
@@ -925,7 +1008,6 @@
       if (!selectedTask.coverage_available) {
         tableTitle.textContent = selectedTask.task_name;
         tableSubtitle.textContent = selectedTask.task_file;
-        runtimeNote.textContent = "Migration needed";
         branchMergeReadyInput.checked = false;
         generalCommentInput.value = "";
         renderMessageRow(
@@ -935,23 +1017,19 @@
         return;
       }
 
-      runtimeNote.textContent = "Loading coverage...";
       try {
         const payload = await loadTaskCoverage(taskId);
         selectedTask = payload.task;
         selectedCoverage = payload.coverage;
         setTaskMeta(payload.task);
         renderCoverageRows(payload.task, payload.coverage);
-        runtimeNote.textContent = `Loaded ${payload.task.task_name}`;
       } catch (error) {
-        runtimeNote.textContent = "Load failed";
         renderMessageRow(error.message || "Failed to load task coverage.", "error-state");
       }
     }
 
     async function bootstrap() {
       renderMessageRow("Loading manual verification tasks...");
-      runtimeNote.textContent = "Loading task list...";
 
       try {
         const response = await fetch(TASKS_URL);
@@ -963,8 +1041,7 @@
         discoveredTasks = Array.isArray(data.tasks) ? data.tasks : [];
         if (!discoveredTasks.length) {
           taskSelector.innerHTML = `<option value="">No pending manual verification tasks found</option>`;
-          renderMessageRow("No pending tasks are currently waiting for manual verification.");
-          runtimeNote.textContent = "No pending manual verification tasks found";
+          renderMessageRow("No pending tasks are currently waiting for manual verification or archiving.");
           return;
         }
 
@@ -979,9 +1056,6 @@
           selectedStatusFilter = event.target.value;
           if (selectedTask && selectedCoverage) {
             renderCoverageRows(selectedTask, selectedCoverage);
-            runtimeNote.textContent = selectedStatusFilter === "All"
-              ? `Loaded ${selectedTask.task_name}`
-              : `Filtered ${selectedTask.task_name} by ${selectedStatusFilter}`;
           }
         });
         branchMergeReadyInput.addEventListener("change", (event) => {
@@ -1001,12 +1075,12 @@
           markDirty();
         });
         saveButton.addEventListener("click", saveCoverage);
+        archiveButton.addEventListener("click", archiveTask);
 
         await handleTaskSelection(taskSelector.value);
       } catch (error) {
         taskSelector.innerHTML = `<option value="">Failed to load tasks</option>`;
         renderMessageRow(error.message || "Failed to load manual verification tasks.", "error-state");
-        runtimeNote.textContent = "Task discovery failed";
       }
     }
 

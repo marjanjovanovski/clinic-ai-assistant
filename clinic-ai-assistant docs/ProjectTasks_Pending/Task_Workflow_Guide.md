@@ -173,12 +173,16 @@ Task-level manual verification fields may include:
 
 ## Final Prompt Rule
 
-Every substantial task should end with a tracked prompt for:
+Every substantial task should end with explicit tracked prompts for:
 - manual verification
-- merge readiness
-- or both together
+- `Merge To Main`
 
-Implementation completion alone is not merge completion.
+Required convention:
+- the final pending prompt should be named `Prompt X - Merge To Main - Pending`
+- keep that prompt pending after manual verification is complete if the branch has not been merged yet
+- mark `Merge To Main` as `Completed` only after the branch is actually merged
+
+Implementation completion alone is not merge completion, and manual verification completion alone is not archive readiness.
 
 ## Suggested Task Skeleton
 
@@ -199,6 +203,7 @@ Execution of this task must follow [Task_Workflow_Guide.md](...) and [Core_Rules
 - Prompt 1 - Preparation - Pending
 - Prompt 2 - Implementation - Pending
 - Prompt 3 - Manual Testing - Pending
+- Prompt 4 - Merge To Main - Pending
 
 ## Current Active Prompt
 - `Prompt 1`
@@ -207,6 +212,12 @@ Execution of this task must follow [Task_Workflow_Guide.md](...) and [Core_Rules
 ...
 
 ## Prompt 2 - Implementation - Pending
+...
+
+## Prompt 3 - Manual Testing - Pending
+...
+
+## Prompt 4 - Merge To Main - Pending
 ...
 
 ## Manual Testing

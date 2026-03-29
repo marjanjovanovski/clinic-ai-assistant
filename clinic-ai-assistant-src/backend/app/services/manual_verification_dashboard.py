@@ -1,9 +1,11 @@
 import json
 import re
+import shutil
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
 PENDING_TASKS_DIR = REPO_ROOT / "clinic-ai-assistant docs" / "ProjectTasks_Pending"
+DONE_TASKS_DIR = REPO_ROOT / "clinic-ai-assistant docs" / "ProjectTasks_Done"
 MANUAL_COVERAGE_FILENAME = "manual_testing_coverage.json"
 FIX_COVERAGE_PATTERN = "manual_testing_coverage_FIX*.json"
 STATUS_VALUES = {"Not Run", "Pass", "Fail"}
@@ -26,6 +28,10 @@ class ManualVerificationCoverageUnavailable(ManualVerificationDashboardError):
 
 
 class ManualVerificationCoverageInvalid(ManualVerificationDashboardError):
+    pass
+
+
+class ManualVerificationArchiveInvalid(ManualVerificationDashboardError):
     pass
 
 
@@ -77,18 +83,30 @@ def _extract_merge_status(markdown_text: str) -> str | None:
     return match.group(1).strip()
 
 
-def _extract_prompt_statuses(markdown_text: str) -> list[dict]:
+def _prompt_header_matches(markdown_text: str):
     prompt_pattern = re.compile(
-        r"^## Prompt (\d+) - (Pending|Completed|Blocked)\s*$",
+        r"^## Prompt (\d+)(?: - (.*?))? - (Pending|Completed|Blocked)\s*$",
         flags=re.MULTILINE,
     )
+    return list(prompt_pattern.finditer(markdown_text))
+
+
+def _extract_prompt_statuses(markdown_text: str) -> list[dict]:
     prompt_statuses = []
-    for match in prompt_pattern.finditer(markdown_text):
+    for match in _prompt_header_matches(markdown_text):
+        prompt_number = int(match.group(1))
+        prompt_suffix = (match.group(2) or "").strip()
+        status = match.group(3)
+        label = f"Prompt {prompt_number}"
+        if prompt_suffix:
+            label += f" - {prompt_suffix}"
+        label += f" - {status}"
         prompt_statuses.append(
             {
-                "prompt_number": int(match.group(1)),
-                "status": match.group(2),
-                "label": f"Prompt {int(match.group(1))} - {match.group(2)}",
+                "prompt_number": prompt_number,
+                "prompt_suffix": prompt_suffix,
+                "status": status,
+                "label": label,
             }
         )
     return prompt_statuses
@@ -104,32 +122,48 @@ def _prompt_number_from_label(prompt_label: str | None) -> int | None:
 
 
 def _extract_pending_manual_prompt(markdown_text: str) -> dict | None:
-    header_pattern = re.compile(
-        r"^## Prompt (\d+) - (Pending|Completed|Blocked)\s*$",
-        flags=re.MULTILINE,
-    )
-    matches = list(header_pattern.finditer(markdown_text))
+    matches = _prompt_header_matches(markdown_text)
     for index, match in enumerate(matches):
         prompt_number = int(match.group(1))
-        status = match.group(2)
+        prompt_suffix = (match.group(2) or "").strip()
+        status = match.group(3)
         block_start = match.end()
         block_end = matches[index + 1].start() if index + 1 < len(matches) else len(markdown_text)
         block = markdown_text[block_start:block_end]
         if status != "Pending":
             continue
-        if "manual verification" in block.lower() or "merge readiness" in block.lower():
+        normalized_prompt_text = f"{prompt_suffix} {block}".lower()
+        if (
+            "manual verification" in normalized_prompt_text
+            or "manual testing" in normalized_prompt_text
+            or "merge readiness" in normalized_prompt_text
+            or "merge to main" in normalized_prompt_text
+            or "archive" in normalized_prompt_text
+        ):
             return {
                 "prompt_number": prompt_number,
+                "prompt_suffix": prompt_suffix,
                 "status": status,
             }
     return None
 
 
+def _highest_prompt_number(prompt_statuses: list[dict]) -> int | None:
+    if not prompt_statuses:
+        return None
+    return max(prompt["prompt_number"] for prompt in prompt_statuses)
+
+
 def _derive_workflow_state(
     *,
     current_active_prompt: str | None,
-    manual_prompt_number: int,
+    manual_prompt_number: int | None,
+    merge_to_main: str | None,
 ) -> str:
+    if (merge_to_main or "").strip().lower() == "completed":
+        return "Ready to Archive"
+    if manual_prompt_number is None:
+        return "Development Pending"
     current_prompt_number = _prompt_number_from_label(current_active_prompt)
     if current_prompt_number is None:
         return "Development Pending"
@@ -143,12 +177,17 @@ def _derive_workflow_state(
 def _task_descriptor(folder: Path, markdown_path: Path, coverage_path: Path, *, entry_kind: str) -> dict | None:
     markdown_text = _read_text(markdown_path)
     pending_manual_prompt = _extract_pending_manual_prompt(markdown_text)
-    if pending_manual_prompt is None:
+    merge_to_main = _extract_merge_status(markdown_text)
+    prompt_statuses = _extract_prompt_statuses(markdown_text)
+    archive_ready = (merge_to_main or "").strip().lower() == "completed"
+    if pending_manual_prompt is None and not archive_ready:
         return None
 
     task_name = markdown_path.stem
     current_active_prompt = _extract_current_active_prompt(markdown_text)
-    prompt_statuses = _extract_prompt_statuses(markdown_text)
+    manual_prompt_number = (
+        pending_manual_prompt["prompt_number"] if pending_manual_prompt is not None else _highest_prompt_number(prompt_statuses)
+    )
     return {
         "id": _slugify(task_name),
         "task_name": task_name,
@@ -157,14 +196,16 @@ def _task_descriptor(folder: Path, markdown_path: Path, coverage_path: Path, *, 
         "entry_type": "folder",
         "entry_kind": entry_kind,
         "task_folder": folder.name,
-        "manual_prompt_number": pending_manual_prompt["prompt_number"],
+        "manual_prompt_number": manual_prompt_number,
         "current_active_prompt": current_active_prompt,
         "prompt_statuses": prompt_statuses,
+        "archive_ready": archive_ready,
         "workflow_state": _derive_workflow_state(
             current_active_prompt=current_active_prompt,
-            manual_prompt_number=pending_manual_prompt["prompt_number"],
+            manual_prompt_number=manual_prompt_number,
+            merge_to_main=merge_to_main,
         ),
-        "merge_to_main": _extract_merge_status(markdown_text),
+        "merge_to_main": merge_to_main,
         "coverage_available": True,
         "coverage_relative_path": str(coverage_path.relative_to(REPO_ROOT)),
     }
@@ -329,4 +370,31 @@ def save_manual_verification_coverage(task_id: str, payload: dict) -> dict:
     return {
         "task": task,
         "coverage": validated_payload,
+    }
+
+
+def archive_manual_verification_task(task_id: str) -> dict:
+    task = _get_task_by_id(task_id)
+    if not task.get("archive_ready"):
+        raise ManualVerificationArchiveInvalid(
+            f"Task '{task['task_name']}' cannot be archived until 'Merge To Main' is completed"
+        )
+
+    source_folder = PENDING_TASKS_DIR / task["task_folder"]
+    destination_folder = DONE_TASKS_DIR / task["task_folder"]
+
+    if not source_folder.exists():
+        raise ManualVerificationTaskNotFound(f"Task folder '{task['task_folder']}' was not found in pending tasks")
+    if destination_folder.exists():
+        raise ManualVerificationArchiveInvalid(
+            f"Cannot archive '{task['task_name']}' because the destination folder already exists"
+        )
+
+    destination_folder.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(source_folder), str(destination_folder))
+
+    return {
+        "archived_task_name": task["task_name"],
+        "archived_folder": task["task_folder"],
+        "destination_relative_path": str(destination_folder.relative_to(REPO_ROOT)),
     }
