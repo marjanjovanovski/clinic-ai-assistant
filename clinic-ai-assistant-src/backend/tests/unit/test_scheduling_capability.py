@@ -318,6 +318,101 @@ def test_availability_default_dates_falls_back_to_existing_lookahead_behavior(mo
     assert date_to == "2026-03-25"
 
 
+def test_language_aware_hints_resolve_weekday_and_time_window_from_config(monkeypatch):
+    class _FakeDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 3, 30)
+
+    monkeypatch.setattr(scheduling_capability, "date", _FakeDate)
+
+    context = scheduling_capability._with_availability_defaults(
+        _context(
+            message="I need Tuesday afternoon availability",
+            requested_operation=scheduling_capability.OPERATION_AVAILABILITY,
+            profile={
+                "scheduling": {
+                    "language_support": {
+                        "weekday_terms": {
+                            "tuesday": ["tuesday"],
+                        },
+                        "time_window_terms": {
+                            "afternoon": ["afternoon"],
+                        },
+                    }
+                }
+            },
+        ),
+        _snapshot(),
+    )
+
+    assert context.date_from == "2026-03-31"
+    assert context.date_to == "2026-03-31"
+    assert context.preferred_time_range == "afternoon"
+
+
+def test_language_aware_hints_resolve_relative_day_from_config(monkeypatch):
+    class _FakeDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 3, 30)
+
+    monkeypatch.setattr(scheduling_capability, "date", _FakeDate)
+
+    context = scheduling_capability._with_availability_defaults(
+        _context(
+            message="Сакам утре попладне термин",
+            requested_operation=scheduling_capability.OPERATION_AVAILABILITY,
+            profile={
+                "scheduling": {
+                    "language_support": {
+                        "relative_date_terms": {
+                            "tomorrow": ["утре"],
+                        },
+                        "time_window_terms": {
+                            "afternoon": ["попладне"],
+                        },
+                    }
+                }
+            },
+        ),
+        _snapshot(),
+    )
+
+    assert context.date_from == "2026-03-31"
+    assert context.date_to == "2026-03-31"
+    assert context.preferred_time_range == "afternoon"
+
+
+def test_language_aware_hints_resolve_next_week_range_from_config(monkeypatch):
+    class _FakeDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 3, 30)
+
+    monkeypatch.setattr(scheduling_capability, "date", _FakeDate)
+
+    context = scheduling_capability._with_availability_defaults(
+        _context(
+            message="check availability next week",
+            requested_operation=scheduling_capability.OPERATION_AVAILABILITY,
+            profile={
+                "scheduling": {
+                    "language_support": {
+                        "relative_range_terms": {
+                            "next_week": ["next week"],
+                        },
+                    }
+                }
+            },
+        ),
+        _snapshot(),
+    )
+
+    assert context.date_from == "2026-04-06"
+    assert context.date_to == "2026-04-12"
+
+
 def test_handle_scheduling_capability_returns_explicit_no_availability_message_when_slots_are_empty(monkeypatch):
     monkeypatch.setattr(
         scheduling_capability,

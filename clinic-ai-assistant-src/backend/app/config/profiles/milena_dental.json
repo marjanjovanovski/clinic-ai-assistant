@@ -734,6 +734,28 @@
       "thursday": [["09:00", "17:00"]],
       "friday": [["09:00", "17:00"]]
     },
+    "language_support": {
+      "weekday_terms": {
+        "monday": ["понеделник", "ponedelnik"],
+        "tuesday": ["вторник", "vtornik"],
+        "wednesday": ["среда", "sreda"],
+        "thursday": ["четврток", "chetvrtok", "cetvrtok"],
+        "friday": ["петок", "petok"],
+        "saturday": ["сабота", "sabota"],
+        "sunday": ["недела", "nedela"]
+      },
+      "relative_date_terms": {
+        "today": ["денес", "denes"],
+        "tomorrow": ["утре", "utre"]
+      },
+      "relative_range_terms": {
+        "next_week": ["следна недела", "sledna nedela", "наредна недела", "naredna nedela"]
+      },
+      "time_window_terms": {
+        "morning": ["наутро", "nautro", "сабајле", "sabajle", "sabajleto"],
+        "afternoon": ["попладне", "popladne"]
+      }
+    },
     "providers": {
       "mock": {
         "seed": "milena-dental-mock"

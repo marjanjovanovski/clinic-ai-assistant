@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, replace
 from datetime import date, datetime, timedelta
+import re
 
 from app.services.scheduling.models import AvailabilityRequest, BookingRequest, BookingResult
 from app.services.scheduling.service import (
@@ -34,6 +35,15 @@ SLOT_CONFLICT_NEXT_ACTION = "refresh_availability"
 SLOT_CONFLICT_REASON = "slot_conflict"
 SLOT_CONFLICT_SCOPE = "same_day"
 NO_AVAILABILITY_MESSAGE = "Momentalno nema slobodni termini vo tekovniot period. Kazete drug datum ili drug period i ke proveram povtorno."
+WEEKDAY_TO_INDEX = {
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
+}
 
 
 class SchedulingSlotConflictError(SchedulingConfigError):
@@ -402,6 +412,109 @@ def _resolved_timezone(context: CapabilityContext, snapshot: SchedulingCapabilit
     return snapshot.timezone
 
 
+def _normalized_message_text(value: str | None) -> str:
+    if not isinstance(value, str):
+        return ""
+    normalized = re.sub(r"[^\w\s]", " ", value.casefold())
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+def _message_contains_term(message: str, term: str) -> bool:
+    normalized_term = _normalized_message_text(term)
+    if not normalized_term:
+        return False
+    return bool(re.search(rf"(?<!\w){re.escape(normalized_term)}(?!\w)", message))
+
+
+def _first_matching_term_key(message: str, term_map: dict | None) -> str | None:
+    if not isinstance(term_map, dict) or not message:
+        return None
+    for canonical_key, terms in term_map.items():
+        if not isinstance(terms, list):
+            continue
+        if any(_message_contains_term(message, term) for term in terms if isinstance(term, str)):
+            return canonical_key
+    return None
+
+
+def _next_weekday_date(target_weekday: str, *, today: date) -> str | None:
+    target_index = WEEKDAY_TO_INDEX.get(target_weekday)
+    if target_index is None:
+        return None
+    days_ahead = (target_index - today.weekday()) % 7
+    return (today + timedelta(days=days_ahead)).isoformat()
+
+
+def _next_week_range(*, today: date) -> tuple[str, str]:
+    days_until_next_monday = (7 - today.weekday()) or 7
+    start_date = today + timedelta(days=days_until_next_monday)
+    end_date = start_date + timedelta(days=6)
+    return start_date.isoformat(), end_date.isoformat()
+
+
+def _apply_language_aware_availability_hints(context: CapabilityContext) -> CapabilityContext:
+    if _normalized_operation(context.requested_operation) != OPERATION_AVAILABILITY:
+        return context
+
+    scheduling = context.profile.get("scheduling") if isinstance(context.profile, dict) else {}
+    language_support = scheduling.get("language_support") if isinstance(scheduling, dict) else None
+    if not isinstance(language_support, dict):
+        return context
+
+    normalized_message = _normalized_message_text(context.message)
+    if not normalized_message:
+        return context
+
+    resolved_time_range = context.preferred_time_range
+    if not resolved_time_range:
+        matched_time_range = _first_matching_term_key(
+            normalized_message,
+            language_support.get("time_window_terms"),
+        )
+        if matched_time_range:
+            resolved_time_range = matched_time_range
+
+    resolved_date_from = context.date_from
+    resolved_date_to = context.date_to
+    today = date.today()
+    if not resolved_date_from or not resolved_date_to:
+        matched_relative_date = _first_matching_term_key(
+            normalized_message,
+            language_support.get("relative_date_terms"),
+        )
+        if matched_relative_date == "today":
+            resolved_date_from = today.isoformat()
+            resolved_date_to = today.isoformat()
+        elif matched_relative_date == "tomorrow":
+            tomorrow = today + timedelta(days=1)
+            resolved_date_from = tomorrow.isoformat()
+            resolved_date_to = tomorrow.isoformat()
+        else:
+            matched_relative_range = _first_matching_term_key(
+                normalized_message,
+                language_support.get("relative_range_terms"),
+            )
+            if matched_relative_range == "next_week":
+                resolved_date_from, resolved_date_to = _next_week_range(today=today)
+            else:
+                matched_weekday = _first_matching_term_key(
+                    normalized_message,
+                    language_support.get("weekday_terms"),
+                )
+                if matched_weekday:
+                    resolved_weekday = _next_weekday_date(matched_weekday, today=today)
+                    if resolved_weekday:
+                        resolved_date_from = resolved_weekday
+                        resolved_date_to = resolved_weekday
+
+    return replace(
+        context,
+        date_from=resolved_date_from,
+        date_to=resolved_date_to,
+        preferred_time_range=resolved_time_range,
+    )
+
+
 def _base_capability_state(
     *,
     context: CapabilityContext,
@@ -465,6 +578,7 @@ def _with_availability_defaults(
     if _normalized_operation(context.requested_operation) != OPERATION_AVAILABILITY:
         return context
 
+    context = _apply_language_aware_availability_hints(context)
     date_from, date_to = _availability_default_dates(context)
     return replace(
         context,

@@ -118,6 +118,28 @@
       "thursday": [["09:00", "17:00"]],
       "friday": [["09:00", "17:00"]]
     },
+    "language_support": {
+      "weekday_terms": {
+        "monday": ["monday"],
+        "tuesday": ["tuesday"],
+        "wednesday": ["wednesday"],
+        "thursday": ["thursday"],
+        "friday": ["friday"],
+        "saturday": ["saturday"],
+        "sunday": ["sunday"]
+      },
+      "relative_date_terms": {
+        "today": ["today"],
+        "tomorrow": ["tomorrow"]
+      },
+      "relative_range_terms": {
+        "next_week": ["next week"]
+      },
+      "time_window_terms": {
+        "morning": ["morning"],
+        "afternoon": ["afternoon"]
+      }
+    },
     "providers": {
       "mock": {
         "seed": "risto-mock"

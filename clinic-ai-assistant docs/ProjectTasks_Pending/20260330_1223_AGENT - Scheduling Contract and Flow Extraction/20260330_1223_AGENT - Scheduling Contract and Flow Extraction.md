@@ -47,7 +47,7 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 4`
+- `Prompt 5`
 
 ## Global Status Summary
 
@@ -55,7 +55,7 @@ Status values allowed in this document:
 - Prompt 2 - Scheduling Service Boundary - Completed
 - Prompt 3 - Scheduling Extraction Core - Completed
 - Prompt 4 - Scheduling Extraction Integration - Completed
-- Prompt 5 - Config And Language Support - Pending
+- Prompt 5 - Config And Language Support - Completed
 - Prompt 6 - Slot Widget Alignment - Pending
 - Prompt 7 - Regression Coverage - Pending
 - Prompt 8 - Technical Verification - Pending
@@ -429,7 +429,7 @@ The extracted scheduling boundary now covers core assessment plus handoff/recove
 - Blocked
   - none
 
-## Prompt 5 - Config And Language Support - Pending
+## Prompt 5 - Config And Language Support - Completed
 
 ### Goal
 
@@ -451,6 +451,18 @@ Requirements:
 ### Required Outcome
 
 Scheduling intent and date/time-window behavior are supported in a config-aware, language-aware MVP shape.
+
+### Completion Note
+
+- Changed
+  - added optional `scheduling.language_support` validation in `config_loader.py` for config-owned weekday, relative-date, relative-range, and time-window term maps
+  - added config-driven message hint resolution in `scheduling_capability.py` so availability requests can derive `date_from`, `date_to`, and `preferred_time_range` from tenant-language scheduling terms without pushing phrase dictionaries into `ai_agent.py`
+  - seeded the English and Macedonian tenant scheduling configs with narrow MVP language terms for weekdays, `today`, `tomorrow`, `next week`, `morning`, and `afternoon`
+- Verified
+  - `tests/unit/test_scheduling_capability.py` passed
+  - `tests/unit/test_config_loader.py` passed
+- Blocked
+  - initial sandboxed pytest run hit the known Windows temp cleanup/access issue at session finish; focused verification passed with the external temp-path fallback outside the sandbox
 
 ## Prompt 6 - Slot Widget Alignment - Pending
 

@@ -107,6 +107,57 @@ def _validate_business_hours(section_name: str, business_hours):
                 raise TenantConfigError(f"{section_name}.{day_name}[{index}][1] must be a non-empty string")
 
 
+def _validate_string_term_map(section_name: str, payload, *, allowed_keys: set[str] | None = None):
+    if payload is None:
+        return
+    mapping = _require_object(section_name, payload)
+    for key, terms in mapping.items():
+        if not isinstance(key, str) or not key.strip():
+            raise TenantConfigError(f"{section_name} keys must be non-empty strings")
+        normalized_key = key.strip()
+        if allowed_keys is not None and normalized_key not in allowed_keys:
+            raise TenantConfigError(f"{section_name}.{normalized_key} is not a supported key")
+        if not isinstance(terms, list) or not terms:
+            raise TenantConfigError(f"{section_name}.{normalized_key} must be a non-empty list")
+        for index, term in enumerate(terms):
+            if not isinstance(term, str) or not term.strip():
+                raise TenantConfigError(f"{section_name}.{normalized_key}[{index}] must be a non-empty string")
+
+
+def _validate_scheduling_language_support(section_name: str, payload):
+    if payload is None:
+        return
+    language_support = _require_object(section_name, payload)
+    _validate_string_term_map(
+        f"{section_name}.weekday_terms",
+        language_support.get("weekday_terms"),
+        allowed_keys={
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday",
+            "sunday",
+        },
+    )
+    _validate_string_term_map(
+        f"{section_name}.relative_date_terms",
+        language_support.get("relative_date_terms"),
+        allowed_keys={"today", "tomorrow"},
+    )
+    _validate_string_term_map(
+        f"{section_name}.relative_range_terms",
+        language_support.get("relative_range_terms"),
+        allowed_keys={"next_week"},
+    )
+    _validate_string_term_map(
+        f"{section_name}.time_window_terms",
+        language_support.get("time_window_terms"),
+        allowed_keys={"morning", "afternoon"},
+    )
+
+
 def _validate_scheduling(profile: dict, tenant: str):
     scheduling = profile.get("scheduling")
     if scheduling is None:
@@ -156,6 +207,11 @@ def _validate_scheduling(profile: dict, tenant: str):
             f"Profile '{tenant}'.scheduling.providers.{provider_name}",
             provider_config,
         )
+
+    _validate_scheduling_language_support(
+        f"Profile '{tenant}'.scheduling.language_support",
+        scheduling.get("language_support"),
+    )
 
 
 def _normalize_actions(tenant: str, profile: dict) -> dict:
