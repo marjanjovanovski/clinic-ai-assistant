@@ -47,7 +47,7 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 8`
+- `Prompt 9`
 
 ## Global Status Summary
 
@@ -588,6 +588,15 @@ Requirements:
 ### Required Outcome
 
 Manual verification and branch readiness are tracked explicitly.
+
+- Changed
+  - reviewed the existing manual verification checklist and companion `manual_testing_coverage.json`
+  - kept Prompt 9 pending and aligned the task state for explicit handoff into human manual testing
+- Verified
+  - automated verification context is already recorded in Prompts 7 and 8 for the scheduling contract changes
+  - manual verification tracker exists and remains the current row-level source of truth
+- Blocked
+  - manual verification has not yet been performed or confirmed, so this prompt must remain pending
 
 ## Prompt 10 - Merge To Main - Pending
 

@@ -4,7 +4,7 @@
   "status": "pending_manual_verification",
   "manual_verification": {
     "branch_merge_ready": false,
-    "general_comment": ""
+    "general_comment": "Automated scheduling verification is recorded in Prompts 7 and 8. Manual verification has not yet been performed or confirmed, and branch merge readiness remains false while Prompt 9 is pending and Prompt 8 is blocked on repo-local pytest residue cleanup."
   },
   "categories": [
     {
