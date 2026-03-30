@@ -138,6 +138,19 @@ class CapabilityResult:
     final_response: tuple[str, str] | None = None
 
 
+@dataclass(slots=True)
+class SchedulingResponsePayload:
+    reply_text: str | None
+    widget_payload: dict | None
+
+
+@dataclass(slots=True)
+class SchedulingExecutionPayload:
+    state: dict | None
+    result: CapabilityResult
+    response_payload: SchedulingResponsePayload | None = None
+
+
 def get_capability_snapshot(tenant: str) -> SchedulingCapabilitySnapshot:
     config = get_scheduling_public_config(tenant)
     return SchedulingCapabilitySnapshot(
@@ -165,6 +178,19 @@ def mark_availability_intent_pending(session_key: str, state: dict | None, sessi
 
 def has_pending_availability_intent(state: dict | None) -> bool:
     return isinstance(state, dict) and bool(state.get(AVAILABILITY_INTENT_MARKER_KEY))
+
+
+def resolve_requested_operation(
+    *,
+    allow_scheduling_first: bool,
+    state: dict | None,
+    availability_intent_requested: bool = False,
+) -> str | None:
+    if not allow_scheduling_first:
+        return None
+    if availability_intent_requested or has_pending_availability_intent(state):
+        return OPERATION_AVAILABILITY
+    return None
 
 
 def _slots_from_assessment(assessment: SchedulingCapabilityAssessment) -> list[dict]:
@@ -314,6 +340,60 @@ def assessment_widget_payload(assessment: SchedulingCapabilityAssessment) -> dic
         "request": output_payload.get("request") if isinstance(output_payload, dict) else None,
         "slots": slots,
     }
+
+
+def assessment_response_payload(assessment: SchedulingCapabilityAssessment) -> SchedulingResponsePayload:
+    return SchedulingResponsePayload(
+        reply_text=assessment_reply_text(assessment),
+        widget_payload=assessment_widget_payload(assessment),
+    )
+
+
+def persist_scheduling_assessment(
+    session_key: str,
+    state: dict | None,
+    *,
+    assessment: SchedulingCapabilityAssessment,
+    session_state: dict,
+) -> tuple[dict, SchedulingResponsePayload]:
+    next_state = store_scheduling_state(
+        session_key,
+        state,
+        assessment=assessment,
+        session_state=session_state,
+    )
+    return next_state, assessment_response_payload(assessment)
+
+
+def execute_scheduling_turn(
+    context: CapabilityContext,
+    *,
+    session_state: dict,
+    mark_availability_intent: bool = False,
+) -> SchedulingExecutionPayload:
+    next_state = context.state
+    if mark_availability_intent:
+        next_state = mark_availability_intent_pending(
+            context.session_key,
+            next_state,
+            session_state,
+        )
+    effective_context = replace(context, state=next_state)
+    result = handle_scheduling_capability(effective_context)
+    next_state = result.state
+    response_payload = None
+    if result.assessment.operation == OPERATION_AVAILABILITY:
+        next_state, response_payload = persist_scheduling_assessment(
+            context.session_key,
+            next_state,
+            assessment=result.assessment,
+            session_state=session_state,
+        )
+    return SchedulingExecutionPayload(
+        state=next_state,
+        result=result,
+        response_payload=response_payload,
+    )
 
 
 def _resolved_timezone(context: CapabilityContext, snapshot: SchedulingCapabilitySnapshot) -> str:
@@ -796,6 +876,46 @@ def slot_conflict_error(
     )
 
 
+def slot_conflict_widget_payload(
+    booking_result: dict | None,
+    *,
+    fallback_service_id: str | None = None,
+) -> dict | None:
+    if not isinstance(booking_result, dict) or booking_result.get("status") != "slot_unavailable":
+        return None
+
+    source_payload = booking_result.get("source_payload")
+    if not isinstance(source_payload, dict):
+        return None
+
+    replacement_slots = source_payload.get("replacement_slots")
+    if not isinstance(replacement_slots, list) or not replacement_slots:
+        return None
+
+    selected_slot = source_payload.get("selected_slot")
+    timezone_name = (
+        selected_slot.get("timezone")
+        if isinstance(selected_slot, dict) and isinstance(selected_slot.get("timezone"), str)
+        else None
+    )
+
+    return {
+        "type": "slot-list",
+        "title": booking_result.get("confirmation_message"),
+        "service_id": source_payload.get("service_id") or fallback_service_id,
+        "provider": booking_result.get("provider"),
+        "request": {
+            "service_id": source_payload.get("service_id") or fallback_service_id,
+            "date_from": source_payload.get("fallback_date"),
+            "date_to": source_payload.get("fallback_date"),
+            "timezone": timezone_name,
+            "preferred_days": [],
+            "preferred_time_range": None,
+        },
+        "slots": [slot for slot in replacement_slots if isinstance(slot, dict)],
+    }
+
+
 def _trace_scheduling_decision(
     tenant: str,
     session_id: str | None,
@@ -805,6 +925,49 @@ def _trace_scheduling_decision(
     if not isinstance(session_id, str) or not session_id.strip():
         return
     trace_event(tenant, session_id.strip(), event, **fields)
+
+
+def prepare_selected_slot_handoff(
+    *,
+    tenant: str,
+    session_id: str,
+    state: dict | None,
+    service_id: str,
+    slot_id: str,
+) -> dict:
+    scheduling_handoff = selected_slot_handoff_payload(
+        state,
+        service_id=service_id,
+        slot_id=slot_id,
+    )
+    hold = create_slot_hold(
+        tenant=tenant,
+        service_id=service_id,
+        slot_id=slot_id,
+        session_id=session_id,
+    )
+    if not isinstance(hold, dict) or hold.get("session_id") != session_id:
+        _trace_scheduling_decision(
+            tenant,
+            session_id,
+            "SCHEDULING_SLOT_SELECTION_REJECTED",
+            service_id=service_id,
+            slot_id=slot_id,
+            owner_session_id=hold.get("session_id") if isinstance(hold, dict) else None,
+        )
+        raise ValueError("This slot was just taken by another booking. I will show available slots for the same day.")
+
+    return {
+        **scheduling_handoff,
+        "hold": {
+            "hold_id": hold.get("hold_id"),
+            "hold_status": hold.get("status"),
+            "hold_expires_at": hold.get("expires_at"),
+            "session_id": hold.get("session_id"),
+            "service_id": hold.get("service_id"),
+            "slot_id": hold.get("slot_id"),
+        },
+    }
 
 
 def book_selected_slot(

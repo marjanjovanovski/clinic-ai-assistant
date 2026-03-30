@@ -47,13 +47,13 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 1`
+- `Prompt 3`
 
 ## Global Status Summary
 
-- Prompt 1 - Scheduling Contract Lock - Pending
-- Prompt 2 - Scheduling Service Boundary - Pending
-- Prompt 3 - Scheduling Extraction Core - Pending
+- Prompt 1 - Scheduling Contract Lock - Completed
+- Prompt 2 - Scheduling Service Boundary - Completed
+- Prompt 3 - Scheduling Extraction Core - Completed
 - Prompt 4 - Scheduling Extraction Integration - Pending
 - Prompt 5 - Config And Language Support - Pending
 - Prompt 6 - Slot Widget Alignment - Pending
@@ -213,7 +213,7 @@ After all implementation prompts are complete, the repo should have:
 - current slot-list widget behavior aligned to the contract
 - focused regression coverage for the tightened scheduling behavior
 
-## Prompt 1 - Scheduling Contract Lock - Pending
+## Prompt 1 - Scheduling Contract Lock - Completed
 
 ### Goal
 
@@ -247,7 +247,80 @@ Requirements:
 
 The scheduling contract is explicit enough that extraction and implementation work can proceed without ambiguity.
 
-## Prompt 2 - Scheduling Service Boundary - Pending
+### Implementation Contract
+
+Current entry points confirmed in code:
+
+- scheduling intent:
+  - LLM output `availability_lookup` enters scheduling-first through `ai_agent.py`
+  - contact-collection interruption can redirect back to availability through `_redirect_contact_message_to_availability()` in `ai_agent.py`
+- typed date handling:
+  - no dedicated typed-date extraction path exists yet
+  - current availability execution enters `scheduling_capability.handle_scheduling_capability()` with defaulted `date_from/date_to` unless explicit dates are already passed into the capability context
+- broad-range handling such as `next week`:
+  - no dedicated broad-range narrowing rule exists yet
+  - current availability execution supports `date_from/date_to`, `preferred_days`, and `preferred_time_range`, but the orchestration layer does not yet lock broad-range chat behavior
+- slot-selected booking handoff:
+  - `/scheduling/select-slot` uses `selected_slot_handoff_payload()` plus `create_slot_hold()`, then immediately enters `start_contact_collection_from_scheduling_handoff()`
+- slot-conflict recovery:
+  - `book_selected_slot()` reuses active/expired hold logic and raises `SchedulingSlotConflictError` with same-day replacement slots
+  - booking completion paths already surface `slot_unavailable` and a replacement slot widget
+
+Locked Prompt 1 contract:
+
+- scheduling-first entry rules:
+  - any availability-oriented request stays in scheduling-first behavior
+  - reservation language without a real selected slot is treated as scheduling intent first, not booking-detail collection
+  - existing non-scheduling flows remain unchanged unless scheduling intent is explicitly established
+- typed-date direct answer rules:
+  - when the user types a specific date, that date must be answered directly first
+  - the system should return availability or truthful no-availability for that requested date before falling back to generic widget-first behavior
+  - widget attachment is optional and only supportive after the direct date answer
+- broad-range narrowing rules:
+  - broad requests such as `next week` should usually confirm whether availability exists in-range and ask the user to narrow by date
+  - do not dump a large slot list by default for broad-range requests
+  - small naturally readable result sets may remain a later implementation nuance, but Prompt 1 locks date narrowing as the default contract
+- reservation-without-slot rules:
+  - phrases such as reserve/book/schedule, when no authoritative slot is selected, must stay inside scheduling-first behavior
+  - booking contact collection must not start only because reservation language appeared
+- slot-selected direct handoff rules:
+  - a slot click is sufficient MVP intent to hand off directly into booking
+  - the selected slot from the authoritative scheduling result becomes the booking handoff payload
+  - booking begins immediately with the first required contact field while preserving selected-slot and hold state
+- slot-conflict recovery rules:
+  - if the chosen slot is lost, recovery stays inside scheduling recovery rather than restarting generic chat or catalog flow
+  - recovery should reuse current same-day replacement / refreshed-availability behavior and keep user context intact
+
+Behavior classification for follow-up prompts:
+
+- reused as-is:
+  - LLM `availability_lookup` routing into scheduling capability
+  - slot-selected direct handoff through `/scheduling/select-slot`
+  - authoritative selected-slot validation in `selected_slot_handoff_payload()`
+  - hold creation, expired-hold refresh, and slot-conflict replacement handling in `scheduling_capability.py`
+  - replacement widget surfacing after `slot_unavailable`
+- tightened:
+  - typed specific dates are now contractually first-class direct-answer inputs, not generic availability fallbacks
+  - broad-range requests now contractually narrow by date instead of defaulting to slot dumping
+  - reservation wording without slot selection is explicitly locked to scheduling-first behavior
+  - scheduling entry is explicitly protected from premature booking transition unless a slot is actually selected
+- out of scope:
+  - month calendar / day-picker
+  - dynamic flow configuration
+  - broad orchestration redesign beyond the narrow scheduling contract and extraction path
+  - hard-coded business phrase dictionaries in Python
+  - rescheduling / cancellation and wider service-flow redesign
+
+### Completion Note
+
+- Changed
+  - locked Prompt 1 scheduling contract in code-facing terms against current `ai_agent.py`, `scheduling_capability.py`, route handoff, and booking recovery behavior
+- Verified
+  - confirmed current entry points for scheduling intent, slot-selected handoff, and slot-conflict recovery in the existing backend code paths
+- Blocked
+  - none
+
+## Prompt 2 - Scheduling Service Boundary - Completed
 
 ### Goal
 
@@ -273,7 +346,23 @@ Requirements:
 
 A clear scheduling-owned module boundary exists and is ready to absorb extracted logic safely.
 
-## Prompt 3 - Scheduling Extraction Core - Pending
+### Completion Note
+
+- Changed
+  - extended `scheduling_capability.py` as the first scheduling-owned boundary instead of creating a new module
+  - added explicit boundary helpers for availability response shaping, persisted assessment storage, slot-selection handoff preparation, and slot-conflict widget shaping
+  - switched `ai_agent.py` availability response assembly and recovery widget assembly to that scheduling-owned boundary
+  - switched `/scheduling/select-slot` route handoff preparation to the scheduling-owned boundary
+- Verified
+  - `tests/unit/test_scheduling_capability.py` passed
+  - ownership split now locked as:
+    - `ai_agent.py`: top-level orchestration and reply finalization
+    - `scheduling_capability.py`: scheduling assessment/result shaping, selected-slot handoff prep, conflict widget shaping, hold/conflict reuse
+    - `routes/scheduling.py`: HTTP transport only
+- Blocked
+  - focused integration verification for `tests/integration/test_availability_intent_gating.py` was blocked by Windows pytest temp-directory cleanup/access errors in this environment, not by a reported scheduling assertion failure
+
+## Prompt 3 - Scheduling Extraction Core - Completed
 
 ### Goal
 
@@ -294,6 +383,18 @@ Requirements:
 ### Required Outcome
 
 `ai_agent.py` delegates core scheduling assessment and response shaping through a clearer service boundary and the scheduling behavior remains correct.
+
+### Completion Note
+
+- Changed
+  - moved scheduling entry resolution into `scheduling_capability.resolve_requested_operation()` so `ai_agent.py` no longer decides availability execution directly in two separate branches
+  - added `scheduling_capability.execute_scheduling_turn()` to reuse one scheduling-owned path for marker persistence, capability execution, assessment persistence, and availability response shaping
+  - trimmed the two Prompt 3 `ai_agent.py` scheduling call sites to keep orchestration and reply finalization local while delegating the scheduling-owned execution details
+- Verified
+  - `tests/unit/test_scheduling_capability.py` passed with external `TMP` / `TEMP` and external `--basetemp`
+  - added focused unit coverage for scheduling entry resolution and the persisted availability response-shaping execution path
+- Blocked
+  - none
 
 ## Prompt 4 - Scheduling Extraction Integration - Pending
 

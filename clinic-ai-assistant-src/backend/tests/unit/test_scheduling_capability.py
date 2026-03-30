@@ -168,6 +168,23 @@ def test_assess_booking_request_returns_ready_request_payload(monkeypatch):
     }
 
 
+def test_resolve_requested_operation_keeps_scheduling_entry_assessment_inside_boundary():
+    assert scheduling_capability.resolve_requested_operation(
+        allow_scheduling_first=True,
+        state={"_availability_intent_pending": True},
+    ) == scheduling_capability.OPERATION_AVAILABILITY
+    assert scheduling_capability.resolve_requested_operation(
+        allow_scheduling_first=True,
+        state={"stage": "active"},
+        availability_intent_requested=True,
+    ) == scheduling_capability.OPERATION_AVAILABILITY
+    assert scheduling_capability.resolve_requested_operation(
+        allow_scheduling_first=False,
+        state={"_availability_intent_pending": True},
+        availability_intent_requested=True,
+    ) is None
+
+
 def test_handle_scheduling_capability_preserves_runtime_behavior_when_unused(monkeypatch):
     monkeypatch.setattr(
         scheduling_capability,
@@ -221,6 +238,52 @@ def test_handle_scheduling_capability_executes_availability_lookup_when_ready(mo
     assert result.assessment.reason == "availability_lookup_completed"
     assert result.assessment.output_payload["result"]["provider"] == "mock"
     assert "09:00" in result.assessment.output_payload["reply_text"]
+
+
+def test_execute_scheduling_turn_persists_availability_response_shape(monkeypatch):
+    monkeypatch.setattr(
+        scheduling_capability,
+        "get_scheduling_public_config",
+        lambda tenant: _snapshot(),
+    )
+    session_state = {}
+
+    def fake_lookup_availability(**kwargs):
+        return AvailabilityResult(
+            provider="mock",
+            slots=[
+                AvailableSlot(
+                    provider="mock",
+                    slot_id="mock|slot-1",
+                    start_at="2026-03-23T09:00:00+01:00",
+                    end_at="2026-03-23T09:30:00+01:00",
+                    timezone="Europe/Skopje",
+                    display_label="23 Mar 2026 vo 09:00",
+                )
+            ],
+        )
+
+    monkeypatch.setattr(scheduling_capability, "lookup_availability", fake_lookup_availability)
+
+    execution = scheduling_capability.execute_scheduling_turn(
+        _context(
+            requested_operation=scheduling_capability.OPERATION_AVAILABILITY,
+            service_id="consultation",
+            date_from="2026-03-23",
+            date_to="2026-03-24",
+            intro_message="Eve nekolku slobodni termini:",
+        ),
+        session_state=session_state,
+        mark_availability_intent=True,
+    )
+
+    assert execution.result.assessment.status == "completed"
+    assert execution.response_payload is not None
+    assert "09:00" in execution.response_payload.reply_text
+    assert execution.response_payload.widget_payload["type"] == "slot-list"
+    assert execution.state["scheduling"]["booking_handoff_ready"] is True
+    assert scheduling_capability.AVAILABILITY_INTENT_MARKER_KEY not in execution.state
+    assert session_state["milena_dental:session-1"]["scheduling"]["status"] == "completed"
 
 
 def test_availability_default_dates_uses_business_day_reach_window(monkeypatch):

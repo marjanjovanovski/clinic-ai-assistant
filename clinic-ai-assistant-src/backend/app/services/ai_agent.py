@@ -68,7 +68,6 @@ CANONICAL_INTENTS = {"greeting", "suggest_service", "business_overview", "list_s
 BOOKING_INPUT_FIELD_VALUE = "FIELD_VALUE"
 BOOKING_INPUT_CLARIFICATION = "CLARIFICATION_QUESTION"
 BOOKING_INPUT_FEEDBACK = "FEEDBACK_OR_META"
-AVAILABILITY_INTENT_MARKER_KEY = scheduling_capability.AVAILABILITY_INTENT_MARKER_KEY
 AVAILABILITY_INTENT_OUTPUT = "availability_lookup"
 UNKNOWN_NAME_CONFIRM_MODE = booking_credentials.UNKNOWN_NAME_CONFIRM_MODE
 UNKNOWN_NAME_REPEAT_MODE = booking_credentials.UNKNOWN_NAME_REPEAT_MODE
@@ -1435,39 +1434,11 @@ def _runtime_response_type(response_payload: dict | None, session_status: str | 
 
 def _replacement_slot_widget_payload(runtime_state: dict | None) -> dict | None:
     booking_result = runtime_state.get("booking_result") if isinstance(runtime_state, dict) else None
-    if not isinstance(booking_result, dict) or booking_result.get("status") != "slot_unavailable":
-        return None
-
-    source_payload = booking_result.get("source_payload")
-    if not isinstance(source_payload, dict):
-        return None
-
-    replacement_slots = source_payload.get("replacement_slots")
-    if not isinstance(replacement_slots, list) or not replacement_slots:
-        return None
-
-    selected_slot = source_payload.get("selected_slot")
-    timezone_name = (
-        selected_slot.get("timezone")
-        if isinstance(selected_slot, dict) and isinstance(selected_slot.get("timezone"), str)
-        else None
+    fallback_service_id = runtime_state.get("service_id") if isinstance(runtime_state, dict) else None
+    return scheduling_capability.slot_conflict_widget_payload(
+        booking_result,
+        fallback_service_id=fallback_service_id if isinstance(fallback_service_id, str) else None,
     )
-
-    return {
-        "type": "slot-list",
-        "title": booking_result.get("confirmation_message"),
-        "service_id": source_payload.get("service_id") or runtime_state.get("service_id"),
-        "provider": booking_result.get("provider"),
-        "request": {
-            "service_id": source_payload.get("service_id") or runtime_state.get("service_id"),
-            "date_from": source_payload.get("fallback_date"),
-            "date_to": source_payload.get("fallback_date"),
-            "timezone": timezone_name,
-            "preferred_days": [],
-            "preferred_time_range": None,
-        },
-        "slots": [slot for slot in replacement_slots if isinstance(slot, dict)],
-    }
 
 
 def build_runtime_inspector_payload(
@@ -1919,26 +1890,20 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         state=state,
         profile=profile,
         services=services,
-        requested_operation=(
-            scheduling_capability.OPERATION_AVAILABILITY
-            if allow_scheduling_first and scheduling_capability.has_pending_availability_intent(state)
-            else None
+        requested_operation=scheduling_capability.resolve_requested_operation(
+            allow_scheduling_first=allow_scheduling_first,
+            state=state,
         ),
     )
-    scheduling_result = scheduling_capability.handle_scheduling_capability(
+    scheduling_execution = scheduling_capability.execute_scheduling_turn(
         scheduling_context,
+        session_state=SESSION_STATE,
     )
-    state = scheduling_result.state
+    scheduling_result = scheduling_execution.result
+    state = scheduling_execution.state
+    scheduling_response = scheduling_execution.response_payload
     if scheduling_result.assessment.operation == scheduling_capability.OPERATION_AVAILABILITY:
-        state = scheduling_capability.store_scheduling_state(
-            session_key,
-            state,
-            assessment=scheduling_result.assessment,
-            session_state=SESSION_STATE,
-        )
-        scheduling_reply = scheduling_capability.assessment_reply_text(
-            scheduling_result.assessment
-        )
+        scheduling_reply = scheduling_response.reply_text
         if isinstance(scheduling_reply, str) and scheduling_reply.strip():
             _log_chat_state(
                 message=message,
@@ -1957,9 +1922,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 services=services,
                 profile=profile,
                 stage_after=_stage_name(SESSION_STATE.get(session_key)),
-                widget_payload=scheduling_capability.assessment_widget_payload(
-                    scheduling_result.assessment,
-                ),
+                widget_payload=scheduling_response.widget_payload,
             )
             return final_reply, session_id
     if scheduling_result.next_action == scheduling_capability.CAPABILITY_NEXT_RETURN:
@@ -2209,12 +2172,12 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             service_id = parsed.get("service_id")
             message_text = parsed.get("message")
 
-            if availability_intent_requested and allow_scheduling_first:
-                state = scheduling_capability.mark_availability_intent_pending(
-                    session_key,
-                    state,
-                    SESSION_STATE,
-                )
+            requested_operation = scheduling_capability.resolve_requested_operation(
+                allow_scheduling_first=allow_scheduling_first,
+                state=state,
+                availability_intent_requested=availability_intent_requested,
+            )
+            if requested_operation == scheduling_capability.OPERATION_AVAILABILITY:
                 scheduling_context = scheduling_capability.CapabilityContext(
                     tenant=tenant,
                     session_id=session_id,
@@ -2223,22 +2186,19 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                     state=state,
                     profile=profile,
                     services=services,
-                    requested_operation=scheduling_capability.OPERATION_AVAILABILITY,
+                    requested_operation=requested_operation,
                     service_id=service_id if isinstance(service_id, str) and service_id.strip() else None,
                     intro_message=message_text,
                 )
-                scheduling_result = scheduling_capability.handle_scheduling_capability(
+                scheduling_execution = scheduling_capability.execute_scheduling_turn(
                     scheduling_context,
-                )
-                state = scheduling_capability.store_scheduling_state(
-                    session_key,
-                    scheduling_result.state,
-                    assessment=scheduling_result.assessment,
                     session_state=SESSION_STATE,
+                    mark_availability_intent=availability_intent_requested,
                 )
-                scheduling_reply = scheduling_capability.assessment_reply_text(
-                    scheduling_result.assessment
-                )
+                scheduling_result = scheduling_execution.result
+                state = scheduling_execution.state
+                scheduling_response = scheduling_execution.response_payload
+                scheduling_reply = scheduling_response.reply_text
                 if isinstance(scheduling_reply, str) and scheduling_reply.strip():
                     _log_chat_state(
                         message=message,
@@ -2257,9 +2217,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                         services=services,
                         profile=profile,
                         stage_after=_stage_name(SESSION_STATE.get(session_key)),
-                        widget_payload=scheduling_capability.assessment_widget_payload(
-                            scheduling_result.assessment,
-                        ),
+                        widget_payload=scheduling_response.widget_payload,
                     )
                     return final_reply, session_id
 

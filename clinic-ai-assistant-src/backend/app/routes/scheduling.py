@@ -15,11 +15,9 @@ from app.services.scheduling.service import (
 from app.services.scheduling_capability import (
     SchedulingSlotConflictError,
     book_selected_slot,
-    selected_slot_handoff_payload,
+    prepare_selected_slot_handoff,
     slot_conflict_error,
 )
-from app.services.scheduling_hold_store import create_slot_hold
-from app.services.session_trace_logger import trace_event
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
@@ -193,38 +191,13 @@ def scheduling_book(payload: SlotBookingRequest, tenant: str = Query(...)):
 def scheduling_select_slot(payload: SessionSlotSelectionRequest, tenant: str = Query(...)):
     try:
         state = get_runtime_session_state(tenant, payload.session_id)
-        scheduling_handoff = selected_slot_handoff_payload(
-            state,
-            service_id=payload.service_id,
-            slot_id=payload.slot_id,
-        )
-        hold = create_slot_hold(
+        scheduling_handoff = prepare_selected_slot_handoff(
             tenant=tenant,
+            session_id=payload.session_id,
+            state=state,
             service_id=payload.service_id,
             slot_id=payload.slot_id,
-            session_id=payload.session_id,
         )
-        if not isinstance(hold, dict) or hold.get("session_id") != payload.session_id:
-            trace_event(
-                tenant,
-                payload.session_id,
-                "SCHEDULING_SLOT_SELECTION_REJECTED",
-                service_id=payload.service_id,
-                slot_id=payload.slot_id,
-                owner_session_id=hold.get("session_id") if isinstance(hold, dict) else None,
-            )
-            raise ValueError("This slot was just taken by another booking. I will show available slots for the same day.")
-        scheduling_handoff = {
-            **scheduling_handoff,
-            "hold": {
-                "hold_id": hold.get("hold_id"),
-                "hold_status": hold.get("status"),
-                "hold_expires_at": hold.get("expires_at"),
-                "session_id": hold.get("session_id"),
-                "service_id": hold.get("service_id"),
-                "slot_id": hold.get("slot_id"),
-            },
-        }
         return start_contact_collection_from_scheduling_handoff(
             tenant,
             payload.session_id,
