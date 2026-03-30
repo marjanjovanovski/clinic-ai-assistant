@@ -47,7 +47,7 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 7`
+- `Prompt 8`
 
 ## Global Status Summary
 
@@ -58,7 +58,7 @@ Status values allowed in this document:
 - Prompt 5 - Config And Language Support - Completed
 - Prompt 6 - Slot Widget Alignment - Completed
 - Prompt 7 - Regression Coverage - Completed
-- Prompt 8 - Technical Verification - Pending
+- Prompt 8 - Technical Verification - Blocked
 - Prompt 9 - Manual Testing - Pending
 - Prompt 10 - Merge To Main - Pending
 
@@ -538,7 +538,7 @@ The new scheduling contract is protected by focused, high-signal automated cover
 - Blocked
   - initial sandboxed pytest runs for `test_config_loader.py` and `test_availability_intent_gating.py` hit the known Windows temp cleanup/access issue during pytest session finish; verification completed with the approved external-temp fallback
 
-## Prompt 8 - Technical Verification - Pending
+## Prompt 8 - Technical Verification - Blocked
 
 ### Goal
 
@@ -560,6 +560,15 @@ Requirements:
 ### Required Outcome
 
 The tightened scheduling flow is technically verified and documented honestly.
+
+- Changed
+  - ran the focused Prompt 8 backend and frontend verification set for the tightened scheduling flow
+- Verified
+  - `tests/integration/test_availability_intent_gating.py` passed with the outside-sandbox `LocalAppData\\Temp` fallback
+  - `tests/integration/test_frontend_booking_ui.py` passed with the outside-sandbox `LocalAppData\\Temp` fallback
+- Blocked
+  - repo-local pytest residue is still present under `clinic-ai-assistant-src/backend/.pytest_runtime_tmp/ruff-review-unit-rerun` and `clinic-ai-assistant-src/backend/_pytest_runtime_tmp/ruff-review-unit-rerun2`
+  - deletion was attempted in-sandbox and outside-sandbox with exact path-limited `Remove-Item` commands, but both directories returned `UnauthorizedAccessException`, so Prompt 8 cannot be marked completed under the cleanup rule
 
 ## Prompt 9 - Manual Testing - Pending
 
