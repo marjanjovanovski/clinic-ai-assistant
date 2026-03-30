@@ -35,6 +35,7 @@ SLOT_CONFLICT_NEXT_ACTION = "refresh_availability"
 SLOT_CONFLICT_REASON = "slot_conflict"
 SLOT_CONFLICT_SCOPE = "same_day"
 NO_AVAILABILITY_MESSAGE = "Momentalno nema slobodni termini vo tekovniot period. Kazete drug datum ili drug period i ke proveram povtorno."
+BROAD_RANGE_NARROWING_MESSAGE = "Ima slobodni termini vo baraniot period. Kazete mi koj den vi odgovara i ke pokazam tocni termini."
 WEEKDAY_TO_INDEX = {
     "monday": 0,
     "tuesday": 1,
@@ -219,6 +220,11 @@ def store_scheduling_state(
 ) -> dict:
     next_state = dict(state) if isinstance(state, dict) else {}
     next_state.pop(AVAILABILITY_INTENT_MARKER_KEY, None)
+    output_payload = assessment.output_payload if isinstance(assessment.output_payload, dict) else {}
+    presentation = output_payload.get("presentation") if isinstance(output_payload.get("presentation"), dict) else {}
+    result_payload = output_payload.get("result") if isinstance(output_payload.get("result"), dict) else {}
+    slots = result_payload.get("slots") if isinstance(result_payload.get("slots"), list) else []
+    widget_mode = presentation.get("widget_mode") if isinstance(presentation.get("widget_mode"), str) else None
 
     scheduling_state = {
         "operation": assessment.operation,
@@ -229,7 +235,8 @@ def store_scheduling_state(
         "booking_handoff_ready": bool(
             assessment.operation == OPERATION_AVAILABILITY
             and assessment.status == "completed"
-            and bool(_slots_from_assessment(assessment))
+            and bool(slots)
+            and widget_mode != "suppress"
         ),
     }
     next_state["scheduling"] = scheduling_state
@@ -332,6 +339,9 @@ def assessment_widget_payload(assessment: SchedulingCapabilityAssessment) -> dic
         return None
 
     output_payload = assessment.output_payload if isinstance(assessment.output_payload, dict) else None
+    presentation = output_payload.get("presentation") if isinstance(output_payload, dict) else None
+    if isinstance(presentation, dict) and presentation.get("widget_mode") == "suppress":
+        return None
     result_payload = output_payload.get("result") if isinstance(output_payload, dict) else None
     slots = result_payload.get("slots") if isinstance(result_payload, dict) else None
     capability_state = assessment.capability_state if isinstance(assessment.capability_state, dict) else None
@@ -419,6 +429,28 @@ def _normalized_message_text(value: str | None) -> str:
     return re.sub(r"\s+", " ", normalized).strip()
 
 
+def _explicit_date_from_message(message: str) -> str | None:
+    if not message:
+        return None
+
+    iso_match = re.search(r"\b(\d{4})-(\d{2})-(\d{2})\b", message)
+    if iso_match:
+        year, month, day = iso_match.groups()
+        try:
+            return date(int(year), int(month), int(day)).isoformat()
+        except ValueError:
+            return None
+
+    dotted_match = re.search(r"\b(\d{2})[./-](\d{2})[./-](\d{4})\b", message)
+    if dotted_match:
+        day, month, year = dotted_match.groups()
+        try:
+            return date(int(year), int(month), int(day)).isoformat()
+        except ValueError:
+            return None
+    return None
+
+
 def _message_contains_term(message: str, term: str) -> bool:
     normalized_term = _normalized_message_text(term)
     if not normalized_term:
@@ -461,7 +493,8 @@ def _apply_language_aware_availability_hints(context: CapabilityContext) -> Capa
     if not isinstance(language_support, dict):
         return context
 
-    normalized_message = _normalized_message_text(context.message)
+    raw_message = context.message if isinstance(context.message, str) else ""
+    normalized_message = _normalized_message_text(raw_message)
     if not normalized_message:
         return context
 
@@ -478,34 +511,39 @@ def _apply_language_aware_availability_hints(context: CapabilityContext) -> Capa
     resolved_date_to = context.date_to
     today = date.today()
     if not resolved_date_from or not resolved_date_to:
-        matched_relative_date = _first_matching_term_key(
-            normalized_message,
-            language_support.get("relative_date_terms"),
-        )
-        if matched_relative_date == "today":
-            resolved_date_from = today.isoformat()
-            resolved_date_to = today.isoformat()
-        elif matched_relative_date == "tomorrow":
-            tomorrow = today + timedelta(days=1)
-            resolved_date_from = tomorrow.isoformat()
-            resolved_date_to = tomorrow.isoformat()
+        explicit_date = _explicit_date_from_message(raw_message)
+        if explicit_date:
+            resolved_date_from = explicit_date
+            resolved_date_to = explicit_date
         else:
-            matched_relative_range = _first_matching_term_key(
+            matched_relative_date = _first_matching_term_key(
                 normalized_message,
-                language_support.get("relative_range_terms"),
+                language_support.get("relative_date_terms"),
             )
-            if matched_relative_range == "next_week":
-                resolved_date_from, resolved_date_to = _next_week_range(today=today)
+            if matched_relative_date == "today":
+                resolved_date_from = today.isoformat()
+                resolved_date_to = today.isoformat()
+            elif matched_relative_date == "tomorrow":
+                tomorrow = today + timedelta(days=1)
+                resolved_date_from = tomorrow.isoformat()
+                resolved_date_to = tomorrow.isoformat()
             else:
-                matched_weekday = _first_matching_term_key(
+                matched_relative_range = _first_matching_term_key(
                     normalized_message,
-                    language_support.get("weekday_terms"),
+                    language_support.get("relative_range_terms"),
                 )
-                if matched_weekday:
-                    resolved_weekday = _next_weekday_date(matched_weekday, today=today)
-                    if resolved_weekday:
-                        resolved_date_from = resolved_weekday
-                        resolved_date_to = resolved_weekday
+                if matched_relative_range == "next_week":
+                    resolved_date_from, resolved_date_to = _next_week_range(today=today)
+                else:
+                    matched_weekday = _first_matching_term_key(
+                        normalized_message,
+                        language_support.get("weekday_terms"),
+                    )
+                    if matched_weekday:
+                        resolved_weekday = _next_weekday_date(matched_weekday, today=today)
+                        if resolved_weekday:
+                            resolved_date_from = resolved_weekday
+                            resolved_date_to = resolved_weekday
 
     return replace(
         context,
@@ -513,6 +551,33 @@ def _apply_language_aware_availability_hints(context: CapabilityContext) -> Capa
         date_to=resolved_date_to,
         preferred_time_range=resolved_time_range,
     )
+
+
+def _availability_contract_text(context: CapabilityContext, key: str, default: str) -> str:
+    scheduling = context.profile.get("scheduling") if isinstance(context.profile, dict) else {}
+    contract_texts = scheduling.get("contract_texts") if isinstance(scheduling, dict) else None
+    value = contract_texts.get(key) if isinstance(contract_texts, dict) else None
+    return value.strip() if isinstance(value, str) and value.strip() else default
+
+
+def _availability_presentation_plan(context: CapabilityContext) -> dict:
+    raw_message = context.message if isinstance(context.message, str) else ""
+    normalized_message = _normalized_message_text(raw_message)
+    scheduling = context.profile.get("scheduling") if isinstance(context.profile, dict) else {}
+    language_support = scheduling.get("language_support") if isinstance(scheduling, dict) else None
+
+    if _explicit_date_from_message(raw_message):
+        return {"request_kind": "specific_day", "widget_mode": "suppress"}
+
+    if isinstance(language_support, dict):
+        if _first_matching_term_key(normalized_message, language_support.get("relative_range_terms")) == "next_week":
+            return {"request_kind": "broad_range", "widget_mode": "suppress"}
+        if _first_matching_term_key(normalized_message, language_support.get("relative_date_terms")) in {"today", "tomorrow"}:
+            return {"request_kind": "specific_day", "widget_mode": "suppress"}
+        if _first_matching_term_key(normalized_message, language_support.get("weekday_terms")):
+            return {"request_kind": "specific_day", "widget_mode": "suppress"}
+
+    return {"request_kind": "generic", "widget_mode": "default"}
 
 
 def _base_capability_state(
@@ -757,13 +822,25 @@ def assess_scheduling_capability(context: CapabilityContext) -> SchedulingCapabi
     )
 
 
-def _availability_reply_text(context: CapabilityContext, slots_payload: list[dict]) -> str:
+def _availability_reply_text(
+    context: CapabilityContext,
+    slots_payload: list[dict],
+    *,
+    presentation_plan: dict | None = None,
+) -> str:
+    request_kind = presentation_plan.get("request_kind") if isinstance(presentation_plan, dict) else None
     intro_message = context.intro_message.strip() if isinstance(context.intro_message, str) and context.intro_message.strip() else ""
     slot_lines = [f"• {slot['display_label']}" for slot in slots_payload[:6] if isinstance(slot.get("display_label"), str)]
-    if intro_message and slot_lines:
-        return f"{intro_message}\n\n" + "\n".join(slot_lines)
     if not slot_lines:
         return NO_AVAILABILITY_MESSAGE
+    if request_kind == "broad_range":
+        return _availability_contract_text(
+            context,
+            "broad_range_narrowing",
+            BROAD_RANGE_NARROWING_MESSAGE,
+        )
+    if intro_message and slot_lines:
+        return f"{intro_message}\n\n" + "\n".join(slot_lines)
     if intro_message:
         return intro_message
     if slot_lines:
@@ -785,6 +862,7 @@ def handle_scheduling_capability(context: CapabilityContext) -> CapabilityResult
             date_to=assessment.output_payload.get("request", {}).get("date_to") if isinstance(assessment.output_payload, dict) else context.date_to,
             timezone=assessment.capability_state.get("timezone") if isinstance(assessment.capability_state, dict) else context.timezone,
         )
+        presentation_plan = _availability_presentation_plan(execution_context)
         try:
             availability = lookup_availability(
                 tenant=execution_context.tenant,
@@ -799,7 +877,12 @@ def handle_scheduling_capability(context: CapabilityContext) -> CapabilityResult
             output_payload = {
                 **(assessment.output_payload or {}),
                 "result": result_payload,
-                "reply_text": _availability_reply_text(execution_context, result_payload.get("slots", [])),
+                "presentation": presentation_plan,
+                "reply_text": _availability_reply_text(
+                    execution_context,
+                    result_payload.get("slots", []),
+                    presentation_plan=presentation_plan,
+                ),
             }
             return CapabilityResult(
                 next_action=CAPABILITY_NEXT_CONTINUE,

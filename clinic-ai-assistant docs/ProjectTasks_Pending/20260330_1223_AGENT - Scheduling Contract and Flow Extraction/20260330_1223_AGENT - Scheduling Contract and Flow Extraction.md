@@ -47,7 +47,7 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 5`
+- `Prompt 6`
 
 ## Global Status Summary
 
@@ -56,7 +56,7 @@ Status values allowed in this document:
 - Prompt 3 - Scheduling Extraction Core - Completed
 - Prompt 4 - Scheduling Extraction Integration - Completed
 - Prompt 5 - Config And Language Support - Completed
-- Prompt 6 - Slot Widget Alignment - Pending
+- Prompt 6 - Slot Widget Alignment - Completed
 - Prompt 7 - Regression Coverage - Pending
 - Prompt 8 - Technical Verification - Pending
 - Prompt 9 - Manual Testing - Pending
@@ -464,7 +464,7 @@ Scheduling intent and date/time-window behavior are supported in a config-aware,
 - Blocked
   - initial sandboxed pytest run hit the known Windows temp cleanup/access issue at session finish; focused verification passed with the external temp-path fallback outside the sandbox
 
-## Prompt 6 - Slot Widget Alignment - Pending
+## Prompt 6 - Slot Widget Alignment - Completed
 
 ### Goal
 
@@ -487,6 +487,16 @@ Requirements:
 ### Required Outcome
 
 The existing slot-list widget and chat responses behave consistently with the MVP scheduling contract.
+
+- Changed
+  - aligned `scheduling_capability.py` availability presentation so generic quick-view requests keep the 3-day slot widget, typed specific-date requests return inline availability without forcing the widget, and broad-range requests narrow by date instead of dumping slots
+  - added config-owned `scheduling.contract_texts.broad_range_narrowing` text for tenant-controlled broad-range narrowing replies
+  - kept slot-click booking handoff on the current widget path and made the selected slot render back into the chat as a read-only slot widget while contact collection begins
+- Verified
+  - `tests/integration/test_availability_intent_gating.py` passed with external `TMP` / `TEMP` and external `--basetemp`
+  - `tests/integration/test_frontend_booking_ui.py` passed with external `TMP` / `TEMP` and external `--basetemp`
+- Blocked
+  - none
 
 ## Prompt 7 - Regression Coverage - Pending
 

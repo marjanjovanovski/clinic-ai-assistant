@@ -140,6 +140,9 @@
         "afternoon": ["afternoon"]
       }
     },
+    "contract_texts": {
+      "broad_range_narrowing": "There are available appointments in that period. Tell me which day works for you and I will show the exact slots."
+    },
     "providers": {
       "mock": {
         "seed": "generic-mock"

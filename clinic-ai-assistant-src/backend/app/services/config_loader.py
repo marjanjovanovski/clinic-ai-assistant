@@ -124,6 +124,20 @@ def _validate_string_term_map(section_name: str, payload, *, allowed_keys: set[s
                 raise TenantConfigError(f"{section_name}.{normalized_key}[{index}] must be a non-empty string")
 
 
+def _validate_optional_string_map(section_name: str, payload, *, allowed_keys: set[str] | None = None):
+    if payload is None:
+        return
+    mapping = _require_object(section_name, payload)
+    for key, value in mapping.items():
+        if not isinstance(key, str) or not key.strip():
+            raise TenantConfigError(f"{section_name} keys must be non-empty strings")
+        normalized_key = key.strip()
+        if allowed_keys is not None and normalized_key not in allowed_keys:
+            raise TenantConfigError(f"{section_name}.{normalized_key} is not a supported key")
+        if not isinstance(value, str) or not value.strip():
+            raise TenantConfigError(f"{section_name}.{normalized_key} must be a non-empty string")
+
+
 def _validate_scheduling_language_support(section_name: str, payload):
     if payload is None:
         return
@@ -211,6 +225,11 @@ def _validate_scheduling(profile: dict, tenant: str):
     _validate_scheduling_language_support(
         f"Profile '{tenant}'.scheduling.language_support",
         scheduling.get("language_support"),
+    )
+    _validate_optional_string_map(
+        f"Profile '{tenant}'.scheduling.contract_texts",
+        scheduling.get("contract_texts"),
+        allowed_keys={"broad_range_narrowing"},
     )
 
 

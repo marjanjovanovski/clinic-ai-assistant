@@ -2,6 +2,7 @@
 import importlib
 
 from fastapi.testclient import TestClient
+from app.services import scheduling_capability
 
 
 def _mock_profile_loader(real_loader):
@@ -97,7 +98,7 @@ def test_availability_intent_triggers_scheduling_without_starting_booking(monkey
 
     session_key = ai_agent._session_key("milena_dental", payload["session_id"])
     scheduling_state = ai_agent.SESSION_STATE[session_key]["scheduling"]
-    assert ai_agent.AVAILABILITY_INTENT_MARKER_KEY not in ai_agent.SESSION_STATE[session_key]
+    assert scheduling_capability.AVAILABILITY_INTENT_MARKER_KEY not in ai_agent.SESSION_STATE[session_key]
     assert scheduling_state["operation"] == "availability_lookup"
     assert scheduling_state["status"] == "completed"
     assert scheduling_state["output_payload"]["result"]["provider"] == "mock"
@@ -355,4 +356,64 @@ def test_collecting_contact_availability_request_reuses_scheduling_instead_of_sa
     assert state["next_field"] == "name"
     assert state["data"] == {}
     assert state["scheduling"]["operation"] == "availability_lookup"
-    assert ai_agent.AVAILABILITY_INTENT_MARKER_KEY not in state
+    assert scheduling_capability.AVAILABILITY_INTENT_MARKER_KEY not in state
+
+
+def test_typed_date_availability_replies_inline_without_slot_widget(monkeypatch, tmp_path):
+    client, ai_agent = _build_client(monkeypatch, tmp_path)
+
+    class SpecificDateOpenAI:
+        def __init__(self, api_key=None):
+            self.responses = self
+
+        def create(self, *args, **kwargs):
+            return FakeResponse(
+                '{"intent":"availability_lookup","service_id":"consultation","message":"inline-availability"}'
+            )
+
+    monkeypatch.setattr(ai_agent, "OpenAI", SpecificDateOpenAI)
+
+    response = client.post("/chat?tenant=milena_dental", json={"message": "check availability on 31.03.2026"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["session_status"] == "active"
+    assert payload["widget_payload"] is None
+    assert "09:00" in payload["reply"]
+    assert payload["inspector_payload"]["routing"]["last_response_type"] == "message"
+
+    session_key = ai_agent._session_key("milena_dental", payload["session_id"])
+    scheduling_state = ai_agent.SESSION_STATE[session_key]["scheduling"]
+    assert scheduling_state["output_payload"]["presentation"]["request_kind"] == "specific_day"
+    assert scheduling_state["output_payload"]["presentation"]["widget_mode"] == "suppress"
+    assert scheduling_state["booking_handoff_ready"] is False
+
+
+def test_broad_range_availability_narrows_without_dumping_slot_widget(monkeypatch, tmp_path):
+    client, ai_agent = _build_client(monkeypatch, tmp_path)
+
+    class BroadRangeOpenAI:
+        def __init__(self, api_key=None):
+            self.responses = self
+
+        def create(self, *args, **kwargs):
+            return FakeResponse(
+                '{"intent":"availability_lookup","service_id":"consultation","message":"range-availability"}'
+            )
+
+    monkeypatch.setattr(ai_agent, "OpenAI", BroadRangeOpenAI)
+
+    response = client.post("/chat?tenant=milena_dental", json={"message": "check availability sledna nedela"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["session_status"] == "active"
+    assert payload["widget_payload"] is None
+    assert "09:00" not in payload["reply"]
+    assert payload["inspector_payload"]["routing"]["last_response_type"] == "message"
+
+    session_key = ai_agent._session_key("milena_dental", payload["session_id"])
+    scheduling_state = ai_agent.SESSION_STATE[session_key]["scheduling"]
+    assert scheduling_state["output_payload"]["presentation"]["request_kind"] == "broad_range"
+    assert scheduling_state["output_payload"]["presentation"]["widget_mode"] == "suppress"
+    assert scheduling_state["booking_handoff_ready"] is False

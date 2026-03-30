@@ -127,7 +127,7 @@ def test_agent_page_mounts_slot_list_widget_from_chat_response(monkeypatch, tmp_
     assert 'const [primaryReply] = replyText.split(/\\n\\s*\\n/, 1);' in response.text
     assert 'function addResponseWidget(widgetPayload, options = {})' in response.text
     assert 'widgetPayload.type !== "slot-list"' in response.text
-    assert 'const { hideTitle = false } = options;' in response.text
+    assert 'const { hideTitle = false, readOnly = false } = options;' in response.text
     assert 'slotListWidget.disableAll();' in response.text
     assert 'const response = await fetch(SELECT_SLOT_URL, {' in response.text
     assert 'session_id: sessionId,' in response.text
@@ -138,11 +138,17 @@ def test_agent_page_mounts_slot_list_widget_from_chat_response(monkeypatch, tmp_
     assert 'slotListWidget.enableAll();' in response.text
     assert 'onSelect: (slot, slotListWidget) => handleSlotSelection(slot, widgetPayload, slotListWidget),' in response.text
     assert 'title: hideTitle ? null : (widgetPayload.title || "Изберете термин:")' in response.text
-    assert "readOnly: false," in response.text
+    assert "readOnly," in response.text
     assert 'const primaryReplyText = getPrimaryReplyText(data.reply, includeWidget ? data.widget_payload : null);' in response.text
     assert 'applyBackendConversationUpdate(data, {' in response.text
     assert 'includeWidget: true,' in response.text
     assert 'addResponseWidget(data.widget_payload, { hideTitle: Boolean(primaryReplyText) });' in response.text
+    assert 'includeSelectedSlot: true,' in response.text
+    assert 'addSelectedSlotWidget(data.selected_slot);' in response.text
+    assert 'function buildSelectedSlotWidgetPayload(selectedSlot)' in response.text
+    assert 'function addSelectedSlotWidget(selectedSlot)' in response.text
+    assert 'slots: [selectedSlot],' in response.text
+    assert 'readOnly: true,' in response.text
 
 
 def test_slot_list_widget_supports_read_only_mode(monkeypatch, tmp_path):
