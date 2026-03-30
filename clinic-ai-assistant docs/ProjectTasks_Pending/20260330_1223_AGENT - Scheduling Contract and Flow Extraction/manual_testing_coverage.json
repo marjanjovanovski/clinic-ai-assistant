@@ -1,0 +1,439 @@
+{
+  "task_name": "20260330_1223_AGENT - Scheduling Contract and Flow Extraction",
+  "task_file": "20260330_1223_AGENT - Scheduling Contract and Flow Extraction.md",
+  "status": "pending_manual_verification",
+  "manual_verification": {
+    "branch_merge_ready": false,
+    "general_comment": ""
+  },
+  "categories": [
+    {
+      "name": "Category 1 - Typed Date Scheduling",
+      "tests": [
+        {
+          "name": "Test 1.1 - Specific date with availability",
+          "purpose": "Confirm a typed specific date returns direct availability for that date before any widget-first redirection.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Open the chat surface for a tenant with scheduling enabled.",
+              "what_is_tested": "Baseline setup for typed-date availability checks.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Ask for availability on a concrete date that has available slots.",
+              "what_is_tested": "Specific typed-date scheduling request path.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Confirm the reply references that requested date directly.",
+              "what_is_tested": "Direct date answer behavior.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 4,
+              "action": "Confirm the user sees the available slots for that date in the reply or attached widget payload.",
+              "what_is_tested": "Availability payload for the requested specific date.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 5,
+              "action": "Confirm the system does not prematurely ask for booking details.",
+              "what_is_tested": "Scheduling-first behavior on typed-date requests.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 1.2 - Specific date without availability",
+          "purpose": "Confirm a typed specific date with no availability returns a truthful assessment and alternatives.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Ask for availability on a concrete date known to have no slots.",
+              "what_is_tested": "No-availability path for typed specific date.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Confirm the system states that the requested date has no available slots.",
+              "what_is_tested": "Truthful no-availability assessment.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Confirm the reply offers nearby dates, next availability, or a valid scheduling exploration path.",
+              "what_is_tested": "Recovery and alternative guidance after no availability.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 4,
+              "action": "Confirm the flow remains scheduling-focused and does not jump into booking.",
+              "what_is_tested": "No premature booking after no-availability result.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 2 - Broad And Relative Scheduling",
+      "tests": [
+        {
+          "name": "Test 2.1 - Broad range such as next week",
+          "purpose": "Confirm broad-range scheduling asks for narrowing rather than dumping too many results.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Ask for availability using a broad-range phrase such as next week.",
+              "what_is_tested": "Broad scheduling request handling.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Confirm the system interprets the request as scheduling intent.",
+              "what_is_tested": "Scheduling intent detection for broad-range language.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Confirm it either states that availability exists in that range or truthfully states none exists.",
+              "what_is_tested": "Range-level availability assessment.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 4,
+              "action": "Confirm it asks the user to narrow by date or gives a focused next-step prompt instead of flooding the chat with many slots.",
+              "what_is_tested": "Broad-range narrowing behavior.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 2.2 - Relative date and time window",
+          "purpose": "Confirm relative date and time-window concepts are resolved usefully.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Ask for something like tomorrow afternoon.",
+              "what_is_tested": "Relative date and time-window request path.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Confirm the system treats this as scheduling intent.",
+              "what_is_tested": "Intent detection for combined relative date and time window.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Confirm the system resolves the request into a concrete day or day-plus-time-window behavior.",
+              "what_is_tested": "Backend resolution of relative date and time-window concepts.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 4,
+              "action": "Confirm the reply returns filtered availability or asks one targeted clarification only if needed.",
+              "what_is_tested": "Low-friction response behavior for relative scheduling requests.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 3 - Reservation Intent Without Slot",
+      "tests": [
+        {
+          "name": "Test 3.1 - Reserve request before slot selection",
+          "purpose": "Confirm reservation language without a selected slot stays in scheduling-first behavior.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Ask to reserve or book an appointment without naming a slot.",
+              "what_is_tested": "Reservation intent without slot.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Confirm the system does not immediately ask for name, phone, or email.",
+              "what_is_tested": "No premature booking data collection.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Confirm the reply stays focused on finding a valid appointment time first.",
+              "what_is_tested": "Scheduling-first behavior after reservation language.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 4,
+              "action": "Confirm the system requests narrowing or returns scheduling options as appropriate.",
+              "what_is_tested": "Useful next-step behavior before slot selection.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 4 - Slot Selection And Booking Handoff",
+      "tests": [
+        {
+          "name": "Test 4.1 - Slot click enters booking directly",
+          "purpose": "Confirm slot selection triggers direct booking handoff for MVP.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Reach a state where a slot-list widget is shown.",
+              "what_is_tested": "Precondition for slot-selection handoff.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Click a slot.",
+              "what_is_tested": "Slot selection event.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Confirm the selected slot is clearly reflected in the next response.",
+              "what_is_tested": "Selected-slot carry into booking handoff.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 4,
+              "action": "Confirm booking starts immediately with the first required booking field.",
+              "what_is_tested": "Direct booking handoff after slot selection.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 5,
+              "action": "Confirm the user is able to change or back out from the selected slot path if needed.",
+              "what_is_tested": "Low-friction escape path while hold remains active.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 5 - Slot Conflict Recovery",
+      "tests": [
+        {
+          "name": "Test 5.1 - Selected slot becomes unavailable",
+          "purpose": "Confirm lost-slot behavior remains inside scheduling recovery.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Simulate or reproduce a slot-unavailable path after slot selection.",
+              "what_is_tested": "Lost-slot entry into recovery.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Confirm the system clearly explains that the chosen slot is no longer available.",
+              "what_is_tested": "Conflict explanation.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Confirm the reply offers replacement slots or refreshed availability.",
+              "what_is_tested": "Recovery output after slot conflict.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 4,
+              "action": "Confirm the user is not forced to restart the whole conversation from scratch.",
+              "what_is_tested": "Context preservation during slot-conflict recovery.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 6 - Language-Aware Scheduling Intent",
+      "tests": [
+        {
+          "name": "Test 6.1 - Macedonian scheduling concepts",
+          "purpose": "Confirm scheduling-related concepts work under Macedonian tenant language context.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Use a tenant configured for Macedonian.",
+              "what_is_tested": "Language-context precondition for Macedonian scheduling intent.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Ask for availability using Macedonian scheduling concepts such as a weekday, time window, or relative period.",
+              "what_is_tested": "Macedonian scheduling concepts.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Confirm the system interprets the message as scheduling intent.",
+              "what_is_tested": "Intent detection under Macedonian language context.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 4,
+              "action": "Confirm the returned behavior follows the same scheduling contract as the English flow.",
+              "what_is_tested": "Contract consistency across tenant language contexts.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 6.2 - English scheduling concepts",
+          "purpose": "Confirm scheduling-related concepts work under English tenant language context.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Use a tenant configured for English.",
+              "what_is_tested": "Language-context precondition for English scheduling intent.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Ask for availability using English scheduling concepts such as Tuesday, afternoon, or next week.",
+              "what_is_tested": "English scheduling concepts.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Confirm the system interprets the message as scheduling intent.",
+              "what_is_tested": "Intent detection under English language context.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 4,
+              "action": "Confirm the returned behavior follows the same scheduling contract as the non-English flow.",
+              "what_is_tested": "Contract consistency across language contexts.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 7 - No Regression In Non-Scheduling Chat",
+      "tests": [
+        {
+          "name": "Test 7.1 - Catalog and business overview still behave correctly",
+          "purpose": "Confirm scheduling extraction does not break non-scheduling flows.",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Ask for service list or business overview content.",
+              "what_is_tested": "Non-scheduling flow entry after extraction.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 2,
+              "action": "Confirm the reply stays in the correct non-scheduling flow.",
+              "what_is_tested": "No regression in catalog/business overview routing.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "step": 3,
+              "action": "Confirm the system does not incorrectly inject scheduling behavior.",
+              "what_is_tested": "Scheduling extraction isolation from unrelated chat flows.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "not_run": 39,
+    "pass": 0,
+    "fail": 0
+  }
+}

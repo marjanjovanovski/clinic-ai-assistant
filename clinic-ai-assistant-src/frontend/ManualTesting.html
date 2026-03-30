@@ -707,6 +707,39 @@
       return summary;
     }
 
+    function countTestsFromCoverage(coverage) {
+      const categories = Array.isArray(coverage?.categories) ? coverage.categories : [];
+      let totalTests = 0;
+      for (const category of categories) {
+        const tests = Array.isArray(category?.tests) ? category.tests : [];
+        totalTests += tests.length;
+      }
+      return totalTests;
+    }
+
+    function countRowsFromCoverage(coverage) {
+      const categories = Array.isArray(coverage?.categories) ? coverage.categories : [];
+      let totalRows = 0;
+      for (const category of categories) {
+        const tests = Array.isArray(category?.tests) ? category.tests : [];
+        for (const test of tests) {
+          const rows = Array.isArray(test?.rows) ? test.rows : [];
+          totalRows += rows.length;
+        }
+      }
+      return totalRows;
+    }
+
+    function taskTitleWithTestCount(task, coverage) {
+      const baseTitle = coverage?.task_name || task?.task_name || "Manual Verification Rows";
+      return `${baseTitle} - Total Tests = ${countTestsFromCoverage(coverage)}`;
+    }
+
+    function taskSubtitleWithRowCount(task, coverage) {
+      const baseSubtitle = coverage?.task_file || task?.task_file || "Select a task to load its coverage rows.";
+      return `${baseSubtitle} - Total Rows = ${countRowsFromCoverage(coverage)}`;
+    }
+
     function mergeReadinessLabel(summary) {
       if ((summary.fail ?? 0) > 0) return "Blocked";
       if ((summary.not_run ?? 0) > 0) return "In Review";
@@ -820,8 +853,8 @@
 
       if (!rows.length) {
         renderMessageRow(`No rows match the selected status filter: ${selectedStatusFilter}.`);
-        tableTitle.textContent = coverage.task_name || task.task_name;
-        tableSubtitle.textContent = coverage.task_file || task.task_file;
+        tableTitle.textContent = taskTitleWithTestCount(task, coverage);
+        tableSubtitle.textContent = taskSubtitleWithRowCount(task, coverage);
         branchMergeReadyInput.checked = Boolean(coverage?.manual_verification?.branch_merge_ready);
         generalCommentInput.value = String(coverage?.manual_verification?.general_comment ?? "");
         refreshSummaryState();
@@ -830,8 +863,8 @@
       }
 
       coverageTableBody.innerHTML = rows.join("");
-      tableTitle.textContent = coverage.task_name || task.task_name;
-      tableSubtitle.textContent = coverage.task_file || task.task_file;
+      tableTitle.textContent = taskTitleWithTestCount(task, coverage);
+      tableSubtitle.textContent = taskSubtitleWithRowCount(task, coverage);
       branchMergeReadyInput.checked = Boolean(coverage?.manual_verification?.branch_merge_ready);
       generalCommentInput.value = String(coverage?.manual_verification?.general_comment ?? "");
       bindRowInputs();
@@ -1006,7 +1039,7 @@
       }
 
       if (!selectedTask.coverage_available) {
-        tableTitle.textContent = selectedTask.task_name;
+        tableTitle.textContent = taskTitleWithTestCount(selectedTask, selectedCoverage);
         tableSubtitle.textContent = selectedTask.task_file;
         branchMergeReadyInput.checked = false;
         generalCommentInput.value = "";
