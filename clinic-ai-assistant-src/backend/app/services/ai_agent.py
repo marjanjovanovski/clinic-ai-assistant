@@ -2227,6 +2227,29 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             )
 
             if intent == "confirm_booking" and allow_booking and not availability_intent_requested:
+                if allow_scheduling_first:
+                    scheduling_first_reply = scheduling_capability.pending_availability_reply(state)
+                    if scheduling_first_reply:
+                        _log_chat_state(
+                            message=message,
+                            session_id=session_id,
+                            intent=intent,
+                            stage_before=stage_before,
+                            stage_after=stage_before,
+                        )
+                        final_reply = _finalize_reply(
+                            tenant=tenant,
+                            session_id=session_id,
+                            session_key=session_key,
+                            message=message,
+                            reply=scheduling_first_reply,
+                            response_type="message",
+                            services=services,
+                            profile=profile,
+                            stage_after=stage_before,
+                        )
+                        return final_reply, session_id
+
                 reply, session_id = booking_credentials.start_collecting_contact(
                     tenant=tenant,
                     session_id=session_id,

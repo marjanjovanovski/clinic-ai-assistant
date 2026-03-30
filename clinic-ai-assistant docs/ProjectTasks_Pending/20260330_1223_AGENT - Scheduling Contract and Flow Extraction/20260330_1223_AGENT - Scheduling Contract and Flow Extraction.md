@@ -47,7 +47,7 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 6`
+- `Prompt 7`
 
 ## Global Status Summary
 
@@ -57,7 +57,7 @@ Status values allowed in this document:
 - Prompt 4 - Scheduling Extraction Integration - Completed
 - Prompt 5 - Config And Language Support - Completed
 - Prompt 6 - Slot Widget Alignment - Completed
-- Prompt 7 - Regression Coverage - Pending
+- Prompt 7 - Regression Coverage - Completed
 - Prompt 8 - Technical Verification - Pending
 - Prompt 9 - Manual Testing - Pending
 - Prompt 10 - Merge To Main - Pending
@@ -498,7 +498,7 @@ The existing slot-list widget and chat responses behave consistently with the MV
 - Blocked
   - none
 
-## Prompt 7 - Regression Coverage - Pending
+## Prompt 7 - Regression Coverage - Completed
 
 ### Goal
 
@@ -526,6 +526,17 @@ Requirements:
 ### Required Outcome
 
 The new scheduling contract is protected by focused, high-signal automated coverage.
+
+- Changed
+  - expanded scheduling regression coverage around Prompt 6 behavior in `test_availability_intent_gating.py`, `test_scheduling_capability.py`, and `test_config_loader.py`
+  - added protection for typed dotted-date handling, broad-range narrowing replies, config-owned contract text validation, and the scheduling-first rule that booking confirmation must not start contact collection before a slot is actually selected
+  - tightened `ai_agent.py` confirm-booking gating to reuse the active scheduling reply when availability exists but no slot handoff is ready
+- Verified
+  - `tests/unit/test_scheduling_capability.py` passed
+  - `tests/unit/test_config_loader.py` passed with the outside-sandbox `LocalAppData\\Temp` fallback after the known Windows temp cleanup/access issue blocked the sandboxed run
+  - `tests/integration/test_availability_intent_gating.py` passed with the outside-sandbox `LocalAppData\\Temp` fallback after the known Windows temp cleanup/access issue blocked the sandboxed run
+- Blocked
+  - initial sandboxed pytest runs for `test_config_loader.py` and `test_availability_intent_gating.py` hit the known Windows temp cleanup/access issue during pytest session finish; verification completed with the approved external-temp fallback
 
 ## Prompt 8 - Technical Verification - Pending
 

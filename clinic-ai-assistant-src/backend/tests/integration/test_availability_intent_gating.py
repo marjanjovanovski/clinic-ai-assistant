@@ -417,3 +417,49 @@ def test_broad_range_availability_narrows_without_dumping_slot_widget(monkeypatc
     assert scheduling_state["output_payload"]["presentation"]["request_kind"] == "broad_range"
     assert scheduling_state["output_payload"]["presentation"]["widget_mode"] == "suppress"
     assert scheduling_state["booking_handoff_ready"] is False
+
+
+def test_booking_confirmation_after_inline_specific_day_availability_does_not_start_booking(monkeypatch, tmp_path):
+    client, ai_agent = _build_client(monkeypatch, tmp_path)
+
+    class InlineSpecificDateOpenAI:
+        def __init__(self, api_key=None):
+            self.responses = self
+
+        def create(self, *args, **kwargs):
+            message = kwargs["input"][-1]["content"]
+            if message == "check availability on 31.03.2026":
+                return FakeResponse(
+                    '{"intent":"availability_lookup","service_id":"consultation","message":"inline-availability"}'
+                )
+            if message == "da":
+                return FakeResponse(
+                    '{"intent":"confirm_booking","service_id":"consultation","message":"booking-confirmed"}'
+                )
+            return FakeResponse(
+                '{"intent":"fallback","service_id":"unknown","message":"fallback"}'
+            )
+
+    monkeypatch.setattr(ai_agent, "OpenAI", InlineSpecificDateOpenAI)
+
+    first = client.post("/chat?tenant=milena_dental", json={"message": "check availability on 31.03.2026"})
+    assert first.status_code == 200
+    first_payload = first.json()
+    assert first_payload["widget_payload"] is None
+
+    second = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "da", "session_id": first_payload["session_id"]},
+    )
+
+    assert second.status_code == 200
+    second_payload = second.json()
+    assert second_payload["session_status"] == "active"
+    assert second_payload["booking_progress"] is None
+    assert second_payload["widget_payload"] is None
+    assert second_payload["inspector_payload"]["routing"]["last_response_type"] == "message"
+
+    session_key = ai_agent._session_key("milena_dental", first_payload["session_id"])
+    state = ai_agent.SESSION_STATE[session_key]
+    assert state["scheduling"]["booking_handoff_ready"] is False
+    assert state.get("stage") != "collecting_contact"

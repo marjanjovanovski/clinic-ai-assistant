@@ -251,6 +251,25 @@ def scheduling_handoff_ready(state: dict | None) -> bool:
     return bool(isinstance(scheduling_state, dict) and scheduling_state.get("booking_handoff_ready"))
 
 
+def pending_availability_reply(state: dict | None) -> str | None:
+    if not isinstance(state, dict):
+        return None
+
+    scheduling_state = state.get("scheduling")
+    if not isinstance(scheduling_state, dict):
+        return None
+    if scheduling_state.get("operation") != OPERATION_AVAILABILITY:
+        return None
+    if scheduling_state.get("status") != "completed":
+        return None
+    if scheduling_state.get("booking_handoff_ready"):
+        return None
+
+    output_payload = scheduling_state.get("output_payload")
+    reply_text = output_payload.get("reply_text") if isinstance(output_payload, dict) else None
+    return reply_text.strip() if isinstance(reply_text, str) and reply_text.strip() else None
+
+
 def scheduling_handoff_payload(state: dict | None) -> dict | None:
     if not isinstance(state, dict):
         return None
