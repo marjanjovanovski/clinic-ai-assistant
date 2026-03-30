@@ -47,14 +47,14 @@ Status values allowed in this document:
 
 ## Current Active Prompt
 
-- `Prompt 3`
+- `Prompt 4`
 
 ## Global Status Summary
 
 - Prompt 1 - Scheduling Contract Lock - Completed
 - Prompt 2 - Scheduling Service Boundary - Completed
 - Prompt 3 - Scheduling Extraction Core - Completed
-- Prompt 4 - Scheduling Extraction Integration - Pending
+- Prompt 4 - Scheduling Extraction Integration - Completed
 - Prompt 5 - Config And Language Support - Pending
 - Prompt 6 - Slot Widget Alignment - Pending
 - Prompt 7 - Regression Coverage - Pending
@@ -396,7 +396,7 @@ Requirements:
 - Blocked
   - none
 
-## Prompt 4 - Scheduling Extraction Integration - Pending
+## Prompt 4 - Scheduling Extraction Integration - Completed
 
 ### Goal
 
@@ -416,6 +416,18 @@ Requirements:
 ### Required Outcome
 
 The extracted scheduling boundary now covers core assessment plus handoff/recovery integration without duplicating existing recovery logic.
+
+### Completion Note
+
+- Changed
+  - kept slot-selected handoff preparation in `scheduling_capability.prepare_selected_slot_handoff()` and moved the remaining handoff/recovery response payload assembly behind `scheduling_capability.handoff_response_payload()`
+  - trimmed `ai_agent.py` handoff completion and collect-contact branches so they reuse scheduling-owned selected-slot, hold, next-action, and recovery widget shaping instead of assembling those payloads inline
+  - restored the missing `create_slot_hold` route import in `routes/scheduling.py` and aligned the scheduling API integration test with the extracted tracing ownership
+- Verified
+  - `tests/unit/test_scheduling_capability.py` passed
+  - `tests/integration/test_scheduling_api.py` passed
+- Blocked
+  - none
 
 ## Prompt 5 - Config And Language Support - Pending
 

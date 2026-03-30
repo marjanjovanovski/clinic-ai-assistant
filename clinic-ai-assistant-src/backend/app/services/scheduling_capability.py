@@ -916,6 +916,30 @@ def slot_conflict_widget_payload(
     }
 
 
+def handoff_response_payload(
+    scheduling_handoff: dict | None,
+    *,
+    booking_result: dict | None = None,
+    fallback_service_id: str | None = None,
+    next_action: str,
+) -> dict:
+    handoff = scheduling_handoff if isinstance(scheduling_handoff, dict) else {}
+    resolved_next_action = next_action
+    widget_payload = slot_conflict_widget_payload(
+        booking_result,
+        fallback_service_id=fallback_service_id,
+    )
+    if isinstance(booking_result, dict) and booking_result.get("status") == "slot_unavailable":
+        resolved_next_action = SLOT_CONFLICT_NEXT_ACTION
+
+    return {
+        "selected_slot": handoff.get("selected_slot") if isinstance(handoff.get("selected_slot"), dict) else None,
+        "hold": handoff.get("hold") if isinstance(handoff.get("hold"), dict) else None,
+        "widget_payload": widget_payload,
+        "next_action": resolved_next_action,
+    }
+
+
 def _trace_scheduling_decision(
     tenant: str,
     session_id: str | None,

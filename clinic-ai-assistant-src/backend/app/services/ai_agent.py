@@ -1435,10 +1435,12 @@ def _runtime_response_type(response_payload: dict | None, session_status: str | 
 def _replacement_slot_widget_payload(runtime_state: dict | None) -> dict | None:
     booking_result = runtime_state.get("booking_result") if isinstance(runtime_state, dict) else None
     fallback_service_id = runtime_state.get("service_id") if isinstance(runtime_state, dict) else None
-    return scheduling_capability.slot_conflict_widget_payload(
-        booking_result,
+    return scheduling_capability.handoff_response_payload(
+        None,
+        booking_result=booking_result,
         fallback_service_id=fallback_service_id if isinstance(fallback_service_id, str) else None,
-    )
+        next_action="message",
+    ).get("widget_payload")
 
 
 def build_runtime_inspector_payload(
@@ -1561,29 +1563,23 @@ def start_contact_collection_from_scheduling_handoff(
             confirmation_message = booking_result.get("confirmation_message")
             if isinstance(confirmation_message, str) and confirmation_message.strip():
                 reply = confirmation_message.strip()
-        widget_payload = _replacement_slot_widget_payload(runtime_state)
-        next_action = "booking_completed"
-        if isinstance(booking_result, dict) and booking_result.get("status") == "slot_unavailable":
-            next_action = "refresh_availability"
+        response_payload = scheduling_capability.handoff_response_payload(
+            scheduling_handoff,
+            booking_result=booking_result,
+            fallback_service_id=service_id if isinstance(service_id, str) else None,
+            next_action="booking_completed",
+        )
 
         return {
             "reply": reply,
             "session_id": session_id,
             "session_status": session_status,
             "booking_progress": booking_progress,
-            "selected_slot": scheduling_handoff.get("selected_slot"),
-            "hold": scheduling_handoff.get("hold"),
-            "widget_payload": widget_payload,
-            "next_action": next_action,
+            **response_payload,
             "inspector_payload": build_runtime_inspector_payload(
                 tenant,
                 session_id,
-                response_payload={
-                    "selected_slot": scheduling_handoff.get("selected_slot"),
-                    "hold": scheduling_handoff.get("hold"),
-                    "widget_payload": widget_payload,
-                    "next_action": next_action,
-                },
+                response_payload=response_payload,
                 session_status=session_status,
                 booking_progress=booking_progress,
                 state=runtime_state,
@@ -1602,23 +1598,22 @@ def start_contact_collection_from_scheduling_handoff(
     session_status = get_session_status(tenant, session_id)
     booking_progress = get_booking_progress(tenant, session_id)
     runtime_state = get_runtime_session_state(tenant, session_id)
+    response_payload = scheduling_capability.handoff_response_payload(
+        scheduling_handoff,
+        fallback_service_id=service_id if isinstance(service_id, str) else None,
+        next_action="collect_contact",
+    )
 
     return {
         "reply": reply,
         "session_id": session_id,
         "session_status": session_status,
         "booking_progress": booking_progress,
-        "selected_slot": scheduling_handoff.get("selected_slot"),
-        "hold": scheduling_handoff.get("hold"),
-        "next_action": "collect_contact",
+        **response_payload,
         "inspector_payload": build_runtime_inspector_payload(
             tenant,
             session_id,
-            response_payload={
-                "selected_slot": scheduling_handoff.get("selected_slot"),
-                "hold": scheduling_handoff.get("hold"),
-                "next_action": "collect_contact",
-            },
+            response_payload=response_payload,
             session_status=session_status,
             booking_progress=booking_progress,
             state=runtime_state,

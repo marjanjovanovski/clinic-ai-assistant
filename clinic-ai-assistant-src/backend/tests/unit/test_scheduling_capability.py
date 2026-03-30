@@ -859,3 +859,55 @@ def test_selected_slot_handoff_payload_rejects_slot_not_in_active_result():
         assert "Selected slot is not part of the active availability result" in str(exc)
     else:
         raise AssertionError("Expected selected_slot_handoff_payload to reject an unknown slot_id")
+
+
+def test_handoff_response_payload_preserves_selected_slot_and_hold_for_contact_collection():
+    response_payload = scheduling_capability.handoff_response_payload(
+        {
+            "selected_slot": {"slot_id": "mock|slot-2"},
+            "hold": {"hold_id": "hold-1"},
+        },
+        fallback_service_id="consultation",
+        next_action="collect_contact",
+    )
+
+    assert response_payload == {
+        "selected_slot": {"slot_id": "mock|slot-2"},
+        "hold": {"hold_id": "hold-1"},
+        "widget_payload": None,
+        "next_action": "collect_contact",
+    }
+
+
+def test_handoff_response_payload_reuses_conflict_widget_and_refresh_action():
+    response_payload = scheduling_capability.handoff_response_payload(
+        {
+            "selected_slot": {"slot_id": "mock|slot-1"},
+            "hold": {"hold_id": "hold-1"},
+        },
+        booking_result={
+            "status": "slot_unavailable",
+            "provider": "mock",
+            "confirmation_message": "The selected slot is no longer available.",
+            "source_payload": {
+                "service_id": "consultation",
+                "fallback_date": "2026-03-23",
+                "selected_slot": {
+                    "slot_id": "mock|slot-1",
+                    "timezone": "Europe/Skopje",
+                },
+                "replacement_slots": [
+                    {"slot_id": "mock|slot-2"},
+                    {"slot_id": "mock|slot-3"},
+                ],
+            },
+        },
+        fallback_service_id="consultation",
+        next_action="booking_completed",
+    )
+
+    assert response_payload["selected_slot"]["slot_id"] == "mock|slot-1"
+    assert response_payload["hold"]["hold_id"] == "hold-1"
+    assert response_payload["next_action"] == "refresh_availability"
+    assert response_payload["widget_payload"]["type"] == "slot-list"
+    assert len(response_payload["widget_payload"]["slots"]) == 2

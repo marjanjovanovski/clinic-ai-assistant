@@ -12,6 +12,7 @@ from app.services.scheduling.service import (
     get_availability,
     get_scheduling_public_config,
 )
+from app.services.scheduling_hold_store import create_slot_hold
 from app.services.scheduling_capability import (
     SchedulingSlotConflictError,
     book_selected_slot,
