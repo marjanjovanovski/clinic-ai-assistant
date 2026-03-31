@@ -60,7 +60,7 @@ The purpose of this fix follow-up is to:
 - Prompt 4 - Scheduling Recovery And Booking Boundaries - Completed
 - Prompt 5 - Slot Handoff And Display Integrity - Completed
 - Prompt 6 - Regression Coverage - Completed
-- Prompt 7 - Technical Verification - Pending
+- Prompt 7 - Technical Verification - Blocked
 - Prompt 8 - Manual Testing - Pending
 - Prompt 9 - Merge To Main - Pending
 
@@ -432,7 +432,7 @@ The new behavior is locked by focused tests instead of depending only on manual 
 - Blocked
   - none
 
-## Prompt 7 - Technical Verification - Pending
+## Prompt 7 - Technical Verification - Blocked
 
 ### Goal
 
@@ -446,9 +446,14 @@ Run the smallest focused technical verification set that proves the fix prompts 
 
 ### Completion Notes
 
-- `Changed`
-- `Verified`
-- `Blocked`
+- Changed
+  - none
+- Verified
+  - focused scheduling unit verification passed with external `TMP` / `TEMP` and external `--basetemp`: `test_language_aware_hints_resolve_explicit_dotted_date_without_losing_it_to_normalization`, `test_language_aware_hints_resolve_two_weeks_from_now_from_config`, `test_execute_scheduling_turn_returns_widget_and_handoff_for_specific_day_answers`, `test_availability_presentation_plan_distinguishes_specific_day_and_broad_range_requests`, `test_no_availability_state_exposes_followup_reply_without_booking_handoff`, and `test_selected_slot_handoff_reply_text_uses_authoritative_slot_label_and_change_hint`
+  - focused frontend widget-contract verification passed with external `TMP` / `TEMP` and external `--basetemp`: full [test_frontend_booking_ui.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/tests/integration/test_frontend_booking_ui.py)
+- Blocked
+  - focused availability integration verification could not complete because pytest repeatedly failed on external `--basetemp` setup/cleanup with `PermissionError: [WinError 5] Access is denied` for both `F:\temp\clinic-ai-assistant\pytest-availability-widget-contract` and `F:\IT Projects\clinic-ai-assistant\clinic-ai-assistant-src\project_ops\_verify_tmp\pytest-prompt7-integration`
+  - running the full [test_availability_intent_gating.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py) file on the known-good basetemp also exposed a legacy assertion in `test_availability_intent_triggers_scheduling_without_starting_booking` that still expects inline plain-text times, which conflicts with the current widget-first scheduling contract and needs follow-up outside this prompt before using the full file as a green verification gate
 
 ## Prompt 8 - Manual Testing - Pending
 
