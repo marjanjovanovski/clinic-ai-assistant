@@ -45,6 +45,7 @@ Rules:
 - the markdown file remains the workflow authority
 - `manual_testing_coverage.json` is a companion tracker, not a replacement for the markdown file
 - reference files in JSON should be plain typed filenames only
+- if JSON is used for manual testing, each row must include a stable positive integer `row_id` unique within that JSON file
 
 ## Completed Task Archive Convention
 
@@ -160,12 +161,19 @@ Use one consistent pattern:
 - `summary`
 
 Row fields should stay stable:
+- `row_id`
 - `step`
 - `action`
 - `what_is_tested`
 - `status`
 - `comment`
 - `reference_files`
+
+`row_id` rule:
+- use a persistent positive integer unique within the JSON file
+- keep `row_id` stable when statuses or comments change
+- add new rows with new IDs; do not renumber existing IDs during edits or fix follow-ups inside that same JSON file
+- use `step` for human-readable step order, not as the durable row identity
 
 Task-level manual verification fields may include:
 - `branch_merge_ready`

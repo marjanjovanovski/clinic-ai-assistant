@@ -388,6 +388,17 @@
       color: #27405f;
     }
 
+    .col-row-id {
+      width: 48px;
+      min-width: 48px;
+      max-width: 48px;
+      text-align: center;
+      white-space: nowrap;
+      font-weight: 700;
+      color: #27405f;
+      font-variant-numeric: tabular-nums;
+    }
+
     .badge {
       display: inline-flex;
       align-items: center;
@@ -597,6 +608,7 @@
         <table>
           <thead>
             <tr>
+              <th class="col-row-id">ID</th>
               <th>Category</th>
               <th>Test</th>
               <th>Step</th>
@@ -609,7 +621,7 @@
           </thead>
           <tbody id="coverageTableBody">
             <tr>
-              <td colspan="8" class="empty-state">Loading manual verification tasks...</td>
+              <td colspan="9" class="empty-state">Loading manual verification tasks...</td>
             </tr>
           </tbody>
         </table>
@@ -785,7 +797,7 @@
     function renderMessageRow(message, cssClass = "empty-state") {
       coverageTableBody.innerHTML = `
         <tr>
-          <td colspan="8" class="${cssClass}">${escapeHtml(message)}</td>
+          <td colspan="9" class="${cssClass}">${escapeHtml(message)}</td>
         </tr>
       `;
     }
@@ -810,6 +822,7 @@
             }
             rows.push(`
               <tr>
+                <td class="col-row-id">${escapeHtml(row?.row_id ?? "")}</td>
                 <td class="col-category">${escapeHtml(categoryName)}</td>
                 <td class="col-test">${escapeHtml(testName)}</td>
                 <td class="col-step">${escapeHtml(row?.step ?? "")}</td>
@@ -820,7 +833,7 @@
                     class="${statusSelectClass(row?.status)}"
                     data-category="${escapeHtml(categoryName)}"
                     data-test="${escapeHtml(testName)}"
-                    data-step="${escapeHtml(row?.step ?? "")}"
+                    data-row-id="${escapeHtml(row?.row_id ?? "")}"
                   >
                     <option value="Not Run" ${row?.status === "Not Run" ? "selected" : ""}>Not Run</option>
                     <option value="Pass" ${row?.status === "Pass" ? "selected" : ""}>Pass</option>
@@ -833,7 +846,7 @@
                     data-field="comment"
                     data-category="${escapeHtml(categoryName)}"
                     data-test="${escapeHtml(testName)}"
-                    data-step="${escapeHtml(row?.step ?? "")}"
+                    data-row-id="${escapeHtml(row?.row_id ?? "")}"
                   >${escapeHtml(row?.comment ?? "")}</textarea>
                 </td>
                 <td class="col-reference">
@@ -842,7 +855,7 @@
                     data-field="reference_files"
                     data-category="${escapeHtml(categoryName)}"
                     data-test="${escapeHtml(testName)}"
-                    data-step="${escapeHtml(row?.step ?? "")}"
+                    data-row-id="${escapeHtml(row?.row_id ?? "")}"
                   >${escapeHtml(row?.reference_files ?? "")}</textarea>
                 </td>
               </tr>
@@ -872,7 +885,7 @@
       updateSaveState();
     }
 
-    function findCoverageRow(categoryName, testName, stepValue) {
+    function findCoverageRow(categoryName, testName, rowIdValue) {
       const categories = Array.isArray(selectedCoverage?.categories) ? selectedCoverage.categories : [];
       for (const category of categories) {
         if ((category?.name ?? "") !== categoryName) continue;
@@ -881,7 +894,7 @@
           if ((test?.name ?? "") !== testName) continue;
           const rows = Array.isArray(test?.rows) ? test.rows : [];
           for (const row of rows) {
-            if (String(row?.step ?? "") === stepValue) {
+            if (String(row?.row_id ?? "") === rowIdValue) {
               return row;
             }
           }
@@ -902,7 +915,7 @@
           const row = findCoverageRow(
             event.target.dataset.category,
             event.target.dataset.test,
-            event.target.dataset.step
+            event.target.dataset.rowId
           );
           if (!row) return;
           row.status = event.target.value;
@@ -916,7 +929,7 @@
           const row = findCoverageRow(
             event.target.dataset.category,
             event.target.dataset.test,
-            event.target.dataset.step
+            event.target.dataset.rowId
           );
           if (!row) return;
           row[event.target.dataset.field] = event.target.value;

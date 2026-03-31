@@ -280,6 +280,58 @@ def _validate_row(row: dict, *, category_name: str, test_name: str, row_index: i
         raise ManualVerificationCoverageInvalid(
             f"Row {row_index} in '{category_name} / {test_name}' must define 'step' as int or string"
         )
+    row_id = row.get("row_id")
+    if row_id is not None and (not isinstance(row_id, int) or row_id < 1):
+        raise ManualVerificationCoverageInvalid(
+            f"Row {row_index} in '{category_name} / {test_name}' has invalid 'row_id'; expected positive integer"
+        )
+
+
+def _ensure_row_ids(payload: dict) -> dict:
+    categories = payload.get("categories")
+    if not isinstance(categories, list):
+        return payload
+
+    existing_row_ids: set[int] = set()
+    for category in categories:
+        tests = category.get("tests")
+        if not isinstance(tests, list):
+            continue
+        for test in tests:
+            rows = test.get("rows")
+            if not isinstance(rows, list):
+                continue
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                row_id = row.get("row_id")
+                if isinstance(row_id, int) and row_id > 0 and row_id not in existing_row_ids:
+                    existing_row_ids.add(row_id)
+
+    next_row_id = 1
+    assigned_row_ids: set[int] = set()
+    for category in categories:
+        tests = category.get("tests")
+        if not isinstance(tests, list):
+            continue
+        for test in tests:
+            rows = test.get("rows")
+            if not isinstance(rows, list):
+                continue
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                row_id = row.get("row_id")
+                if isinstance(row_id, int) and row_id > 0 and row_id not in assigned_row_ids:
+                    assigned_row_ids.add(row_id)
+                    continue
+
+                while next_row_id in existing_row_ids or next_row_id in assigned_row_ids:
+                    next_row_id += 1
+                row["row_id"] = next_row_id
+                assigned_row_ids.add(next_row_id)
+                next_row_id += 1
+    return payload
 
 
 def _validate_coverage_payload(payload: dict) -> dict:
@@ -306,6 +358,8 @@ def _validate_coverage_payload(payload: dict) -> dict:
     categories = payload.get("categories")
     if not isinstance(categories, list):
         raise ManualVerificationCoverageInvalid("Coverage payload must contain a 'categories' list")
+    payload = _ensure_row_ids(payload)
+    categories = payload["categories"]
 
     not_run = 0
     passed = 0

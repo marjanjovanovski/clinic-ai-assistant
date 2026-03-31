@@ -46,6 +46,8 @@ For this machine, if sandboxed or `F:\\temp`-based test execution hits temp or S
 - use `manual_testing_coverage.json` only when it materially simplifies repeated manual testing, retesting, or fix follow-up work
 - the markdown file should keep the readable overview
 - JSON should hold row-level status, comments, reference filenames, general comment, and branch merge readiness
+- every manual-testing row in JSON should carry a stable positive integer `row_id` unique within that JSON file
+- `row_id` exists to support precise reviewer references across save cycles, retests, and fix follow-ups, so do not key row identity off `step` alone
 - new optional JSON fields must default safely so older task JSON does not break
 
 ## Fix Follow-Ups

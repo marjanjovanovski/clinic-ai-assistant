@@ -941,9 +941,15 @@ def _booking_guidance_reply(
         "missing_digits": missing_digits,
         "service_id": state.get("service_id") if isinstance(state, dict) else None,
     }
+    business_language = str(profile.get("business", {}).get("language", "")).strip().lower()
+    language_instruction = (
+        "Always reply in English. "
+        if business_language == "en"
+        else "Always reply in Macedonian Cyrillic. "
+    )
     system_prompt = (
         f"You are writing a short booking-guidance reply for {business_name}. "
-        "Always reply in Macedonian Cyrillic. "
+        f"{language_instruction}"
         "The backend already knows which contact field is being collected; do not change the field. "
         "Answer the user's clarification or guide the retry naturally in 1-2 sentences. "
         "Keep the tone warm and direct, avoid diagnosis, avoid markdown, and end by guiding the user back to the same field."

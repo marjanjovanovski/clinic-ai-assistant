@@ -332,6 +332,7 @@ def test_dashboard_loads_folder_task_coverage(monkeypatch, tmp_path):
     assert payload["coverage"]["summary"] == {"not_run": 2, "pass": 0, "fail": 0}
     assert payload["coverage"]["manual_verification"] == {"branch_merge_ready": False, "general_comment": ""}
     rows = payload["coverage"]["categories"][0]["tests"][0]["rows"]
+    assert [row["row_id"] for row in rows] == [1, 2]
     assert rows[1]["reference_files"] == "proof-a.png, proof-b.pdf"
 
 
@@ -391,6 +392,7 @@ def test_dashboard_save_recomputes_summary_and_persists(monkeypatch, tmp_path):
     persisted = json.loads(coverage_path.read_text(encoding="utf-8"))
     assert persisted["summary"] == {"not_run": 0, "pass": 1, "fail": 1}
     assert persisted["manual_verification"] == {"branch_merge_ready": True, "general_comment": "Overall follow-up note"}
+    assert [row["row_id"] for row in persisted["categories"][0]["tests"][0]["rows"]] == [1, 2]
     assert persisted["categories"][0]["tests"][0]["rows"][1]["comment"] == "Summary badge mismatch"
 
 
@@ -468,6 +470,8 @@ def test_dashboard_html_applies_fix01_layout_and_filter_contract(monkeypatch, tm
     assert 'Archive unlocks after Merge To Main is completed' in response.text
     assert '.col-comment {' in response.text
     assert '.col-reference {' in response.text
+    assert '<th class="col-row-id">ID</th>' in response.text
+    assert 'data-row-id="${escapeHtml(row?.row_id ?? "")}"' in response.text
     assert 'status-select--pass' in response.text
     assert 'status-select--fail' in response.text
     assert 'status-select--not-run' in response.text

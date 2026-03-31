@@ -4,7 +4,7 @@
   "status": "pending_manual_verification",
   "manual_verification": {
     "branch_merge_ready": false,
-    "general_comment": "Automated scheduling verification is recorded in Prompts 7 and 8. Manual verification has not yet been performed or confirmed, and branch merge readiness remains false while Prompt 9 is pending and Prompt 8 is blocked on repo-local pytest residue cleanup."
+    "general_comment": "IMPORTANT: Prevent the system from displaying time slots in a text format, it has to be listed as clickable time slots always. "
   },
   "categories": [
     {
@@ -18,41 +18,46 @@
               "step": 1,
               "action": "Open the chat surface for a tenant with scheduling enabled.",
               "what_is_tested": "Baseline setup for typed-date availability checks.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Fail",
+              "comment": "I've asked for available slots on 9 APR 2026. System returned next 3 days. ",
+              "reference_files": "review once don't waist tokens on every test if the reference file is the same.\ntrace_2026-03-31_12-12-35_milena_dental_55d022eb-f823-4a8b-a868-4fcd079ea058.txt",
+              "row_id": 1
             },
             {
               "step": 2,
               "action": "Ask for availability on a concrete date that has available slots.",
               "what_is_tested": "Specific typed-date scheduling request path.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Fail",
+              "comment": "When typed 09.04.2026 the system returned the time slots, however it did not return the time slot widget, rendered the dates in a list.\nExpected is to have the clickable dates. \n\nAlso the system prompts a message \nЗа да проверам слободни термини на 9 април 2026, ве молам кажете ми ги вашите име, телефон и е-маил.\n\nIt should offer a message from the LLM to get the context and to inform the user something along the lines Ова се слободни термини за DD MonthWord. YYYY ",
+              "reference_files": "\ntrace_2026-03-31_12-12-35_milena_dental_55d022eb-f823-4a8b-a868-4fcd079ea058.txt",
+              "row_id": 2
             },
             {
               "step": 3,
               "action": "Confirm the reply references that requested date directly.",
               "what_is_tested": "Direct date answer behavior.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Fail",
+              "comment": "ID 2 response applicable here.",
+              "reference_files": "",
+              "row_id": 3
             },
             {
               "step": 4,
               "action": "Confirm the user sees the available slots for that date in the reply or attached widget payload.",
               "what_is_tested": "Availability payload for the requested specific date.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Fail",
+              "comment": "Response was provided only as a list, not clickable dates. ",
+              "reference_files": "",
+              "row_id": 4
             },
             {
               "step": 5,
               "action": "Confirm the system does not prematurely ask for booking details.",
               "what_is_tested": "Scheduling-first behavior on typed-date requests.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 5
             }
           ]
         },
@@ -64,33 +69,37 @@
               "step": 1,
               "action": "Ask for availability on a concrete date known to have no slots.",
               "what_is_tested": "No-availability path for typed specific date.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Pass",
+              "comment": "But the message return was in macedonian language but in latin not cyrilic:\n\nThis got returned \"Momentalno nema slobodni termini vo tekovniot period. Kazete drug datum ili drug period i ke proveram povtorno.\"",
+              "reference_files": "",
+              "row_id": 6
             },
             {
               "step": 2,
               "action": "Confirm the system states that the requested date has no available slots.",
               "what_is_tested": "Truthful no-availability assessment.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 7
             },
             {
               "step": 3,
               "action": "Confirm the reply offers nearby dates, next availability, or a valid scheduling exploration path.",
               "what_is_tested": "Recovery and alternative guidance after no availability.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Fail",
+              "comment": "Request: \nsloboden termin na 31.03.2026\n\nResponse: Momentalno nema slobodni termini vo tekovniot period. Kazete drug datum ili drug period i ke proveram povtorno.",
+              "reference_files": "",
+              "row_id": 8
             },
             {
               "step": 4,
               "action": "Confirm the flow remains scheduling-focused and does not jump into booking.",
               "what_is_tested": "No premature booking after no-availability result.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Fail",
+              "comment": "Upon showing the message:\n\nMomentalno nema slobodni termini vo tekovniot period. Kazete drug datum ili drug period i ke proveram povtorno.\n\nI've asked:\nkoga ima sloboden termin\n\nThe system responded with:\n\nНа кој број може да ве контактира клиниката?\n\nAnd the booking process got started. ",
+              "reference_files": "",
+              "row_id": 9
             }
           ]
         }
@@ -107,33 +116,37 @@
               "step": 1,
               "action": "Ask for availability using a broad-range phrase such as next week.",
               "what_is_tested": "Broad scheduling request handling.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Fail",
+              "comment": "Test:\n\n\nSlobodni termin slednata nedela\n\nMomentalno nema slobodni termini vo tekovniot period. Kazete drug datum ili drug period i ke proveram povtorno.",
+              "reference_files": "",
+              "row_id": 10
             },
             {
               "step": 2,
               "action": "Confirm the system interprets the request as scheduling intent.",
               "what_is_tested": "Scheduling intent detection for broad-range language.",
-              "status": "Not Run",
+              "status": "Fail",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 11
             },
             {
               "step": 3,
               "action": "Confirm it either states that availability exists in that range or truthfully states none exists.",
               "what_is_tested": "Range-level availability assessment.",
-              "status": "Not Run",
+              "status": "Fail",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 12
             },
             {
               "step": 4,
               "action": "Confirm it asks the user to narrow by date or gives a focused next-step prompt instead of flooding the chat with many slots.",
               "what_is_tested": "Broad-range narrowing behavior.",
-              "status": "Not Run",
+              "status": "Fail",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 13
             }
           ]
         },
@@ -145,33 +158,37 @@
               "step": 1,
               "action": "Ask for something like tomorrow afternoon.",
               "what_is_tested": "Relative date and time-window request path.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Fail",
+              "comment": "Термин утре попладне?\n\nЌе проверам достапни термини за стоматолошка консултација утре попладне и ќе ви се јавам.\n01 Apr 2026 во 09:00\n01 Apr 2026 во 09:30\n01 Apr 2026 во 10:00\n01 Apr 2026 во 10:30\n01 Apr 2026 во 11:00\n01 Apr 2026 во 11:30",
+              "reference_files": "",
+              "row_id": 14
             },
             {
               "step": 2,
               "action": "Confirm the system treats this as scheduling intent.",
               "what_is_tested": "Intent detection for combined relative date and time window.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Fail",
+              "comment": "Failed by default as step 1 is failed",
+              "reference_files": "",
+              "row_id": 15
             },
             {
               "step": 3,
               "action": "Confirm the system resolves the request into a concrete day or day-plus-time-window behavior.",
               "what_is_tested": "Backend resolution of relative date and time-window concepts.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Fail",
+              "comment": "Failed by default as step 1 is failed",
+              "reference_files": "",
+              "row_id": 16
             },
             {
               "step": 4,
               "action": "Confirm the reply returns filtered availability or asks one targeted clarification only if needed.",
               "what_is_tested": "Low-friction response behavior for relative scheduling requests.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Fail",
+              "comment": "Failed by default as step 1 is failed",
+              "reference_files": "",
+              "row_id": 17
             }
           ]
         }
@@ -188,33 +205,37 @@
               "step": 1,
               "action": "Ask to reserve or book an appointment without naming a slot.",
               "what_is_tested": "Reservation intent without slot.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 18
             },
             {
               "step": 2,
               "action": "Confirm the system does not immediately ask for name, phone, or email.",
               "what_is_tested": "No premature booking data collection.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 19
             },
             {
               "step": 3,
               "action": "Confirm the reply stays focused on finding a valid appointment time first.",
               "what_is_tested": "Scheduling-first behavior after reservation language.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 20
             },
             {
               "step": 4,
               "action": "Confirm the system requests narrowing or returns scheduling options as appropriate.",
               "what_is_tested": "Useful next-step behavior before slot selection.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 21
             }
           ]
         }
@@ -231,41 +252,46 @@
               "step": 1,
               "action": "Reach a state where a slot-list widget is shown.",
               "what_is_tested": "Precondition for slot-selection handoff.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 22
             },
             {
               "step": 2,
               "action": "Click a slot.",
               "what_is_tested": "Slot selection event.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 23
             },
             {
               "step": 3,
               "action": "Confirm the selected slot is clearly reflected in the next response.",
               "what_is_tested": "Selected-slot carry into booking handoff.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Pass",
+              "comment": "Pass but with a remark: it should be treated. \nThis was operational before DST kicked in. Now the selected time slot is repeated in a sentence with one hour earlier then selected. At the end of the booking the first selected time slot is displayed which is accurate. Only problem on the message upon click on time slot. \n\nГо избирам овој термин: 01 Apr 2026 во 09:30\nЌе ми требаат неколку ваши податоци за да закажеме. Да почнеме со вашето име.\nSelect a time slot:\n01 Апр 2026\nСреда\noiasd\nНа кој број може да ве контактира клиниката?\n123123123\nНа која е-пошта да ви испратиме потврда за закажаниот термин?\nasdasd@asd.com\nТерминот е резервиран во Google Calendar.\nРезиме на барањето\nТерминот е резервиран во Google Calendar.\nПотврден термин\nУслуга\nСтоматолошка консултација\nТермин\n01 Apr 2026 во 10:30\nИме\noiasd\nТелефон\n123123123\nЕ-пошта\nasdasd@asd.com\n\nThe full chat, ",
+              "reference_files": "",
+              "row_id": 24
             },
             {
               "step": 4,
               "action": "Confirm booking starts immediately with the first required booking field.",
               "what_is_tested": "Direct booking handoff after slot selection.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 25
             },
             {
               "step": 5,
               "action": "Confirm the user is able to change or back out from the selected slot path if needed.",
               "what_is_tested": "Low-friction escape path while hold remains active.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Fail",
+              "comment": "Upon time slot selection, the system enters the booking state with no possibility to change the temporary time slot selection.",
+              "reference_files": "",
+              "row_id": 26
             }
           ]
         }
@@ -284,7 +310,8 @@
               "what_is_tested": "Lost-slot entry into recovery.",
               "status": "Not Run",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 27
             },
             {
               "step": 2,
@@ -292,7 +319,8 @@
               "what_is_tested": "Conflict explanation.",
               "status": "Not Run",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 28
             },
             {
               "step": 3,
@@ -300,7 +328,8 @@
               "what_is_tested": "Recovery output after slot conflict.",
               "status": "Not Run",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 29
             },
             {
               "step": 4,
@@ -308,7 +337,8 @@
               "what_is_tested": "Context preservation during slot-conflict recovery.",
               "status": "Not Run",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 30
             }
           ]
         }
@@ -325,33 +355,37 @@
               "step": 1,
               "action": "Use a tenant configured for Macedonian.",
               "what_is_tested": "Language-context precondition for Macedonian scheduling intent.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 31
             },
             {
               "step": 2,
               "action": "Ask for availability using Macedonian scheduling concepts such as a weekday, time window, or relative period.",
               "what_is_tested": "Macedonian scheduling concepts.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Fail",
+              "comment": "Does not operate as intended, sloboden termin in sreda, or next week they reulst in returning available time slots for the next day only (offered in text, not buttons)",
+              "reference_files": "",
+              "row_id": 32
             },
             {
               "step": 3,
               "action": "Confirm the system interprets the message as scheduling intent.",
               "what_is_tested": "Intent detection under Macedonian language context.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 33
             },
             {
               "step": 4,
               "action": "Confirm the returned behavior follows the same scheduling contract as the English flow.",
               "what_is_tested": "Contract consistency across tenant language contexts.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 34
             }
           ]
         },
@@ -363,33 +397,37 @@
               "step": 1,
               "action": "Use a tenant configured for English.",
               "what_is_tested": "Language-context precondition for English scheduling intent.",
-              "status": "Not Run",
-              "comment": "",
-              "reference_files": ""
+              "status": "Pass",
+              "comment": "Only remark is that the residuals that come from other widgets the cisplay of characters is totally broken, it is far better to display them in cyclic UTF 8 as it should not like:\nÐ¡Ñ‚Ð¾Ð¼Ð°Ñ‚Ð¾Ð»Ð¾ÑˆÐºÐ° ÐºÐ¾Ð½ÑÑƒÐ»Ñ‚Ð°Ñ†Ð¸Ñ˜Ð°\n",
+              "reference_files": "",
+              "row_id": 35
             },
             {
               "step": 2,
               "action": "Ask for availability using English scheduling concepts such as Tuesday, afternoon, or next week.",
               "what_is_tested": "English scheduling concepts.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 36
             },
             {
               "step": 3,
               "action": "Confirm the system interprets the message as scheduling intent.",
               "what_is_tested": "Intent detection under English language context.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 37
             },
             {
               "step": 4,
               "action": "Confirm the returned behavior follows the same scheduling contract as the non-English flow.",
               "what_is_tested": "Contract consistency across language contexts.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 38
             }
           ]
         }
@@ -406,25 +444,28 @@
               "step": 1,
               "action": "Ask for service list or business overview content.",
               "what_is_tested": "Non-scheduling flow entry after extraction.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 39
             },
             {
               "step": 2,
               "action": "Confirm the reply stays in the correct non-scheduling flow.",
               "what_is_tested": "No regression in catalog/business overview routing.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 40
             },
             {
               "step": 3,
               "action": "Confirm the system does not incorrectly inject scheduling behavior.",
               "what_is_tested": "Scheduling extraction isolation from unrelated chat flows.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
-              "reference_files": ""
+              "reference_files": "",
+              "row_id": 41
             }
           ]
         }
@@ -432,8 +473,8 @@
     }
   ],
   "summary": {
-    "not_run": 39,
-    "pass": 0,
-    "fail": 0
+    "not_run": 4,
+    "pass": 21,
+    "fail": 16
   }
 }
