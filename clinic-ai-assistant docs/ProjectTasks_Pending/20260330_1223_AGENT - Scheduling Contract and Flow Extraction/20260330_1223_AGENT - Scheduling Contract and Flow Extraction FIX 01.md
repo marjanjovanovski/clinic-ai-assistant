@@ -50,14 +50,14 @@ The purpose of this fix follow-up is to:
 
 ## Current Active Prompt
 
-- `Prompt 4`
+- `Prompt 5`
 
 ## Global Status Summary
 
 - Prompt 1 - Failure Map And Contract Lock - Completed
 - Prompt 2 - Scheduling Request Resolution - Completed
 - Prompt 3 - Widget-First Availability Presentation - Completed
-- Prompt 4 - Scheduling Recovery And Booking Boundaries - Pending
+- Prompt 4 - Scheduling Recovery And Booking Boundaries - Completed
 - Prompt 5 - Slot Handoff And Display Integrity - Pending
 - Prompt 6 - Regression Coverage - Pending
 - Prompt 7 - Technical Verification - Pending
@@ -320,7 +320,7 @@ Scheduling responses stop dumping slot lists into plain text and instead return 
 - Blocked
   - none
 
-## Prompt 4 - Scheduling Recovery And Booking Boundaries - Pending
+## Prompt 4 - Scheduling Recovery And Booking Boundaries - Completed
 
 ### Goal
 
@@ -346,6 +346,17 @@ Prevent no-availability follow-up from entering booking before a real slot is se
 ### Required Outcome
 
 No-availability flows remain truthful, helpful, and scheduling-first instead of leaking into booking.
+
+### Completion Note
+
+- Changed
+  - added a no-availability reply helper in [scheduling_capability.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/app/services/scheduling_capability.py) so no-slot results reference the requested day or period and stay scheduling-first instead of using the old generic fallback
+  - added a scheduling-state guard in [ai_agent.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/app/services/ai_agent.py) so post-no-availability `confirm_booking` turns without a real slot re-enter scheduling instead of starting contact collection
+  - locked the booking-boundary regression with a focused follow-up test in [test_availability_intent_gating.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py)
+- Verified
+  - focused Prompt 4 checks passed with external `TMP` / `TEMP` and a fresh external `--basetemp`: `test_no_availability_followup_reenters_scheduling_instead_of_starting_booking`, `test_collecting_contact_availability_request_reuses_scheduling_instead_of_saving_name`, and `test_booking_confirmation_after_widget_backed_specific_day_availability_can_start_booking`
+- Blocked
+  - none
 
 ## Prompt 5 - Slot Handoff And Display Integrity - Pending
 

@@ -2234,6 +2234,47 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
 
             if intent == "confirm_booking" and allow_booking and not availability_intent_requested:
                 if allow_scheduling_first:
+                    if scheduling_capability.should_reenter_scheduling_from_followup(state):
+                        scheduling_context = scheduling_capability.CapabilityContext(
+                            tenant=tenant,
+                            session_id=session_id,
+                            session_key=session_key,
+                            message=message,
+                            state=state,
+                            profile=profile,
+                            services=services,
+                            requested_operation=scheduling_capability.OPERATION_AVAILABILITY,
+                        )
+                        scheduling_execution = scheduling_capability.execute_scheduling_turn(
+                            scheduling_context,
+                            session_state=SESSION_STATE,
+                        )
+                        scheduling_result = scheduling_execution.result
+                        state = scheduling_execution.state
+                        scheduling_response = scheduling_execution.response_payload
+                        scheduling_reply = scheduling_response.reply_text
+                        if isinstance(scheduling_reply, str) and scheduling_reply.strip():
+                            _log_chat_state(
+                                message=message,
+                                session_id=session_id,
+                                intent=AVAILABILITY_INTENT_OUTPUT,
+                                stage_before=stage_before,
+                                stage_after=_stage_name(SESSION_STATE.get(session_key)),
+                            )
+                            final_reply = _finalize_reply(
+                                tenant=tenant,
+                                session_id=session_id,
+                                session_key=session_key,
+                                message=message,
+                                reply=scheduling_reply.strip(),
+                                response_type=AVAILABILITY_INTENT_OUTPUT,
+                                services=services,
+                                profile=profile,
+                                stage_after=_stage_name(SESSION_STATE.get(session_key)),
+                                widget_payload=scheduling_response.widget_payload,
+                            )
+                            return final_reply, session_id
+
                     scheduling_first_reply = scheduling_capability.pending_availability_reply(state)
                     if scheduling_first_reply:
                         _log_chat_state(

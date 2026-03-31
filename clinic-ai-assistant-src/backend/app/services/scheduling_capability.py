@@ -275,6 +275,19 @@ def pending_availability_reply(state: dict | None) -> str | None:
     return reply_text.strip() if isinstance(reply_text, str) and reply_text.strip() else None
 
 
+def should_reenter_scheduling_from_followup(state: dict | None) -> bool:
+    if not isinstance(state, dict):
+        return False
+    scheduling_state = state.get("scheduling")
+    if not isinstance(scheduling_state, dict):
+        return False
+    return (
+        scheduling_state.get("operation") == OPERATION_AVAILABILITY
+        and scheduling_state.get("status") == "completed"
+        and not scheduling_state.get("booking_handoff_ready")
+    )
+
+
 def scheduling_handoff_payload(state: dict | None) -> dict | None:
     if not isinstance(state, dict):
         return None
@@ -899,7 +912,7 @@ def _availability_reply_text(
     request_kind = presentation_plan.get("request_kind") if isinstance(presentation_plan, dict) else None
     intro_message = context.intro_message.strip() if isinstance(context.intro_message, str) and context.intro_message.strip() else ""
     if not slots_payload:
-        return NO_AVAILABILITY_MESSAGE
+        return _no_availability_reply_text(context, presentation_plan=presentation_plan)
     if request_kind == "broad_range":
         return _availability_contract_text(
             context,
@@ -911,6 +924,29 @@ def _availability_reply_text(
     if context.date_from and context.date_from == context.date_to:
         return f"Available appointments for {context.date_from} are shown in the slot widget."
     return "Available appointments are shown in the slot widget."
+
+
+def _localized_no_availability_text(context: CapabilityContext, *, specific_date: str | None = None) -> str:
+    business = context.profile.get("business") if isinstance(context.profile, dict) else {}
+    language = business.get("language") if isinstance(business, dict) else None
+    if isinstance(language, str) and language.lower().startswith("mk"):
+        if specific_date:
+            return f"\u041d\u0435\u043c\u0430 \u0441\u043b\u043e\u0431\u043e\u0434\u043d\u0438 \u0442\u0435\u0440\u043c\u0438\u043d\u0438 \u043d\u0430 {specific_date}. \u041a\u0430\u0436\u0435\u0442\u0435 \u043c\u0438 \u0434\u0440\u0443\u0433 \u0434\u0430\u0442\u0443\u043c \u0438\u043b\u0438 \u0434\u0440\u0443\u0433 \u043f\u0435\u0440\u0438\u043e\u0434 \u0438 \u045c\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u0430\u043c \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u043e."
+        return "\u041c\u043e\u043c\u0435\u043d\u0442\u0430\u043b\u043d\u043e \u043d\u0435\u043c\u0430 \u0441\u043b\u043e\u0431\u043e\u0434\u043d\u0438 \u0442\u0435\u0440\u043c\u0438\u043d\u0438 \u0432\u043e \u0431\u0430\u0440\u0430\u043d\u0438\u043e\u0442 \u043f\u0435\u0440\u0438\u043e\u0434. \u041a\u0430\u0436\u0435\u0442\u0435 \u043c\u0438 \u0434\u0440\u0443\u0433 \u0434\u0430\u0442\u0443\u043c \u0438\u043b\u0438 \u0434\u0440\u0443\u0433 \u043f\u0435\u0440\u0438\u043e\u0434 \u0438 \u045c\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u0430\u043c \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u043e."
+    if specific_date:
+        return f"There are no available appointments on {specific_date}. Tell me another date or time period and I will check again."
+    return "There are currently no available appointments in the requested period. Tell me another date or time period and I will check again."
+
+
+def _no_availability_reply_text(
+    context: CapabilityContext,
+    *,
+    presentation_plan: dict | None = None,
+) -> str:
+    request_kind = presentation_plan.get("request_kind") if isinstance(presentation_plan, dict) else None
+    if request_kind == "specific_day" and context.date_from and context.date_from == context.date_to:
+        return _localized_no_availability_text(context, specific_date=context.date_from)
+    return _localized_no_availability_text(context)
 
 
 def handle_scheduling_capability(context: CapabilityContext) -> CapabilityResult:

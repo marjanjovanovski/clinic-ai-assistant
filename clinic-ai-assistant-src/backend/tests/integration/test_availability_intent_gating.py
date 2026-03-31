@@ -471,6 +471,79 @@ def test_relative_requests_resolve_truthful_date_window_and_time_filter(monkeypa
     ]
 
 
+def test_no_availability_followup_reenters_scheduling_instead_of_starting_booking(monkeypatch, tmp_path):
+    class _FakeDate(scheduling_capability.date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 3, 30)
+
+    monkeypatch.setattr(scheduling_capability, "date", _FakeDate)
+    client, ai_agent = _build_client(monkeypatch, tmp_path)
+
+    class NoAvailabilityFollowupOpenAI:
+        def __init__(self, api_key=None):
+            self.responses = self
+
+        def create(self, *args, **kwargs):
+            message = kwargs["input"][-1]["content"]
+            if message == "check availability on 31.03.2026":
+                return FakeResponse(
+                    '{"intent":"availability_lookup","service_id":"consultation","message":"no-availability"}'
+                )
+            if message == "koga ima sloboden termin":
+                return FakeResponse(
+                    '{"intent":"confirm_booking","service_id":"consultation","message":"booking-confirmed"}'
+                )
+            return FakeResponse(
+                '{"intent":"fallback","service_id":"unknown","message":"fallback"}'
+            )
+
+    def fake_lookup_availability(**kwargs):
+        from app.services.scheduling.models import AvailabilityResult, AvailableSlot
+
+        if kwargs["date_from"] == "2026-03-31" and kwargs["date_to"] == "2026-03-31":
+            return AvailabilityResult(provider="mock", slots=[])
+        return AvailabilityResult(
+            provider="mock",
+            slots=[
+                AvailableSlot(
+                    provider="mock",
+                    slot_id="mock|2026-03-30T09:00:00|consultation|milena-dental-mock",
+                    start_at="2026-03-30T09:00:00+01:00",
+                    end_at="2026-03-30T09:30:00+01:00",
+                    timezone="Europe/Skopje",
+                    display_label="30 Mar 2026 во 09:00",
+                )
+            ],
+        )
+
+    monkeypatch.setattr(ai_agent, "OpenAI", NoAvailabilityFollowupOpenAI)
+    monkeypatch.setattr(scheduling_capability, "lookup_availability", fake_lookup_availability)
+
+    first = client.post("/chat?tenant=milena_dental", json={"message": "check availability on 31.03.2026"})
+    assert first.status_code == 200
+    first_payload = first.json()
+    assert first_payload["widget_payload"] is None
+    assert "2026-03-31" in first_payload["reply"]
+
+    second = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "koga ima sloboden termin", "session_id": first_payload["session_id"]},
+    )
+
+    assert second.status_code == 200
+    second_payload = second.json()
+    assert second_payload["session_status"] == "active"
+    assert second_payload["booking_progress"] is None
+    assert second_payload["widget_payload"]["type"] == "slot-list"
+    assert second_payload["inspector_payload"]["routing"]["last_response_type"] == "slot-list"
+
+    session_key = ai_agent._session_key("milena_dental", first_payload["session_id"])
+    state = ai_agent.SESSION_STATE[session_key]
+    assert state.get("stage") != "collecting_contact"
+    assert state["scheduling"]["booking_handoff_ready"] is True
+
+
 def test_booking_confirmation_after_widget_backed_specific_day_availability_can_start_booking(monkeypatch, tmp_path):
     client, ai_agent = _build_client(monkeypatch, tmp_path)
 
