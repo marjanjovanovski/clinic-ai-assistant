@@ -50,12 +50,12 @@ The purpose of this fix follow-up is to:
 
 ## Current Active Prompt
 
-- `Prompt 1`
+- `Prompt 3`
 
 ## Global Status Summary
 
-- Prompt 1 - Failure Map And Contract Lock - Pending
-- Prompt 2 - Scheduling Request Resolution - Pending
+- Prompt 1 - Failure Map And Contract Lock - Completed
+- Prompt 2 - Scheduling Request Resolution - Completed
 - Prompt 3 - Widget-First Availability Presentation - Pending
 - Prompt 4 - Scheduling Recovery And Booking Boundaries - Pending
 - Prompt 5 - Slot Handoff And Display Integrity - Pending
@@ -174,7 +174,7 @@ Prompts are ordered by dependency:
 - avoid frontend refactors unless the backend cannot satisfy the required widget contract
 - keep each prompt scoped to one real execution boundary
 
-## Prompt 1 - Failure Map And Contract Lock - Pending
+## Prompt 1 - Failure Map And Contract Lock - Completed
 
 ### Goal
 
@@ -200,7 +200,48 @@ Translate the original manual-testing failures into the smallest code-facing fix
 
 The fix contract is explicit enough that later prompts can solve root causes instead of re-litigating expectations.
 
-## Prompt 2 - Scheduling Request Resolution - Pending
+### Locked Fix Contract
+
+Prompt 1 confirmation against the parent follow-up evidence:
+
+- Unique failure group 1 is confirmed by original rows `1`, `2`, `3` and the runtime note that specific dates and carried date windows were not resolving to the requested day.
+- Unique failure group 2 is confirmed by original rows `2`, `4`, `14`, `32` plus the parent JSON general comment that appointment times must not be shown as text lists.
+- Unique failure group 3 is confirmed by original row `8` and the runtime note that same-day and range requests were falling back to overly generic no-availability messaging.
+- Unique failure group 4 is confirmed by original row `9`, where `koga ima sloboden termin` incorrectly started contact collection after a no-availability reply.
+- Unique failure group 5 is confirmed by original rows `10`, `11`, `12`, `13`, `14`, `15`, `16`, `17`, `32` plus the runtime note failures for `slednata nedela`, `dve nedeli od sega`, and `za denes`.
+- Unique failure group 6 is confirmed by original row `24` remark and original row `26`, plus the runtime note that booking-style follow-through was incomplete and trapping.
+- Unique failure group 7 is confirmed by original row `6` remark, original row `35` remark, and the runtime note that tenant-native Macedonian script leaked into Latin transliteration or mojibake.
+
+Locked contract for later implementation prompts:
+
+- Actionable availability rule:
+  - appointment times must never be presented as plain text availability lists
+  - whenever the system offers actionable appointment times, those times must be delivered through the existing clickable slot widget contract
+  - reply text may summarize the interpreted date or range, but the widget is the only actionable time-selection surface
+- Scheduling-first no-availability rule:
+  - a no-availability reply must stay inside scheduling and truthfully reference the interpreted request window
+  - the reply must suggest a scheduling-first next step such as another date, a nearby period, or a focused follow-up question
+  - no follow-up after a no-availability response may enter booking contact collection unless the user has selected a concrete slot
+- Slot-selection follow-through rule:
+  - once a slot is selected, the displayed selected time must match the clicked slot exactly, with no DST-shifted or reformatted mismatch
+  - the selected-slot context must remain preserved through the booking handoff so the next response and later confirmation stay consistent
+  - booking may still start directly after a valid slot click, but the user must have an explicit supported change-slot or back-out path that remains inside the scheduling-to-booking handoff
+- Scope lock:
+  - month calendar, day picker, rescheduling, and cancellation remain out of scope for FIX 01
+  - Prompt 1 does not authorize broad booking UX redesign, new scheduling surfaces, or expansion beyond the existing slot-widget contract
+
+### Completion Note
+
+- Changed
+  - locked the Prompt 1 fix contract against the parent manual-testing JSON, the parent task general comment, and the runtime follow-up note
+  - made the widget-only availability rule, scheduling-first no-availability rule, and slot-handoff integrity requirements explicit for later prompts
+- Verified
+  - confirmed the listed unique failure groups map back to the original parent-task rows and runtime trace findings without widening scope
+  - confirmed FIX 01 remains locked to the existing slot-widget path rather than month-calendar or broader booking redesign work
+- Blocked
+  - none
+
+## Prompt 2 - Scheduling Request Resolution - Completed
 
 ### Goal
 
@@ -228,6 +269,17 @@ Fix only request-to-date-window resolution for typed dates, weekdays, relative d
 ### Required Outcome
 
 The scheduling request window and any time-window filtering reflect what the user actually asked for before any widget or reply text is produced.
+
+### Completion Note
+
+- Changed
+  - extended scheduling request resolution in [scheduling_capability.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/app/services/scheduling_capability.py) to support config-driven `in_two_weeks` relative dates, preserve language-derived request hints through execution, and apply shared morning/afternoon slot filtering before presentation
+  - expanded the scheduling language config in [milena_dental.json](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/app/config/profiles/milena_dental.json), [milena_dentalEN.json](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/app/config/profiles/milena_dentalEN.json), and [risto.json](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/app/config/profiles/risto.json) so `slednata nedela`, `za denes`, and `in two weeks`-style requests resolve truthfully
+  - added focused regression coverage in [test_scheduling_capability.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/tests/unit/test_scheduling_capability.py), [test_config_loader.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/tests/unit/test_config_loader.py), and [test_availability_intent_gating.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py)
+- Verified
+  - focused Prompt 2 checks passed with external `TMP` / `TEMP` and a fresh external `--basetemp`: `test_load_profile_config_accepts_scheduling_language_support_for_existing_tenants`, `test_language_aware_hints_resolve_two_weeks_from_now_from_config`, `test_handle_scheduling_capability_filters_slots_by_requested_time_window`, `test_handle_scheduling_capability_preserves_language_derived_time_window`, and `test_relative_requests_resolve_truthful_date_window_and_time_filter`
+- Blocked
+  - none
 
 ## Prompt 3 - Widget-First Availability Presentation - Pending
 

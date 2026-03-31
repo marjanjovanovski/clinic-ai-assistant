@@ -434,6 +434,150 @@ def test_language_aware_hints_resolve_next_week_range_from_config(monkeypatch):
     assert context.date_to == "2026-04-12"
 
 
+def test_language_aware_hints_resolve_two_weeks_from_now_from_config(monkeypatch):
+    class _FakeDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 3, 30)
+
+    monkeypatch.setattr(scheduling_capability, "date", _FakeDate)
+
+    context = scheduling_capability._with_availability_defaults(
+        _context(
+            message="check availability in two weeks",
+            requested_operation=scheduling_capability.OPERATION_AVAILABILITY,
+            profile={
+                "scheduling": {
+                    "language_support": {
+                        "relative_date_terms": {
+                            "in_two_weeks": ["in two weeks", "two weeks from now"],
+                        },
+                    }
+                }
+            },
+        ),
+        _snapshot(),
+    )
+
+    assert context.date_from == "2026-04-13"
+    assert context.date_to == "2026-04-13"
+
+
+def test_handle_scheduling_capability_filters_slots_by_requested_time_window(monkeypatch):
+    monkeypatch.setattr(
+        scheduling_capability,
+        "get_scheduling_public_config",
+        lambda tenant: _snapshot(),
+    )
+
+    def fake_lookup_availability(**kwargs):
+        return AvailabilityResult(
+            provider="mock",
+            slots=[
+                AvailableSlot(
+                    provider="mock",
+                    slot_id="slot-09",
+                    start_at="2026-03-31T09:00:00+02:00",
+                    end_at="2026-03-31T09:30:00+02:00",
+                    timezone="Europe/Skopje",
+                    display_label="31 Mar 2026 vo 09:00",
+                ),
+                AvailableSlot(
+                    provider="mock",
+                    slot_id="slot-14",
+                    start_at="2026-03-31T14:00:00+02:00",
+                    end_at="2026-03-31T14:30:00+02:00",
+                    timezone="Europe/Skopje",
+                    display_label="31 Mar 2026 vo 14:00",
+                ),
+            ],
+        )
+
+    monkeypatch.setattr(scheduling_capability, "lookup_availability", fake_lookup_availability)
+
+    result = scheduling_capability.handle_scheduling_capability(
+        _context(
+            requested_operation=scheduling_capability.OPERATION_AVAILABILITY,
+            service_id="consultation",
+            date_from="2026-03-31",
+            date_to="2026-03-31",
+            timezone="Europe/Skopje",
+            preferred_time_range="afternoon",
+        )
+    )
+
+    slots = result.assessment.output_payload["result"]["slots"]
+
+    assert result.assessment.status == "completed"
+    assert [slot["slot_id"] for slot in slots] == ["slot-14"]
+
+
+def test_handle_scheduling_capability_preserves_language_derived_time_window(monkeypatch):
+    class _FakeDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 3, 30)
+
+    monkeypatch.setattr(scheduling_capability, "date", _FakeDate)
+    monkeypatch.setattr(
+        scheduling_capability,
+        "get_scheduling_public_config",
+        lambda tenant: _snapshot(),
+    )
+
+    def fake_lookup_availability(**kwargs):
+        return AvailabilityResult(
+            provider="mock",
+            slots=[
+                AvailableSlot(
+                    provider="mock",
+                    slot_id="slot-09",
+                    start_at="2026-03-31T09:00:00+02:00",
+                    end_at="2026-03-31T09:30:00+02:00",
+                    timezone="Europe/Skopje",
+                    display_label="31 Mar 2026 vo 09:00",
+                ),
+                AvailableSlot(
+                    provider="mock",
+                    slot_id="slot-14",
+                    start_at="2026-03-31T14:00:00+02:00",
+                    end_at="2026-03-31T14:30:00+02:00",
+                    timezone="Europe/Skopje",
+                    display_label="31 Mar 2026 vo 14:00",
+                ),
+            ],
+        )
+
+    monkeypatch.setattr(scheduling_capability, "lookup_availability", fake_lookup_availability)
+
+    result = scheduling_capability.handle_scheduling_capability(
+        _context(
+            message="termin utre popladne",
+            requested_operation=scheduling_capability.OPERATION_AVAILABILITY,
+            service_id="consultation",
+            profile={
+                "scheduling": {
+                    "language_support": {
+                        "relative_date_terms": {
+                            "tomorrow": ["utre"],
+                        },
+                        "time_window_terms": {
+                            "afternoon": ["popladne"],
+                        },
+                    }
+                }
+            },
+        )
+    )
+
+    request = result.assessment.output_payload["request"]
+    slots = result.assessment.output_payload["result"]["slots"]
+
+    assert request["preferred_time_range"] == "afternoon"
+    assert request["date_from"] == "2026-03-31"
+    assert [slot["slot_id"] for slot in slots] == ["slot-14"]
+
+
 def test_execute_scheduling_turn_suppresses_widget_and_booking_handoff_for_specific_day_inline_answers(monkeypatch):
     monkeypatch.setattr(
         scheduling_capability,

@@ -754,6 +754,14 @@
       "time_window_terms": {
         "morning": ["наутро", "nautro", "сабајле", "sabajle", "sabajleto"],
         "afternoon": ["попладне", "popladne"]
+      },
+      "relative_date_terms": {
+        "today": ["\u0434\u0435\u043d\u0435\u0441", "denes", "\u0437\u0430 \u0434\u0435\u043d\u0435\u0441", "za denes"],
+        "tomorrow": ["\u0443\u0442\u0440\u0435", "utre"],
+        "in_two_weeks": ["\u0437\u0430 \u0434\u0432\u0435 \u043d\u0435\u0434\u0435\u043b\u0438", "za dve nedeli", "\u0434\u0432\u0435 \u043d\u0435\u0434\u0435\u043b\u0438 \u043e\u0434 \u0441\u0435\u0433\u0430", "dve nedeli od sega"]
+      },
+      "relative_range_terms": {
+        "next_week": ["\u0441\u043b\u0435\u0434\u043d\u0430 \u043d\u0435\u0434\u0435\u043b\u0430", "sledna nedela", "\u0441\u043b\u0435\u0434\u043d\u0430\u0442\u0430 \u043d\u0435\u0434\u0435\u043b\u0430", "slednata nedela", "\u043d\u0430\u0440\u0435\u0434\u043d\u0430 \u043d\u0435\u0434\u0435\u043b\u0430", "naredna nedela"]
       }
     },
     "contract_texts": {

@@ -419,6 +419,54 @@ def test_broad_range_availability_narrows_without_dumping_slot_widget(monkeypatc
     assert scheduling_state["booking_handoff_ready"] is False
 
 
+def test_relative_requests_resolve_truthful_date_window_and_time_filter(monkeypatch, tmp_path):
+    class _FakeDate(scheduling_capability.date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 3, 30)
+
+    monkeypatch.setattr(scheduling_capability, "date", _FakeDate)
+    client, ai_agent = _build_client(monkeypatch, tmp_path)
+
+    class RelativeRequestOpenAI:
+        def __init__(self, api_key=None):
+            self.responses = self
+
+        def create(self, *args, **kwargs):
+            return FakeResponse(
+                '{"intent":"availability_lookup","service_id":"consultation","message":"relative-availability"}'
+            )
+
+    monkeypatch.setattr(ai_agent, "OpenAI", RelativeRequestOpenAI)
+
+    broad_response = client.post("/chat?tenant=milena_dental", json={"message": "sloboden termin slednata nedela"})
+    assert broad_response.status_code == 200
+    broad_payload = broad_response.json()
+
+    broad_session_key = ai_agent._session_key("milena_dental", broad_payload["session_id"])
+    broad_state = ai_agent.SESSION_STATE[broad_session_key]["scheduling"]
+    broad_request = broad_state["output_payload"]["request"]
+
+    assert broad_request["date_from"] == "2026-04-06"
+    assert broad_request["date_to"] == "2026-04-12"
+
+    relative_response = client.post("/chat?tenant=milena_dental", json={"message": "termin utre popladne"})
+    assert relative_response.status_code == 200
+    relative_payload = relative_response.json()
+
+    assert "14:00" in relative_payload["reply"]
+    assert "09:00" not in relative_payload["reply"]
+    assert "11:00" not in relative_payload["reply"]
+
+    relative_session_key = ai_agent._session_key("milena_dental", relative_payload["session_id"])
+    relative_state = ai_agent.SESSION_STATE[relative_session_key]["scheduling"]
+    relative_request = relative_state["output_payload"]["request"]
+
+    assert relative_request["date_from"] == "2026-03-31"
+    assert relative_request["date_to"] == "2026-03-31"
+    assert relative_request["preferred_time_range"] == "afternoon"
+
+
 def test_booking_confirmation_after_inline_specific_day_availability_does_not_start_booking(monkeypatch, tmp_path):
     client, ai_agent = _build_client(monkeypatch, tmp_path)
 

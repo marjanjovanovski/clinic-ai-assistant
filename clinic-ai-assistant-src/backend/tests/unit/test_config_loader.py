@@ -6,8 +6,10 @@ def test_load_profile_config_accepts_scheduling_language_support_for_existing_te
     risto = load_profile_config("risto")
 
     assert milena["scheduling"]["language_support"]["relative_date_terms"]["tomorrow"]
+    assert milena["scheduling"]["language_support"]["relative_date_terms"]["in_two_weeks"]
     assert milena["scheduling"]["contract_texts"]["broad_range_narrowing"]
     assert risto["scheduling"]["language_support"]["time_window_terms"]["afternoon"] == ["afternoon"]
+    assert risto["scheduling"]["language_support"]["relative_date_terms"]["in_two_weeks"]
 
 
 def test_load_profile_config_rejects_invalid_scheduling_language_support_key(monkeypatch, tmp_path):

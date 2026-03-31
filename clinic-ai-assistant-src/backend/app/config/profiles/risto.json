@@ -130,7 +130,8 @@
       },
       "relative_date_terms": {
         "today": ["today"],
-        "tomorrow": ["tomorrow"]
+        "tomorrow": ["tomorrow"],
+        "in_two_weeks": ["in two weeks", "two weeks from now"]
       },
       "relative_range_terms": {
         "next_week": ["next week"]

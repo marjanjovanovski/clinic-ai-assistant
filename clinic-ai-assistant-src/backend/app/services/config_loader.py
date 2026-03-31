@@ -158,7 +158,7 @@ def _validate_scheduling_language_support(section_name: str, payload):
     _validate_string_term_map(
         f"{section_name}.relative_date_terms",
         language_support.get("relative_date_terms"),
-        allowed_keys={"today", "tomorrow"},
+        allowed_keys={"today", "tomorrow", "in_two_weeks"},
     )
     _validate_string_term_map(
         f"{section_name}.relative_range_terms",

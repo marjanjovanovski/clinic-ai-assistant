@@ -6,7 +6,12 @@ from dataclasses import asdict, dataclass, field, replace
 from datetime import date, datetime, timedelta
 import re
 
-from app.services.scheduling.models import AvailabilityRequest, BookingRequest, BookingResult
+from app.services.scheduling.models import (
+    AvailabilityRequest,
+    AvailabilityResult,
+    BookingRequest,
+    BookingResult,
+)
 from app.services.scheduling.service import (
     SchedulingConfigError,
     SchedulingDisabledError,
@@ -503,6 +508,49 @@ def _next_week_range(*, today: date) -> tuple[str, str]:
     return start_date.isoformat(), end_date.isoformat()
 
 
+def _relative_date_from_key(relative_key: str, *, today: date) -> str | None:
+    if relative_key == "today":
+        return today.isoformat()
+    if relative_key == "tomorrow":
+        return (today + timedelta(days=1)).isoformat()
+    if relative_key == "in_two_weeks":
+        return (today + timedelta(days=14)).isoformat()
+    return None
+
+
+def _slot_matches_preferred_time_range(slot: dict, preferred_time_range: str) -> bool:
+    start_at = slot.get("start_at")
+    if not isinstance(start_at, str) or not start_at.strip():
+        return True
+    try:
+        slot_time = datetime.fromisoformat(start_at.strip())
+    except ValueError:
+        return True
+
+    if preferred_time_range == "morning":
+        return slot_time.hour < 12
+    if preferred_time_range == "afternoon":
+        return slot_time.hour >= 12
+    return True
+
+
+def _filter_availability_for_time_range(
+    availability: AvailabilityResult,
+    preferred_time_range: str | None,
+) -> AvailabilityResult:
+    if preferred_time_range not in {"morning", "afternoon"}:
+        return availability
+
+    filtered_slots = [
+        slot
+        for slot in availability.slots
+        if _slot_matches_preferred_time_range(slot.to_dict(), preferred_time_range)
+    ]
+    if len(filtered_slots) == len(availability.slots):
+        return availability
+    return AvailabilityResult(provider=availability.provider, slots=filtered_slots)
+
+
 def _apply_language_aware_availability_hints(context: CapabilityContext) -> CapabilityContext:
     if _normalized_operation(context.requested_operation) != OPERATION_AVAILABILITY:
         return context
@@ -539,13 +587,14 @@ def _apply_language_aware_availability_hints(context: CapabilityContext) -> Capa
                 normalized_message,
                 language_support.get("relative_date_terms"),
             )
-            if matched_relative_date == "today":
-                resolved_date_from = today.isoformat()
-                resolved_date_to = today.isoformat()
-            elif matched_relative_date == "tomorrow":
-                tomorrow = today + timedelta(days=1)
-                resolved_date_from = tomorrow.isoformat()
-                resolved_date_to = tomorrow.isoformat()
+            resolved_relative_date = (
+                _relative_date_from_key(matched_relative_date, today=today)
+                if isinstance(matched_relative_date, str)
+                else None
+            )
+            if resolved_relative_date:
+                resolved_date_from = resolved_relative_date
+                resolved_date_to = resolved_relative_date
             else:
                 matched_relative_range = _first_matching_term_key(
                     normalized_message,
@@ -875,7 +924,7 @@ def handle_scheduling_capability(context: CapabilityContext) -> CapabilityResult
 
     if operation == OPERATION_AVAILABILITY and assessment.can_handle and assessment.status == "ready":
         execution_context = replace(
-            context,
+            effective_context,
             service_id=assessment.capability_state.get("service_id") if isinstance(assessment.capability_state, dict) else context.service_id,
             date_from=assessment.output_payload.get("request", {}).get("date_from") if isinstance(assessment.output_payload, dict) else context.date_from,
             date_to=assessment.output_payload.get("request", {}).get("date_to") if isinstance(assessment.output_payload, dict) else context.date_to,
@@ -891,6 +940,10 @@ def handle_scheduling_capability(context: CapabilityContext) -> CapabilityResult
                 timezone=str(execution_context.timezone),
                 preferred_days=execution_context.preferred_days,
                 preferred_time_range=execution_context.preferred_time_range,
+            )
+            availability = _filter_availability_for_time_range(
+                availability,
+                execution_context.preferred_time_range,
             )
             result_payload = availability.to_dict()
             output_payload = {

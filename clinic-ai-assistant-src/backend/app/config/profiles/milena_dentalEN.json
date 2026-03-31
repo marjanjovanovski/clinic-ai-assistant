@@ -937,6 +937,10 @@
                                                                                       ],
                                                                             "tomorrow":  [
                                                                                              "tomorrow"
+                                                                                         ],
+                                                                            "in_two_weeks":  [
+                                                                                                   "in two weeks",
+                                                                                                   "two weeks from now"
                                                                                          ]
                                                                         },
                                                 "relative_range_terms":  {
