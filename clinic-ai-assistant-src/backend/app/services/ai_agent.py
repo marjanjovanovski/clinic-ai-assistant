@@ -565,6 +565,10 @@ def _redirect_contact_message_to_availability(message: str, state: dict | None, 
     availability_phrases = (
         "slobodni termini",
         "sloboden termin",
+        "drug termin",
+        "drugi termini",
+        "change slot",
+        "different slot",
         "ima termini",
         "koi termini",
         "available slots",
@@ -1600,6 +1604,11 @@ def start_contact_collection_from_scheduling_handoff(
         collect_fields=collect_fields,
         profile=profile,
         scheduling_handoff=scheduling_handoff,
+    )
+    reply = scheduling_capability.selected_slot_handoff_reply_text(
+        profile,
+        scheduling_handoff.get("selected_slot") if isinstance(scheduling_handoff, dict) else None,
+        reply,
     )
     session_status = get_session_status(tenant, session_id)
     booking_progress = get_booking_progress(tenant, session_id)

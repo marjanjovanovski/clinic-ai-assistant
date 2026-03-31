@@ -1264,3 +1264,15 @@ def test_handoff_response_payload_reuses_conflict_widget_and_refresh_action():
     assert response_payload["next_action"] == "refresh_availability"
     assert response_payload["widget_payload"]["type"] == "slot-list"
     assert len(response_payload["widget_payload"]["slots"]) == 2
+
+
+def test_selected_slot_handoff_reply_text_uses_authoritative_slot_label_and_change_hint():
+    reply = scheduling_capability.selected_slot_handoff_reply_text(
+        {"business": {"language": "mk"}},
+        {"slot_id": "mock|slot-1", "display_label": "01 Apr 2026 во 09:30"},
+        "Кажете ми го вашето име.",
+    )
+
+    assert "01 Apr 2026 во 09:30" in reply
+    assert "слободни термини" in reply
+    assert reply.endswith("Кажете ми го вашето име.")

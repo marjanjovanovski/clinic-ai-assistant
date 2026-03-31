@@ -7,6 +7,23 @@ function dayKeyForSlot(slot) {
   return startAt.slice(0, 10) || "unknown-day";
 }
 
+function extractIsoDateParts(startAt) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(startAt || "").trim());
+  if (!match) {
+    return null;
+  }
+  return {
+    year: Number(match[1]),
+    monthIndex: Number(match[2]) - 1,
+    day: Number(match[3]),
+  };
+}
+
+function extractIsoTimeLabel(startAt) {
+  const match = /T(\d{2}:\d{2})/.exec(String(startAt || "").trim());
+  return match ? match[1] : "";
+}
+
 const MACEDONIAN_WEEKDAYS = ["Недела", "Понеделник", "Вторник", "Среда", "Четврток", "Петок", "Сабота"];
 const MACEDONIAN_MONTHS = ["Јан", "Фев", "Мар", "Апр", "Мај", "Јун", "Јул", "Авг", "Сеп", "Окт", "Ное", "Дек"];
 
@@ -19,18 +36,18 @@ function formatDayLabel(slot) {
     };
   }
 
-  const parsed = new Date(startAt);
-  if (Number.isNaN(parsed.getTime())) {
+  const parsedParts = extractIsoDateParts(startAt);
+  if (!parsedParts) {
     return {
       primary: startAt,
       secondary: "",
     };
   }
 
-  const weekday = MACEDONIAN_WEEKDAYS[parsed.getDay()] || "";
-  const day = String(parsed.getDate()).padStart(2, "0");
-  const month = MACEDONIAN_MONTHS[parsed.getMonth()] || "";
-  const year = parsed.getFullYear();
+  const weekday = MACEDONIAN_WEEKDAYS[new Date(Date.UTC(parsedParts.year, parsedParts.monthIndex, parsedParts.day)).getUTCDay()] || "";
+  const day = String(parsedParts.day).padStart(2, "0");
+  const month = MACEDONIAN_MONTHS[parsedParts.monthIndex] || "";
+  const year = parsedParts.year;
   return {
     primary: `${day} ${month} ${year}`,
     secondary: weekday,
@@ -43,16 +60,8 @@ function formatTimeLabel(slot) {
     return defaultSlotLabel(slot);
   }
 
-  const parsed = new Date(startAt);
-  if (Number.isNaN(parsed.getTime())) {
-    return defaultSlotLabel(slot);
-  }
-
-  return new Intl.DateTimeFormat("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(parsed);
+  const timeLabel = extractIsoTimeLabel(startAt);
+  return timeLabel || defaultSlotLabel(slot);
 }
 
 function groupSlotsByDay(slots) {

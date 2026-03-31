@@ -50,7 +50,7 @@ The purpose of this fix follow-up is to:
 
 ## Current Active Prompt
 
-- `Prompt 5`
+- `Prompt 6`
 
 ## Global Status Summary
 
@@ -58,7 +58,7 @@ The purpose of this fix follow-up is to:
 - Prompt 2 - Scheduling Request Resolution - Completed
 - Prompt 3 - Widget-First Availability Presentation - Completed
 - Prompt 4 - Scheduling Recovery And Booking Boundaries - Completed
-- Prompt 5 - Slot Handoff And Display Integrity - Pending
+- Prompt 5 - Slot Handoff And Display Integrity - Completed
 - Prompt 6 - Regression Coverage - Pending
 - Prompt 7 - Technical Verification - Pending
 - Prompt 8 - Manual Testing - Pending
@@ -358,7 +358,7 @@ No-availability flows remain truthful, helpful, and scheduling-first instead of 
 - Blocked
   - none
 
-## Prompt 5 - Slot Handoff And Display Integrity - Pending
+## Prompt 5 - Slot Handoff And Display Integrity - Completed
 
 ### Goal
 
@@ -386,6 +386,18 @@ Correct selected-slot display integrity and add the smallest supported change-sl
 ### Required Outcome
 
 Slot click still starts booking directly, but the user-facing transition is accurate and does not trap the user.
+
+### Completion Note
+
+- Changed
+  - added selected-slot handoff reply shaping in [scheduling_capability.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/app/services/scheduling_capability.py) and [ai_agent.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/app/services/ai_agent.py) so booking-start replies use the authoritative selected-slot display label and explicitly tell the user how to ask for a different slot
+  - widened the collecting-contact scheduling redirect in [ai_agent.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/app/services/ai_agent.py) to recognize lean change-slot phrasing such as `drug termin` / `change slot`
+  - updated the shared slot widget formatter in [slot-list.js](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/frontend/widgets/slot-list/slot-list.js) to render date and time from the stored slot payload instead of browser-shifting `start_at` through local timezone parsing
+  - added focused coverage in [test_scheduling_capability.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/tests/unit/test_scheduling_capability.py), [test_availability_intent_gating.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py), and [test_frontend_booking_ui.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/tests/integration/test_frontend_booking_ui.py)
+- Verified
+  - focused Prompt 5 checks passed with external `TMP` / `TEMP` and a fresh external `--basetemp`: `test_selected_slot_handoff_reply_text_uses_authoritative_slot_label_and_change_hint`, `test_selected_slot_endpoint_hands_off_chat_session_into_contact_collection`, `test_collecting_contact_change_slot_phrase_reuses_scheduling_and_preserves_booking_state`, `test_agent_page_mounts_slot_list_widget_from_chat_response`, and `test_slot_list_widget_supports_read_only_mode`
+- Blocked
+  - none
 
 ## Prompt 6 - Regression Coverage - Pending
 

@@ -938,6 +938,25 @@ def _localized_no_availability_text(context: CapabilityContext, *, specific_date
     return "There are currently no available appointments in the requested period. Tell me another date or time period and I will check again."
 
 
+def selected_slot_handoff_reply_text(profile: dict, selected_slot: dict | None, field_prompt: str) -> str:
+    business = profile.get("business") if isinstance(profile, dict) else {}
+    language = business.get("language") if isinstance(business, dict) else None
+    display_label = (
+        selected_slot.get("display_label").strip()
+        if isinstance(selected_slot, dict) and isinstance(selected_slot.get("display_label"), str) and selected_slot.get("display_label").strip()
+        else None
+    )
+    if isinstance(language, str) and language.lower().startswith("mk"):
+        slot_text = display_label or "\u0438\u0437\u0431\u0440\u0430\u043d\u0438\u043e\u0442 \u0442\u0435\u0440\u043c\u0438\u043d"
+        return (
+            f"\u0413\u043e \u0438\u0437\u0431\u0440\u0430\u0432 \u043e\u0432\u043e\u0458 \u0442\u0435\u0440\u043c\u0438\u043d: {slot_text}. "
+            f"\u0410\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435 \u0434\u0440\u0443\u0433 \u0442\u0435\u0440\u043c\u0438\u043d, \u043f\u0438\u0448\u0435\u0442\u0435 \u201e\u0441\u043b\u043e\u0431\u043e\u0434\u043d\u0438 \u0442\u0435\u0440\u043c\u0438\u043d\u0438\u201c. "
+            f"{field_prompt}"
+        )
+    slot_text = display_label or "the selected slot"
+    return f"I selected this appointment: {slot_text}. If you want a different slot, write \"available slots\". {field_prompt}"
+
+
 def _no_availability_reply_text(
     context: CapabilityContext,
     *,

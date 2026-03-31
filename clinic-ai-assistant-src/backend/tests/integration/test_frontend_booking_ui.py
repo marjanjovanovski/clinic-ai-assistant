@@ -165,6 +165,9 @@ def test_slot_list_widget_supports_read_only_mode(monkeypatch, tmp_path):
     assert 'buttonEl.classList.toggle("slot-list-button--read-only", readOnly);' in widget_js.text
     assert "buttonEl.disabled = readOnly;" in widget_js.text
     assert "if (readOnly) {" in widget_js.text
+    assert "function extractIsoDateParts(startAt)" in widget_js.text
+    assert "function extractIsoTimeLabel(startAt)" in widget_js.text
+    assert "return timeLabel || defaultSlotLabel(slot);" in widget_js.text
     assert ".slot-list-button--read-only:disabled {" in widget_css.text
 
 
