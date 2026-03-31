@@ -622,6 +622,50 @@ def test_execute_scheduling_turn_returns_widget_and_handoff_for_specific_day_ans
     assert execution.state["scheduling"]["booking_handoff_ready"] is True
 
 
+def test_availability_presentation_plan_distinguishes_specific_day_and_broad_range_requests():
+    specific_day_plan = scheduling_capability._availability_presentation_plan(
+        _context(
+            message="check availability on 31.03.2026",
+            requested_operation=scheduling_capability.OPERATION_AVAILABILITY,
+            profile={"scheduling": {"language_support": {}}},
+        )
+    )
+    broad_range_plan = scheduling_capability._availability_presentation_plan(
+        _context(
+            message="check availability next week",
+            requested_operation=scheduling_capability.OPERATION_AVAILABILITY,
+            profile={
+                "scheduling": {
+                    "language_support": {
+                        "relative_range_terms": {
+                            "next_week": ["next week"],
+                        },
+                    }
+                }
+            },
+        )
+    )
+
+    assert specific_day_plan == {"request_kind": "specific_day", "widget_mode": "default"}
+    assert broad_range_plan == {"request_kind": "broad_range", "widget_mode": "default"}
+
+
+def test_no_availability_state_exposes_followup_reply_without_booking_handoff():
+    state = {
+        "scheduling": {
+            "operation": scheduling_capability.OPERATION_AVAILABILITY,
+            "status": "completed",
+            "booking_handoff_ready": False,
+            "output_payload": {
+                "reply_text": "There are no available appointments on 2026-03-31.",
+            },
+        },
+    }
+
+    assert scheduling_capability.pending_availability_reply(state) == "There are no available appointments on 2026-03-31."
+    assert scheduling_capability.should_reenter_scheduling_from_followup(state) is True
+
+
 def test_handle_scheduling_capability_uses_config_owned_broad_range_narrowing_text(monkeypatch):
     monkeypatch.setattr(
         scheduling_capability,

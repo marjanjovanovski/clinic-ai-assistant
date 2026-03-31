@@ -171,6 +171,19 @@ def test_slot_list_widget_supports_read_only_mode(monkeypatch, tmp_path):
     assert ".slot-list-button--read-only:disabled {" in widget_css.text
 
 
+def test_slot_list_widget_formats_day_and_time_from_slot_payload_iso_strings(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+
+    widget_js = client.get("/frontend/widgets/slot-list/slot-list.js")
+
+    assert widget_js.status_code == 200
+    assert 'const parsedParts = extractIsoDateParts(startAt);' in widget_js.text
+    assert 'new Date(Date.UTC(parsedParts.year, parsedParts.monthIndex, parsedParts.day)).getUTCDay()' in widget_js.text
+    assert 'primary: `${day} ${month} ${year}`,' in widget_js.text
+    assert 'buttonEl.textContent = formatTimeLabel(slot);' in widget_js.text
+    assert 'buttonEl.title = getSlotLabel(slot);' in widget_js.text
+
+
 def test_reset_behavior_is_local_session_rollover_only(monkeypatch, tmp_path):
     client = _build_client(monkeypatch, tmp_path)
 

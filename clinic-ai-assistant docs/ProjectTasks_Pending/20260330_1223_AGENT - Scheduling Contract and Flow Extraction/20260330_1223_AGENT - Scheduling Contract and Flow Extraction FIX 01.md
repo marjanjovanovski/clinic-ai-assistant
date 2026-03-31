@@ -50,7 +50,7 @@ The purpose of this fix follow-up is to:
 
 ## Current Active Prompt
 
-- `Prompt 6`
+- `Prompt 7`
 
 ## Global Status Summary
 
@@ -59,7 +59,7 @@ The purpose of this fix follow-up is to:
 - Prompt 3 - Widget-First Availability Presentation - Completed
 - Prompt 4 - Scheduling Recovery And Booking Boundaries - Completed
 - Prompt 5 - Slot Handoff And Display Integrity - Completed
-- Prompt 6 - Regression Coverage - Pending
+- Prompt 6 - Regression Coverage - Completed
 - Prompt 7 - Technical Verification - Pending
 - Prompt 8 - Manual Testing - Pending
 - Prompt 9 - Merge To Main - Pending
@@ -399,7 +399,7 @@ Slot click still starts booking directly, but the user-facing transition is accu
 - Blocked
   - none
 
-## Prompt 6 - Regression Coverage - Pending
+## Prompt 6 - Regression Coverage - Completed
 
 ### Goal
 
@@ -421,6 +421,16 @@ Add only focused automated coverage for the unique fixed behaviors in this follo
 ### Required Outcome
 
 The new behavior is locked by focused tests instead of depending only on manual retesting.
+
+### Completion Note
+
+- Changed
+  - added focused regression coverage in [test_scheduling_capability.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/tests/unit/test_scheduling_capability.py) for availability presentation classification and no-availability follow-up state gating
+  - added focused widget-contract coverage in [test_frontend_booking_ui.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/tests/integration/test_frontend_booking_ui.py) to lock day/time rendering to ISO slot payload fields instead of browser-local date formatting
+- Verified
+  - focused Prompt 6 checks passed with external `TMP` / `TEMP` and external `--basetemp`: `test_availability_presentation_plan_distinguishes_specific_day_and_broad_range_requests`, `test_no_availability_state_exposes_followup_reply_without_booking_handoff`, `test_slot_list_widget_supports_read_only_mode`, and `test_slot_list_widget_formats_day_and_time_from_slot_payload_iso_strings`
+- Blocked
+  - none
 
 ## Prompt 7 - Technical Verification - Pending
 
