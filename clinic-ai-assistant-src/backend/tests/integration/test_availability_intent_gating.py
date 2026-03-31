@@ -359,7 +359,7 @@ def test_collecting_contact_availability_request_reuses_scheduling_instead_of_sa
     assert scheduling_capability.AVAILABILITY_INTENT_MARKER_KEY not in state
 
 
-def test_typed_date_availability_replies_inline_without_slot_widget(monkeypatch, tmp_path):
+def test_typed_date_availability_returns_slot_widget_without_inline_time_list(monkeypatch, tmp_path):
     client, ai_agent = _build_client(monkeypatch, tmp_path)
 
     class SpecificDateOpenAI:
@@ -378,18 +378,18 @@ def test_typed_date_availability_replies_inline_without_slot_widget(monkeypatch,
     assert response.status_code == 200
     payload = response.json()
     assert payload["session_status"] == "active"
-    assert payload["widget_payload"] is None
-    assert "09:00" in payload["reply"]
-    assert payload["inspector_payload"]["routing"]["last_response_type"] == "message"
+    assert payload["widget_payload"]["type"] == "slot-list"
+    assert "09:00" not in payload["reply"]
+    assert payload["inspector_payload"]["routing"]["last_response_type"] == "slot-list"
 
     session_key = ai_agent._session_key("milena_dental", payload["session_id"])
     scheduling_state = ai_agent.SESSION_STATE[session_key]["scheduling"]
     assert scheduling_state["output_payload"]["presentation"]["request_kind"] == "specific_day"
-    assert scheduling_state["output_payload"]["presentation"]["widget_mode"] == "suppress"
-    assert scheduling_state["booking_handoff_ready"] is False
+    assert scheduling_state["output_payload"]["presentation"]["widget_mode"] == "default"
+    assert scheduling_state["booking_handoff_ready"] is True
 
 
-def test_broad_range_availability_narrows_without_dumping_slot_widget(monkeypatch, tmp_path):
+def test_broad_range_availability_returns_short_reply_and_slot_widget(monkeypatch, tmp_path):
     client, ai_agent = _build_client(monkeypatch, tmp_path)
 
     class BroadRangeOpenAI:
@@ -408,15 +408,15 @@ def test_broad_range_availability_narrows_without_dumping_slot_widget(monkeypatc
     assert response.status_code == 200
     payload = response.json()
     assert payload["session_status"] == "active"
-    assert payload["widget_payload"] is None
+    assert payload["widget_payload"]["type"] == "slot-list"
     assert "09:00" not in payload["reply"]
-    assert payload["inspector_payload"]["routing"]["last_response_type"] == "message"
+    assert payload["inspector_payload"]["routing"]["last_response_type"] == "slot-list"
 
     session_key = ai_agent._session_key("milena_dental", payload["session_id"])
     scheduling_state = ai_agent.SESSION_STATE[session_key]["scheduling"]
     assert scheduling_state["output_payload"]["presentation"]["request_kind"] == "broad_range"
-    assert scheduling_state["output_payload"]["presentation"]["widget_mode"] == "suppress"
-    assert scheduling_state["booking_handoff_ready"] is False
+    assert scheduling_state["output_payload"]["presentation"]["widget_mode"] == "default"
+    assert scheduling_state["booking_handoff_ready"] is True
 
 
 def test_relative_requests_resolve_truthful_date_window_and_time_filter(monkeypatch, tmp_path):
@@ -454,7 +454,8 @@ def test_relative_requests_resolve_truthful_date_window_and_time_filter(monkeypa
     assert relative_response.status_code == 200
     relative_payload = relative_response.json()
 
-    assert "14:00" in relative_payload["reply"]
+    assert relative_payload["widget_payload"]["type"] == "slot-list"
+    assert "14:00" not in relative_payload["reply"]
     assert "09:00" not in relative_payload["reply"]
     assert "11:00" not in relative_payload["reply"]
 
@@ -465,9 +466,12 @@ def test_relative_requests_resolve_truthful_date_window_and_time_filter(monkeypa
     assert relative_request["date_from"] == "2026-03-31"
     assert relative_request["date_to"] == "2026-03-31"
     assert relative_request["preferred_time_range"] == "afternoon"
+    assert [slot["display_label"] for slot in relative_state["output_payload"]["result"]["slots"]] == [
+        "31 Mar 2026 во 14:00"
+    ]
 
 
-def test_booking_confirmation_after_inline_specific_day_availability_does_not_start_booking(monkeypatch, tmp_path):
+def test_booking_confirmation_after_widget_backed_specific_day_availability_can_start_booking(monkeypatch, tmp_path):
     client, ai_agent = _build_client(monkeypatch, tmp_path)
 
     class InlineSpecificDateOpenAI:
@@ -493,7 +497,7 @@ def test_booking_confirmation_after_inline_specific_day_availability_does_not_st
     first = client.post("/chat?tenant=milena_dental", json={"message": "check availability on 31.03.2026"})
     assert first.status_code == 200
     first_payload = first.json()
-    assert first_payload["widget_payload"] is None
+    assert first_payload["widget_payload"]["type"] == "slot-list"
 
     second = client.post(
         "/chat?tenant=milena_dental",
@@ -502,12 +506,12 @@ def test_booking_confirmation_after_inline_specific_day_availability_does_not_st
 
     assert second.status_code == 200
     second_payload = second.json()
-    assert second_payload["session_status"] == "active"
-    assert second_payload["booking_progress"] is None
+    assert second_payload["session_status"] == "collecting_contact"
+    assert second_payload["booking_progress"] is not None
     assert second_payload["widget_payload"] is None
-    assert second_payload["inspector_payload"]["routing"]["last_response_type"] == "message"
+    assert second_payload["inspector_payload"]["routing"]["last_response_type"] == "collecting_contact"
 
     session_key = ai_agent._session_key("milena_dental", first_payload["session_id"])
     state = ai_agent.SESSION_STATE[session_key]
-    assert state["scheduling"]["booking_handoff_ready"] is False
-    assert state.get("stage") != "collecting_contact"
+    assert state["scheduling_handoff"]["source"] == "scheduling_availability"
+    assert state.get("stage") == "collecting_contact"

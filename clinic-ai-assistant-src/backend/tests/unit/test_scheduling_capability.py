@@ -578,7 +578,7 @@ def test_handle_scheduling_capability_preserves_language_derived_time_window(mon
     assert [slot["slot_id"] for slot in slots] == ["slot-14"]
 
 
-def test_execute_scheduling_turn_suppresses_widget_and_booking_handoff_for_specific_day_inline_answers(monkeypatch):
+def test_execute_scheduling_turn_returns_widget_and_handoff_for_specific_day_answers(monkeypatch):
     monkeypatch.setattr(
         scheduling_capability,
         "get_scheduling_public_config",
@@ -617,8 +617,9 @@ def test_execute_scheduling_turn_suppresses_widget_and_booking_handoff_for_speci
 
     assert execution.result.assessment.output_payload["presentation"]["request_kind"] == "specific_day"
     assert execution.response_payload is not None
-    assert execution.response_payload.widget_payload is None
-    assert execution.state["scheduling"]["booking_handoff_ready"] is False
+    assert execution.response_payload.widget_payload["type"] == "slot-list"
+    assert "09:00" not in execution.response_payload.reply_text
+    assert execution.state["scheduling"]["booking_handoff_ready"] is True
 
 
 def test_handle_scheduling_capability_uses_config_owned_broad_range_narrowing_text(monkeypatch):

@@ -50,13 +50,13 @@ The purpose of this fix follow-up is to:
 
 ## Current Active Prompt
 
-- `Prompt 3`
+- `Prompt 4`
 
 ## Global Status Summary
 
 - Prompt 1 - Failure Map And Contract Lock - Completed
 - Prompt 2 - Scheduling Request Resolution - Completed
-- Prompt 3 - Widget-First Availability Presentation - Pending
+- Prompt 3 - Widget-First Availability Presentation - Completed
 - Prompt 4 - Scheduling Recovery And Booking Boundaries - Pending
 - Prompt 5 - Slot Handoff And Display Integrity - Pending
 - Prompt 6 - Regression Coverage - Pending
@@ -281,7 +281,7 @@ The scheduling request window and any time-window filtering reflect what the use
 - Blocked
   - none
 
-## Prompt 3 - Widget-First Availability Presentation - Pending
+## Prompt 3 - Widget-First Availability Presentation - Completed
 
 ### Goal
 
@@ -308,6 +308,17 @@ Restore the absolute clickable slot-widget contract for offered appointment time
 ### Required Outcome
 
 Scheduling responses stop dumping slot lists into plain text and instead return a short contextual reply plus a clickable slot-list widget whenever slots are actionable.
+
+### Completion Note
+
+- Changed
+  - updated [scheduling_capability.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/app/services/scheduling_capability.py) so specific-day, relative-day, weekday, and broad-range availability with actionable slots now keep the existing slot widget enabled instead of suppressing it
+  - changed scheduling reply shaping to stop serializing offered slot times into plain text and return short widget-oriented reply text instead
+  - aligned focused presentation coverage in [test_scheduling_capability.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/tests/unit/test_scheduling_capability.py) and [test_availability_intent_gating.py](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py)
+- Verified
+  - focused Prompt 3 checks passed with external `TMP` / `TEMP` and a fresh external `--basetemp`: `test_execute_scheduling_turn_returns_widget_and_handoff_for_specific_day_answers`, `test_typed_date_availability_returns_slot_widget_without_inline_time_list`, `test_broad_range_availability_returns_short_reply_and_slot_widget`, `test_relative_requests_resolve_truthful_date_window_and_time_filter`, and `test_booking_confirmation_after_widget_backed_specific_day_availability_can_start_booking`
+- Blocked
+  - none
 
 ## Prompt 4 - Scheduling Recovery And Booking Boundaries - Pending
 

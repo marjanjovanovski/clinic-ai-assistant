@@ -635,15 +635,15 @@ def _availability_presentation_plan(context: CapabilityContext) -> dict:
     language_support = scheduling.get("language_support") if isinstance(scheduling, dict) else None
 
     if _explicit_date_from_message(raw_message):
-        return {"request_kind": "specific_day", "widget_mode": "suppress"}
+        return {"request_kind": "specific_day", "widget_mode": "default"}
 
     if isinstance(language_support, dict):
         if _first_matching_term_key(normalized_message, language_support.get("relative_range_terms")) == "next_week":
-            return {"request_kind": "broad_range", "widget_mode": "suppress"}
+            return {"request_kind": "broad_range", "widget_mode": "default"}
         if _first_matching_term_key(normalized_message, language_support.get("relative_date_terms")) in {"today", "tomorrow"}:
-            return {"request_kind": "specific_day", "widget_mode": "suppress"}
+            return {"request_kind": "specific_day", "widget_mode": "default"}
         if _first_matching_term_key(normalized_message, language_support.get("weekday_terms")):
-            return {"request_kind": "specific_day", "widget_mode": "suppress"}
+            return {"request_kind": "specific_day", "widget_mode": "default"}
 
     return {"request_kind": "generic", "widget_mode": "default"}
 
@@ -898,8 +898,7 @@ def _availability_reply_text(
 ) -> str:
     request_kind = presentation_plan.get("request_kind") if isinstance(presentation_plan, dict) else None
     intro_message = context.intro_message.strip() if isinstance(context.intro_message, str) and context.intro_message.strip() else ""
-    slot_lines = [f"• {slot['display_label']}" for slot in slots_payload[:6] if isinstance(slot.get("display_label"), str)]
-    if not slot_lines:
+    if not slots_payload:
         return NO_AVAILABILITY_MESSAGE
     if request_kind == "broad_range":
         return _availability_contract_text(
@@ -907,13 +906,11 @@ def _availability_reply_text(
             "broad_range_narrowing",
             BROAD_RANGE_NARROWING_MESSAGE,
         )
-    if intro_message and slot_lines:
-        return f"{intro_message}\n\n" + "\n".join(slot_lines)
     if intro_message:
         return intro_message
-    if slot_lines:
-        return "\n".join(slot_lines)
-    return ""
+    if context.date_from and context.date_from == context.date_to:
+        return f"Available appointments for {context.date_from} are shown in the slot widget."
+    return "Available appointments are shown in the slot widget."
 
 
 def handle_scheduling_capability(context: CapabilityContext) -> CapabilityResult:
