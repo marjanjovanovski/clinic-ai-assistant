@@ -237,7 +237,9 @@ def test_handle_scheduling_capability_executes_availability_lookup_when_ready(mo
     assert result.assessment.status == "completed"
     assert result.assessment.reason == "availability_lookup_completed"
     assert result.assessment.output_payload["result"]["provider"] == "mock"
-    assert "09:00" in result.assessment.output_payload["reply_text"]
+    assert result.assessment.output_payload["reply_text"]
+    assert "09:00" not in result.assessment.output_payload["reply_text"]
+    assert result.assessment.output_payload["presentation"]["widget_mode"] == "default"
 
 
 def test_execute_scheduling_turn_persists_availability_response_shape(monkeypatch):
@@ -279,7 +281,8 @@ def test_execute_scheduling_turn_persists_availability_response_shape(monkeypatc
 
     assert execution.result.assessment.status == "completed"
     assert execution.response_payload is not None
-    assert "09:00" in execution.response_payload.reply_text
+    assert execution.response_payload.reply_text == "Eve nekolku slobodni termini:"
+    assert "09:00" not in execution.response_payload.reply_text
     assert execution.response_payload.widget_payload["type"] == "slot-list"
     assert execution.state["scheduling"]["booking_handoff_ready"] is True
     assert scheduling_capability.AVAILABILITY_INTENT_MARKER_KEY not in execution.state
@@ -743,7 +746,10 @@ def test_handle_scheduling_capability_returns_explicit_no_availability_message_w
     assert result.assessment.status == "completed"
     assert result.assessment.reason == "availability_lookup_completed"
     assert result.assessment.output_payload["result"]["slots"] == []
-    assert result.assessment.output_payload["reply_text"] == scheduling_capability.NO_AVAILABILITY_MESSAGE
+    assert (
+        result.assessment.output_payload["reply_text"]
+        == "There are currently no available appointments in the requested period. Tell me another date or time period and I will check again."
+    )
 
 
 def test_lookup_availability_builds_scheduling_request_and_delegates(monkeypatch):

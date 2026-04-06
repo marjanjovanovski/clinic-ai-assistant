@@ -12,6 +12,7 @@ This file contains the short, always-on operating rules for work in `ProjectTask
 
 - work only on the dedicated branch for that task unless the user explicitly changes the branching plan
 - after completing a tracked prompt, stop and ask `Commit changes?`
+- directly below `Commit changes?`, always provide one proposed descriptive commit message matching the commit you would create if the user approves
 - do not auto-advance past a prompt boundary
 - treat manual verification / merge readiness as a tracked final prompt, not an informal afterthought
 

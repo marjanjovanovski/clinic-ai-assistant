@@ -79,7 +79,7 @@ def test_availability_intent_triggers_scheduling_without_starting_booking(monkey
     assert payload["session_status"] == "active"
     assert payload["booking_progress"] is None
     assert "слободни термини" in payload["reply"]
-    assert "09:00" in payload["reply"]
+    assert "09:00" not in payload["reply"]
     assert payload["widget_payload"]["type"] == "slot-list"
     assert payload["widget_payload"]["service_id"] == "consultation"
     assert payload["widget_payload"]["title"] == payload["reply"].split("\n\n", 1)[0]

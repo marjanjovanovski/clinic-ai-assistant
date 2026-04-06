@@ -19,7 +19,7 @@
               "step": 1,
               "action": "Ask for availability on a concrete future date with known availability such as `09.04.2026`.",
               "what_is_tested": "Specific-date request resolution.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "Maps original failed rows 1, 2, 3. Confirm the resolved availability is for the requested day rather than the default next-days window.",
               "reference_files": "trace_2026-03-31_12-12-35_milena_dental_55d022eb-f823-4a8b-a868-4fcd079ea058.txt"
             },
@@ -192,8 +192,8 @@
     }
   ],
   "summary": {
-    "not_run": 14,
-    "pass": 0,
+    "not_run": 13,
+    "pass": 1,
     "fail": 0
   }
 }
