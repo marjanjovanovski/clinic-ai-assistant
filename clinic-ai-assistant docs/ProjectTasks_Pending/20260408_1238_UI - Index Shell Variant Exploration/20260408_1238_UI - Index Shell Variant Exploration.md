@@ -12,12 +12,12 @@ Execution must follow [../Task_Workflow_Guide.md](../Task_Workflow_Guide.md) and
 
 - Prompt 1 - Shell Scope And Variant Plan - Completed
 - Prompt 2 - Implement Five Index Shell Variants - Completed
-- Prompt 3 - Lightweight Review And Selection Notes - Pending
+- Prompt 3 - Lightweight Review And Selection Notes - Completed
 - Prompt 4 - Merge To Main - Pending
 
 ## Current Active Prompt
 
-- `Prompt 3`
+- `Prompt 4`
 
 ## Last Updated By
 
@@ -144,7 +144,7 @@ Five compare-ready shell variants exist in the repo or in clearly separated vari
 
 - `Changed`
 
-## Prompt 3 - Lightweight Review And Selection Notes - Pending
+## Prompt 3 - Lightweight Review And Selection Notes - Completed
 
 ### Goal
 
@@ -153,6 +153,37 @@ Do a cheap review pass and summarize the distinguishing traits and tradeoffs of 
 ### Required Outcome
 
 The user can quickly compare the five directions and choose a favorite for deeper refinement later.
+
+### Lightweight Review Scope
+
+- review performed from the implemented HTML and shared shell CSS
+- comparison stayed shell-only and did not expand into widget behavior review
+- no browser runtime pass was performed in this prompt
+
+### Variant Review Notes
+
+1. `Clinical Light Frame`
+   Safest and most product-ready direction. It keeps the current card metaphor, adds more polish through softer atmosphere, and uses the symbol in the least disruptive way. Best fit if the next step should stay conservative.
+2. `Midnight Glass`
+   Strongest contrast and most dramatic identity shift. The ghosted watermark use of the symbol is clear and distinctive, but this direction carries the highest readability and widget-contrast risk if refined further.
+3. `Terracotta Editorial`
+   Most expressive typography-led option. The serif header and warmer print-like palette give it a more boutique tone, but it may feel less clinical depending on the target brand personality.
+4. `Signal Grid`
+   Clearest hard-edge / no-rounded-corner concept and the most structurally different shell. Good choice if the goal is sharper product identity or a more technical feel, but it is intentionally less soft and less conversational.
+5. `Soft Botanical`
+   Gentlest and calmest concept. It keeps the shell approachable and introduces the symbol as restrained panel artwork, though the differentiation relies more on mood than on strong structural change compared with the harder-edged variants.
+
+### Quick Selection Guidance
+
+- choose `Clinical Light Frame` for the safest refinement path
+- choose `Midnight Glass` for the boldest visual departure
+- choose `Terracotta Editorial` for a warmer, more premium boutique feel
+- choose `Signal Grid` for the strongest no-rounded-corner direction
+- choose `Soft Botanical` for the calmest and softest patient-facing shell
+
+### Completion Note
+
+- `Verified`
 
 ## Prompt 4 - Merge To Main - Pending
 
