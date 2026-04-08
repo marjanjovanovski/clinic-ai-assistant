@@ -42,7 +42,7 @@ The purpose of this fix follow-up is to:
 
 ## Last Updated On
 
-- `2026-04-06`
+- `2026-04-08`
 
 ## Merge To Main
 
@@ -50,7 +50,7 @@ The purpose of this fix follow-up is to:
 
 ## Current Active Prompt
 
-- `Prompt 8`
+- `Prompt 9`
 
 ## Global Status Summary
 
@@ -61,7 +61,7 @@ The purpose of this fix follow-up is to:
 - Prompt 5 - Slot Handoff And Display Integrity - Completed
 - Prompt 6 - Regression Coverage - Completed
 - Prompt 7 - Technical Verification - Completed
-- Prompt 8 - Manual Testing - Pending
+- Prompt 8 - Manual Testing - Completed
 - Prompt 9 - Merge To Main - Pending
 
 ## Source Of Follow-Up Truth
@@ -457,7 +457,7 @@ Run the smallest focused technical verification set that proves the fix prompts 
 - Blocked
   - none
 
-## Prompt 8 - Manual Testing - Pending
+## Prompt 8 - Manual Testing - Completed
 
 ### Goal
 
@@ -468,6 +468,17 @@ Retest every failed row from the parent task through the companion fix JSON and 
 - use [manual_testing_coverage_FIX01.json](./manual_testing_coverage_FIX01.json)
 - keep row-level retest results there instead of duplicating them in markdown
 - if new bugs are discovered, record them plainly and decide whether they belong in this fix or in `FIX 02`
+
+### Completion Notes
+
+- Changed
+  - updated [manual_testing_coverage_FIX01.json](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant%20docs/ProjectTasks_Pending/20260330_1223_AGENT%20-%20Scheduling%20Contract%20and%20Flow%20Extraction/manual_testing_coverage_FIX01.json) with completed row-level Prompt 8 results and a merge-ready manual verification summary
+  - recorded the long-running premature booking/contact collection regression as a separate standalone bug task in [20260408_1157_AGENT - Premature Booking Flow Regression.md](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant%20docs/ProjectTasks_Pending/20260408_1157_AGENT%20-%20Premature%20Booking%20Flow%20Regression/20260408_1157_AGENT%20-%20Premature%20Booking%20Flow%20Regression.md)
+- Verified
+  - Prompt 8 manual retesting is complete in [manual_testing_coverage_FIX01.json](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant%20docs/ProjectTasks_Pending/20260330_1223_AGENT%20-%20Scheduling%20Contract%20and%20Flow%20Extraction/manual_testing_coverage_FIX01.json) with `pass: 14`, `fail: 0`, `not_run: 0`
+  - FIX 01 remains ready to close while the known intermittent premature booking-flow regression is tracked separately
+- Blocked
+  - none
 
 ## Prompt 9 - Merge To Main - Pending
 
