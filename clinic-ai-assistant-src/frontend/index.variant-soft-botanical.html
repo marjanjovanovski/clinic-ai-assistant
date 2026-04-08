@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/frontend/favicon.ico">
+  <link rel="stylesheet" href="/frontend/chat/chat-shell.css" />
+  <link rel="stylesheet" href="/frontend/widgets/booking-progress/booking-progress.css" />
+  <link rel="stylesheet" href="/frontend/widgets/booking-summary/booking-summary.css" />
+  <link rel="stylesheet" href="/frontend/widgets/slot-list/slot-list.css" />
+  <link rel="stylesheet" href="/frontend/index-shell-variants.css" />
+  <title>Variant 5 / Soft Botanical</title>
+</head>
+<body class="shell-variant variant-botanical">
+  <div class="shell-page">
+    <div class="shell-stage">
+      <div class="shell-ambient shell-ambient-a" aria-hidden="true"></div>
+      <div class="shell-ambient shell-ambient-b" aria-hidden="true"></div>
+      <div class="shell-variant-label">Variant 5 / Soft Botanical</div>
+
+      <div class="chat-app">
+        <div class="shell-brand-row" aria-hidden="true">
+          <div class="shell-brand-mark"></div>
+          <div class="shell-brand-caption">Framed artwork shell</div>
+        </div>
+        <div class="chat-header" id="chatHeader">Loading...</div>
+        <div class="booking-progress" id="bookingProgress">
+          <div class="booking-progress-header">
+            <div class="booking-progress-title" id="bookingProgressTitle">Booking in progress</div>
+            <div class="booking-progress-controls">
+              <div class="booking-progress-status" id="bookingProgressStatus">0 / 3</div>
+              <button
+                type="button"
+                class="booking-reset-button"
+                id="bookingResetButton"
+                data-tooltip="Start over"
+                aria-label="Start over"
+                hidden
+              >
+                <span class="booking-reset-icon" aria-hidden="true">&#8634;</span>
+              </button>
+            </div>
+          </div>
+          <div class="booking-progress-steps" id="bookingProgressSteps"></div>
+        </div>
+
+        <div class="booking-summary" id="bookingSummary">
+          <div class="booking-summary-header">
+            <div>
+              <div class="booking-summary-title" id="bookingSummaryTitle">Request summary</div>
+              <div class="booking-summary-subtitle" id="bookingSummarySubtitle"></div>
+            </div>
+            <div class="booking-summary-badge" id="bookingSummaryBadge">Held slot</div>
+          </div>
+          <div class="booking-summary-grid">
+            <div class="booking-summary-card">
+              <div class="booking-summary-label">Service</div>
+              <div class="booking-summary-value" id="bookingSummaryService"></div>
+            </div>
+            <div class="booking-summary-card">
+              <div class="booking-summary-label">Appointment</div>
+              <div class="booking-summary-value" id="bookingSummaryAppointment"></div>
+            </div>
+          </div>
+          <div class="booking-summary-fields" id="bookingSummaryFields"></div>
+          <div class="booking-summary-note" id="bookingSummaryNote" hidden>
+            <div class="booking-summary-note-label" id="bookingSummaryNoteLabel">Patient note</div>
+            <div class="booking-summary-note-value" id="bookingSummaryNoteValue"></div>
+          </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages"></div>
+
+        <div class="chat-input-area">
+          <input
+            type="text"
+            id="messageInput"
+            class="chat-input"
+            placeholder="Type a message..."
+          />
+          <button id="sendButton" class="send-button">Send</button>
+        </div>
+
+        <div class="status" id="statusText">Ready</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/frontend/index-shell-app.js"></script>
+</body>
+</html>

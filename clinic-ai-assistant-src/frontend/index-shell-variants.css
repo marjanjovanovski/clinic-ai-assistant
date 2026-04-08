@@ -1,0 +1,463 @@
+:root {
+  --shell-symbol-url: url("/frontend/images/Cheiz_Simbol_01_4_ZaPrint.png");
+  --shell-font-body: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  --shell-font-display: Georgia, "Times New Roman", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body.shell-variant {
+  min-height: 100vh;
+  margin: 0;
+  font-family: var(--shell-font-body);
+  color: var(--shell-text, #172033);
+  background:
+    radial-gradient(circle at top left, var(--shell-glow-a, rgba(255, 255, 255, 0.7)), transparent 36%),
+    radial-gradient(circle at bottom right, var(--shell-glow-b, rgba(255, 255, 255, 0.4)), transparent 32%),
+    var(--shell-page-bg, #f4f4f4);
+}
+
+.shell-page {
+  min-height: 100vh;
+  padding: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shell-stage {
+  position: relative;
+  width: min(1180px, 100%);
+  padding: clamp(18px, 3vw, 40px);
+  border: 1px solid var(--shell-stage-border, rgba(23, 32, 51, 0.08));
+  border-radius: var(--shell-stage-radius, 28px);
+  background: var(--shell-stage-bg, rgba(255, 255, 255, 0.35));
+  box-shadow: var(--shell-stage-shadow, 0 24px 70px rgba(15, 23, 42, 0.12));
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.shell-variant-label {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 10px 14px;
+  border: 1px solid var(--shell-chip-border, rgba(23, 32, 51, 0.1));
+  border-radius: var(--shell-chip-radius, 999px);
+  background: var(--shell-chip-bg, rgba(255, 255, 255, 0.72));
+  color: var(--shell-chip-text, inherit);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.shell-variant-label::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--shell-chip-dot, currentColor);
+  opacity: 0.7;
+}
+
+.shell-ambient {
+  position: absolute;
+  inset: auto;
+  z-index: 0;
+  pointer-events: none;
+  opacity: var(--shell-ambient-opacity, 0.8);
+}
+
+.shell-ambient-a {
+  top: -4%;
+  right: -6%;
+  width: 240px;
+  height: 240px;
+  border-radius: 999px;
+  background: var(--shell-ambient-a, rgba(255, 255, 255, 0.6));
+}
+
+.shell-ambient-b {
+  bottom: -12%;
+  left: -8%;
+  width: 300px;
+  height: 300px;
+  border-radius: 999px;
+  background: var(--shell-ambient-b, rgba(255, 255, 255, 0.35));
+}
+
+.chat-app {
+  position: relative;
+  z-index: 1;
+  width: min(720px, 100%);
+  min-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: var(--shell-card-border-width, 1px) solid var(--shell-card-border, rgba(23, 32, 51, 0.12));
+  border-radius: var(--shell-card-radius, 24px);
+  background: var(--shell-card-bg, rgba(255, 255, 255, 0.94));
+  box-shadow: var(--shell-card-shadow, 0 18px 42px rgba(15, 23, 42, 0.18));
+  backdrop-filter: blur(var(--shell-card-blur, 0));
+}
+
+.shell-brand-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px 0 20px;
+  color: var(--shell-brand-text, var(--shell-text, #172033));
+}
+
+.shell-brand-mark {
+  width: var(--shell-brand-size, 38px);
+  height: var(--shell-brand-size, 38px);
+  flex: 0 0 auto;
+  border: var(--shell-brand-border, 1px solid rgba(23, 32, 51, 0.12));
+  border-radius: var(--shell-brand-radius, 10px);
+  background:
+    center / 72% no-repeat var(--shell-symbol-url),
+    var(--shell-brand-bg, rgba(255, 255, 255, 0.84));
+  box-shadow: var(--shell-brand-shadow, none);
+}
+
+.shell-brand-caption {
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.chat-header {
+  position: relative;
+  z-index: 1;
+  padding: 18px 20px 16px 20px;
+  border-bottom: 1px solid var(--shell-divider, rgba(23, 32, 51, 0.12));
+  background: var(--shell-header-bg, transparent);
+  color: var(--shell-header-text, inherit);
+  font-family: var(--shell-header-font, var(--shell-font-body));
+  font-size: clamp(20px, 2.4vw, 28px);
+  font-weight: 700;
+  letter-spacing: var(--shell-header-letter-spacing, 0.01em);
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--shell-messages-bg, transparent);
+}
+
+.chat-input-area {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  padding: 16px;
+  border-top: 1px solid var(--shell-divider, rgba(23, 32, 51, 0.12));
+  background: var(--shell-input-area-bg, rgba(255, 255, 255, 0.8));
+}
+
+.chat-input {
+  flex: 1;
+  padding: 12px 14px;
+  border: 1px solid var(--shell-input-border, rgba(23, 32, 51, 0.16));
+  border-radius: var(--shell-input-radius, 12px);
+  background: var(--shell-input-bg, rgba(255, 255, 255, 0.96));
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+
+.chat-input:focus {
+  border-color: var(--shell-input-focus, rgba(23, 32, 51, 0.42));
+  box-shadow: 0 0 0 3px var(--shell-input-focus-ring, rgba(23, 32, 51, 0.08));
+}
+
+.send-button {
+  min-width: 112px;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: var(--shell-button-radius, 12px);
+  background: var(--shell-button-bg, #172033);
+  color: var(--shell-button-text, #ffffff);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+.send-button:hover:enabled {
+  transform: translateY(-1px);
+}
+
+.send-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.status {
+  position: relative;
+  padding: 0 16px 16px 16px;
+  color: var(--shell-status-text, rgba(23, 32, 51, 0.7));
+  font-size: 13px;
+}
+
+.variant-clinical {
+  --shell-page-bg: linear-gradient(135deg, #f2efe8 0%, #eef4f7 42%, #dce7ef 100%);
+  --shell-stage-bg: rgba(255, 255, 255, 0.52);
+  --shell-stage-border: rgba(102, 136, 160, 0.22);
+  --shell-stage-shadow: 0 26px 80px rgba(67, 88, 109, 0.16);
+  --shell-chip-bg: rgba(255, 255, 255, 0.8);
+  --shell-chip-border: rgba(107, 138, 160, 0.2);
+  --shell-chip-dot: #6f91aa;
+  --shell-card-radius: 28px;
+  --shell-card-bg: rgba(255, 255, 255, 0.92);
+  --shell-card-border: rgba(117, 145, 164, 0.2);
+  --shell-divider: rgba(117, 145, 164, 0.16);
+  --shell-brand-bg: rgba(244, 249, 252, 0.94);
+  --shell-brand-border: 1px solid rgba(111, 145, 170, 0.24);
+  --shell-brand-shadow: 0 8px 18px rgba(111, 145, 170, 0.18);
+  --shell-header-text: #203041;
+  --shell-button-bg: #324f67;
+  --shell-input-focus: rgba(50, 79, 103, 0.55);
+  --shell-input-focus-ring: rgba(50, 79, 103, 0.12);
+  --shell-glow-a: rgba(255, 255, 255, 0.9);
+  --shell-glow-b: rgba(191, 214, 227, 0.38);
+  --shell-ambient-a: rgba(185, 208, 220, 0.34);
+  --shell-ambient-b: rgba(255, 240, 231, 0.58);
+}
+
+.variant-midnight {
+  --shell-text: #ebf2ff;
+  --shell-page-bg: radial-gradient(circle at top, #203149 0%, #0b1320 54%, #04070d 100%);
+  --shell-stage-bg: rgba(7, 12, 22, 0.64);
+  --shell-stage-border: rgba(116, 196, 235, 0.18);
+  --shell-stage-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+  --shell-chip-bg: rgba(8, 16, 30, 0.6);
+  --shell-chip-border: rgba(116, 196, 235, 0.2);
+  --shell-chip-dot: #89d4ff;
+  --shell-card-bg: linear-gradient(180deg, rgba(12, 23, 39, 0.94), rgba(5, 12, 23, 0.92));
+  --shell-card-border: rgba(115, 184, 229, 0.18);
+  --shell-card-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+  --shell-card-blur: 18px;
+  --shell-divider: rgba(112, 172, 215, 0.18);
+  --shell-brand-bg: rgba(11, 23, 38, 0.88);
+  --shell-brand-border: 1px solid rgba(109, 190, 255, 0.22);
+  --shell-header-text: #f5fbff;
+  --shell-header-bg: linear-gradient(180deg, rgba(23, 43, 73, 0.52), rgba(7, 16, 29, 0));
+  --shell-button-bg: linear-gradient(135deg, #66b8ef 0%, #2d7faf 100%);
+  --shell-button-text: #07111d;
+  --shell-input-bg: rgba(8, 16, 28, 0.84);
+  --shell-input-border: rgba(112, 172, 215, 0.22);
+  --shell-input-focus: rgba(110, 187, 242, 0.72);
+  --shell-input-focus-ring: rgba(110, 187, 242, 0.15);
+  --shell-status-text: rgba(235, 242, 255, 0.72);
+  --shell-glow-a: rgba(68, 145, 189, 0.24);
+  --shell-glow-b: rgba(21, 70, 107, 0.28);
+  --shell-ambient-a: rgba(42, 119, 167, 0.28);
+  --shell-ambient-b: rgba(12, 52, 81, 0.36);
+}
+
+.variant-terracotta {
+  --shell-page-bg: linear-gradient(135deg, #efe5d8 0%, #f6efe8 55%, #d7c4b0 100%);
+  --shell-stage-bg: rgba(245, 236, 224, 0.66);
+  --shell-stage-border: rgba(125, 78, 55, 0.18);
+  --shell-chip-bg: rgba(255, 248, 241, 0.78);
+  --shell-chip-border: rgba(125, 78, 55, 0.18);
+  --shell-chip-dot: #915438;
+  --shell-card-radius: 22px;
+  --shell-card-border-width: 2px;
+  --shell-card-bg: linear-gradient(180deg, rgba(253, 247, 240, 0.96), rgba(248, 239, 229, 0.94));
+  --shell-card-border: rgba(145, 84, 56, 0.22);
+  --shell-card-shadow: 0 18px 44px rgba(108, 70, 54, 0.16);
+  --shell-divider: rgba(145, 84, 56, 0.16);
+  --shell-brand-bg: rgba(255, 249, 243, 0.9);
+  --shell-brand-border: 1px solid rgba(145, 84, 56, 0.2);
+  --shell-header-font: var(--shell-font-display);
+  --shell-header-text: #4f2f22;
+  --shell-header-letter-spacing: 0.02em;
+  --shell-button-bg: #8d563f;
+  --shell-input-focus: rgba(141, 86, 63, 0.55);
+  --shell-input-focus-ring: rgba(141, 86, 63, 0.12);
+  --shell-ambient-a: rgba(176, 119, 81, 0.18);
+  --shell-ambient-b: rgba(211, 183, 157, 0.42);
+}
+
+.variant-grid {
+  --shell-page-bg:
+    linear-gradient(90deg, rgba(11, 23, 37, 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(11, 23, 37, 0.06) 1px, transparent 1px),
+    linear-gradient(135deg, #e4ebef 0%, #dde3e7 50%, #cfd8de 100%);
+  background-size: 28px 28px, 28px 28px, auto;
+  --shell-stage-radius: 0;
+  --shell-stage-bg: rgba(244, 247, 250, 0.78);
+  --shell-stage-border: rgba(19, 38, 56, 0.18);
+  --shell-stage-shadow: 0 18px 48px rgba(18, 30, 44, 0.12);
+  --shell-chip-radius: 0;
+  --shell-chip-bg: rgba(244, 247, 250, 0.88);
+  --shell-chip-border: rgba(19, 38, 56, 0.16);
+  --shell-chip-dot: #1d516b;
+  --shell-card-radius: 0;
+  --shell-card-border-width: 2px;
+  --shell-card-bg: linear-gradient(180deg, rgba(253, 254, 255, 0.98), rgba(238, 243, 247, 0.96));
+  --shell-card-border: rgba(19, 38, 56, 0.22);
+  --shell-card-shadow: 12px 12px 0 rgba(29, 81, 107, 0.12);
+  --shell-divider: rgba(19, 38, 56, 0.18);
+  --shell-brand-radius: 0;
+  --shell-brand-bg: rgba(228, 238, 244, 0.96);
+  --shell-brand-border: 2px solid rgba(29, 81, 107, 0.18);
+  --shell-header-text: #122233;
+  --shell-header-bg: linear-gradient(90deg, rgba(29, 81, 107, 0.08), rgba(29, 81, 107, 0));
+  --shell-input-radius: 0;
+  --shell-input-bg: rgba(250, 252, 253, 0.98);
+  --shell-input-border: rgba(19, 38, 56, 0.24);
+  --shell-input-focus: rgba(29, 81, 107, 0.55);
+  --shell-input-focus-ring: rgba(29, 81, 107, 0.12);
+  --shell-button-radius: 0;
+  --shell-button-bg: #173b50;
+  --shell-ambient-a: rgba(29, 81, 107, 0.08);
+  --shell-ambient-b: rgba(255, 255, 255, 0.42);
+}
+
+.variant-botanical {
+  --shell-page-bg: linear-gradient(135deg, #edf1e4 0%, #f8f4e7 55%, #d8e1cd 100%);
+  --shell-stage-bg: rgba(249, 248, 241, 0.68);
+  --shell-stage-border: rgba(88, 115, 87, 0.18);
+  --shell-chip-bg: rgba(248, 247, 239, 0.82);
+  --shell-chip-border: rgba(88, 115, 87, 0.18);
+  --shell-chip-dot: #6f8363;
+  --shell-card-radius: 30px;
+  --shell-card-bg: linear-gradient(180deg, rgba(255, 253, 248, 0.96), rgba(249, 247, 240, 0.94));
+  --shell-card-border: rgba(111, 131, 99, 0.16);
+  --shell-card-shadow: 0 20px 46px rgba(92, 103, 71, 0.14);
+  --shell-divider: rgba(111, 131, 99, 0.16);
+  --shell-brand-bg: rgba(246, 245, 236, 0.92);
+  --shell-brand-border: 1px solid rgba(111, 131, 99, 0.16);
+  --shell-header-text: #2d4431;
+  --shell-button-bg: #5f7856;
+  --shell-input-focus: rgba(95, 120, 86, 0.55);
+  --shell-input-focus-ring: rgba(95, 120, 86, 0.12);
+  --shell-status-text: rgba(45, 68, 49, 0.7);
+  --shell-ambient-a: rgba(208, 219, 187, 0.36);
+  --shell-ambient-b: rgba(237, 228, 197, 0.46);
+}
+
+.variant-midnight .shell-brand-mark {
+  opacity: 0;
+}
+
+.variant-midnight .chat-app::before {
+  content: "";
+  position: absolute;
+  top: -24px;
+  right: -18px;
+  width: 220px;
+  height: 220px;
+  background: center / contain no-repeat var(--shell-symbol-url);
+  opacity: 0.11;
+  pointer-events: none;
+}
+
+.variant-terracotta .chat-header::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  width: 34px;
+  height: 34px;
+  transform: translateY(-50%);
+  background: center / contain no-repeat var(--shell-symbol-url);
+  opacity: 0.42;
+}
+
+.variant-grid .shell-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--shell-symbol-url);
+  background-size: 82px 82px;
+  background-position: 22px 22px;
+  opacity: 0.035;
+  pointer-events: none;
+}
+
+.variant-grid .chat-app::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 84px;
+  height: 84px;
+  border-left: 2px solid rgba(29, 81, 107, 0.18);
+  border-bottom: 2px solid rgba(29, 81, 107, 0.18);
+  background:
+    center / 56% no-repeat var(--shell-symbol-url),
+    rgba(228, 238, 244, 0.9);
+}
+
+.variant-botanical .status::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  width: 132px;
+  height: 72px;
+  border: 1px solid rgba(111, 131, 99, 0.18);
+  border-radius: 18px;
+  background:
+    center / contain no-repeat var(--shell-symbol-url),
+    linear-gradient(135deg, rgba(242, 241, 232, 0.86), rgba(228, 234, 214, 0.92));
+  opacity: 0.48;
+}
+
+@media (max-width: 760px) {
+  .shell-page {
+    padding: 14px;
+  }
+
+  .shell-stage {
+    padding: 14px;
+  }
+
+  .shell-variant-label {
+    margin-bottom: 12px;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+  }
+
+  .chat-app {
+    min-height: calc(100vh - 56px);
+  }
+
+  .shell-brand-row {
+    padding-top: 14px;
+  }
+
+  .chat-input-area {
+    flex-direction: column;
+  }
+
+  .send-button {
+    width: 100%;
+  }
+
+  .variant-midnight .chat-app::before {
+    width: 150px;
+    height: 150px;
+  }
+
+  .variant-botanical .status::after {
+    width: 96px;
+    height: 56px;
+  }
+}
