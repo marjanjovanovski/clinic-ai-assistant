@@ -42,20 +42,21 @@ Status values allowed in this document:
 
 ## Merge To Main
 
-- `Pending`
+- `Completed`
 
 ## Current Active Prompt
 
-- `Prompt 1`
+- `Completed`
 
 ## Global Status Summary
 
-- Prompt 1 - Pending
-- Prompt 2 - Pending
-- Prompt 3 - Pending
-- Prompt 4 - Pending
-- Prompt 5 - Pending
-- Prompt 6 - Pending
+- Prompt 1 - Completed
+- Prompt 2 - Completed
+- Prompt 3 - Completed
+- Prompt 4 - Completed
+- Prompt 5 - Completed
+- Prompt 6 - Completed
+- Prompt 7 - Merge To Main - Completed
 
 ## Working Rules For The Implementing AI Agent
 
@@ -685,7 +686,7 @@ This task replaces that with a higher-signal workflow:
 - If a path- or log-related finding is left in place, document the specific boundary or normalization that makes it acceptable.
 - Prefer preserving readable SQLite code over forcing ORM-style abstractions into modules that currently use `sqlite3` directly.
 
-## Prompt 1 - Pending
+## Prompt 1 - Completed
 
 ### Goal
 
@@ -708,7 +709,18 @@ Requirements:
 
 The task has a repo-specific finding triage and a justified execution order instead of a raw scanner dump.
 
-## Prompt 2 - Pending
+### Completion Note
+
+- `Changed`
+  - Confirmed the existing normalized findings remain the execution source of truth for this task and locked Prompt 2 to Prompt 5 execution order as already defined in `Execution Order Baseline`.
+- `Verified`
+  - Re-reviewed the embedded `Fix Now`, `Likely Fix Now`, `Review Carefully Before Fixing`, `Verification Map`, `Accepted Residual Handling`, and prompt-specific scope guardrails for internal consistency.
+- `Blocked`
+  - None.
+- `Deferred`
+  - No triage-bucket changes were needed; production-code validation is deferred to the prompt-specific pre-edit checks starting in Prompt 2.
+
+## Prompt 2 - Completed
 
 ### Goal
 
@@ -738,7 +750,21 @@ Requirements:
 
 The most credible security and externally visible correctness issues are fixed without cargo-cult rewrites.
 
-## Prompt 3 - Pending
+### Completion Note
+
+- `Changed`
+  - Tightened `clinic-ai-assistant-src/lessons_learned_repo/history_store.py` so variable-length `IN (...)` placeholders are derived only from the id count and execution ids are normalized before binding.
+  - Replaced raw `SchedulingConfigError` text in `clinic-ai-assistant-src/backend/app/services/booking_credentials.py` with a stable user-safe fallback message.
+  - Added focused regression coverage for the history-store id path and the booking-credentials exception-text path.
+- `Verified`
+  - `clinic-ai-assistant-src/backend/tests/unit/test_booking_credentials.py -q`
+  - `clinic-ai-assistant-src/lessons_learned_repo/tests/test_history_store.py -q`
+- `Blocked`
+  - None.
+- `Deferred`
+  - Left `lead_store.py`, `scheduling_hold_store.py`, and `config_loader.py` unchanged because the preserved findings still fit the Prompt 2 `Review Carefully Before Fixing` bucket and did not justify a behavior-preserving patch inside this prompt.
+
+## Prompt 3 - Completed
 
 ### Goal
 
@@ -765,7 +791,20 @@ Requirements:
 
 The dead test code and the route-layer exception-chaining debt are cleaned up with a narrow, safe diff.
 
-## Prompt 4 - Pending
+### Completion Note
+
+- `Changed`
+  - Removed the unreachable dead-test tail from `clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py`.
+  - Added explicit exception chaining in `clinic-ai-assistant-src/backend/app/main.py`, `clinic-ai-assistant-src/backend/app/routes/chat.py`, `clinic-ai-assistant-src/backend/app/routes/manual_verification.py`, and `clinic-ai-assistant-src/backend/app/routes/scheduling.py` while preserving existing messages and status codes.
+- `Verified`
+  - `clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py -q`
+  - `ruff check clinic-ai-assistant-src/backend/app/main.py clinic-ai-assistant-src/backend/app/routes/chat.py clinic-ai-assistant-src/backend/app/routes/manual_verification.py clinic-ai-assistant-src/backend/app/routes/scheduling.py`
+- `Blocked`
+  - None.
+- `Deferred`
+  - None.
+
+## Prompt 4 - Completed
 
 ### Goal
 
@@ -791,7 +830,24 @@ Requirements:
 
 The remaining low-risk service-layer findings are either fixed or explicitly justified.
 
-## Prompt 5 - Pending
+### Completion Note
+
+- `Changed`
+  - Removed the unused `booking_input_type` assignment in `clinic-ai-assistant-src/backend/app/services/ai_agent.py`.
+  - Replaced the silent guidance fallback in `clinic-ai-assistant-src/backend/app/services/ai_agent.py` with an explicit debug-logged fallback path.
+  - Added explicit exception chaining in `clinic-ai-assistant-src/backend/app/services/scheduling/providers/google_calendar.py` for unsupported timezone errors.
+  - Hardened `clinic-ai-assistant-src/backend/app/services/config_loader.py` with a tenant-slug validation boundary that accepts the current profile names and blocks path-style traversal input.
+  - Added focused regression coverage for the config-loader tenant boundary and the Google Calendar timezone fallback path.
+- `Verified`
+  - `clinic-ai-assistant-src/backend/tests/unit/test_ai_agent_helpers.py -q`
+  - `clinic-ai-assistant-src/backend/tests/unit/test_google_calendar_provider.py -q`
+  - `clinic-ai-assistant-src/backend/tests/test_config_loader.py -q`
+- `Blocked`
+  - None.
+- `Deferred`
+  - The preserved `SIM103` note in `ai_agent.py` no longer matched a useful behavior-preserving simplification in the current file, so no additional boolean-style cleanup was applied in this prompt.
+
+## Prompt 5 - Completed
 
 ### Goal
 
@@ -814,7 +870,53 @@ Requirements:
 
 The cleanup is technically verified and the new residual finding set is clear.
 
-## Prompt 6 - Pending
+### Completion Note
+
+- `Changed`
+  - Recorded the focused post-fix verification result and residual-finding summary for the Prompt 2 to 4 patch set.
+- `Verified`
+  - `clinic-ai-assistant-src/backend/tests/unit/test_booking_credentials.py -q`
+  - `clinic-ai-assistant-src/backend/tests/integration/test_scheduling_api.py -q`
+  - `clinic-ai-assistant-src/backend/tests/integration/test_req_booking_flow.py -q`
+  - `clinic-ai-assistant-src/backend/tests/integration/test_availability_intent_gating.py -q`
+  - `clinic-ai-assistant-src/backend/tests/unit/test_ai_agent_helpers.py -q`
+  - `clinic-ai-assistant-src/backend/tests/unit/test_google_calendar_provider.py -q`
+  - `clinic-ai-assistant-src/backend/tests/test_config_loader.py -q`
+  - `clinic-ai-assistant-src/lessons_learned_repo/tests/test_history_store.py -q`
+  - `ruff check` on the touched Prompt 2 to 4 backend, test, and lessons-learned files
+- `Blocked`
+  - Repo residual cleanup was not completed because existing temp-path artifacts `.pytest_cache`, `pytest-cache-files-oy875ljp`, `pytest-cache-files-xtswtwzj`, and `clinic-ai-assistant-src/backend/_pytest_runtime_tmp` are present and at least some subpaths are permission-blocked in the current environment.
+- `Deferred`
+  - Targeted Ruff verification still reports residual findings outside the completed prompt set and one new low-risk lint issue in `booking_credentials.py`; these are summarized below instead of being auto-fixed inside Prompt 5.
+
+### Residual Finding Summary
+
+- `Finding`: `Ruff SIM103` in `clinic-ai-assistant-src/backend/app/services/ai_agent.py:664`
+  `Reason Left`: the preserved simplification note no longer matched a clearly better behavior-preserving rewrite in the current helper.
+  `Why Safe / Deferred`: the current guard-clause form is explicit and functionally correct.
+  `Revisit Trigger`: revisit only if `ai_agent.py` is reopened for a broader readability pass.
+- `Finding`: `Ruff B904` in `clinic-ai-assistant-src/backend/app/services/ai_agent.py:2497,2510`
+  `Reason Left`: the remaining service-layer exception chaining sites were outside the Prompt 3 route boundary and were not part of the narrow Prompt 4 changes applied.
+  `Why Safe / Deferred`: both branches raise stable user-safe `AIInferenceError` messages rather than exposing raw provider exceptions.
+  `Revisit Trigger`: revisit if a follow-up service-layer lint prompt reopens `ai_agent.py` exception handling.
+- `Finding`: `Ruff F841` in `clinic-ai-assistant-src/backend/app/services/booking_credentials.py:247`
+  `Reason Left`: the caught `SchedulingConfigError` object is no longer used after Prompt 2 replaced raw exception text with a bounded user-safe message.
+  `Why Safe / Deferred`: the unused local has no behavioral impact and the user-visible security fix is already verified.
+  `Revisit Trigger`: revisit on the next narrow lint cleanup touching `booking_credentials.py`.
+- `Finding`: preserved Semgrep SQL warning in `clinic-ai-assistant-src/backend/app/services/lead_store.py:34`
+  `Reason Left`: identifier construction still uses `PRAGMA table_info({table_name})`.
+  `Why Safe / Deferred`: accepted residual if `table_name` remains constrained to internal names and SQLite identifier parameterization remains unavailable.
+  `Revisit Trigger`: revisit if table names become externally influenced or an allowlist boundary is added nearby.
+- `Finding`: preserved Semgrep SQL warnings in `clinic-ai-assistant-src/backend/app/services/scheduling_hold_store.py`
+  `Reason Left`: current interpolated fragments still rely on internal status constants and readable SQLite update/query text.
+  `Why Safe / Deferred`: accepted residual while the interpolated values remain internal constants rather than user input.
+  `Revisit Trigger`: revisit if any interpolated status or identifier becomes request-derived.
+- `Finding`: preserved CodeQL `py/log-injection` findings in `ai_agent.py` and `lead_store.py`
+  `Reason Left`: Prompt 4 did not broaden into scanner-driven logging rewrites without evidence of unsafe concatenation or user-visible leakage.
+  `Why Safe / Deferred`: accepted residual where logging uses structured `%s` placeholders and does not feed executable contexts.
+  `Revisit Trigger`: revisit if logs begin concatenating raw user input or if a future scan preserves a concrete exploitable path.
+
+## Prompt 6 - Completed
 
 ### Goal
 
@@ -833,6 +935,82 @@ Requirements:
 ### Required Outcome
 
 Manual verification and merge readiness are tracked explicitly before the task leaves `ProjectTasks_Pending`.
+
+### Prompt 6 Review Notes
+
+- `Manual Review`
+  - User manually executed the backend automated test suite from `clinic-ai-assistant-src/backend` and reported `131 passed in 4.74s` on `2026-03-28`.
+  - User completed the guided manual verification recorded in `manual_testing_coverage.json` with `9` passing rows and `0` failures.
+- `Merge Readiness`
+  - User marked the branch as merge-ready in `manual_testing_coverage.json`; `Merge To Main` remains pending until the branch is actually merged.
+- `Out-Of-Scope Notes`
+  - Manual review surfaced two non-blocking UX observations for future follow-up: a post-name-edit flow that waits for another user message before prompting for the phone number, and long email text that should wrap to avoid UI breakage. These were treated as separate future-fix candidates rather than blockers for this static-analysis task.
+
+### Completion Note
+
+- `Changed`
+  - Added Prompt 6 manual-verification results from the shared `manual_testing_coverage.json` tracker and marked the branch approved pending merge.
+- `Verified`
+  - User-reported branch review includes manual execution of the backend automated test suite (`131 passed in 4.74s`) plus `9/9` passing guided manual-verification steps with `branch_merge_ready: true`.
+- `Blocked`
+  - None.
+- `Deferred`
+  - Two unrelated UX issues observed during manual review were recorded as out-of-scope future-fix candidates and did not block merge readiness for this task.
+
+## Prompt 7 - Merge To Main - Completed
+
+### Goal
+
+Keep this task visible and tracked until the branch is actually merged to main.
+
+### Instructions
+
+Manual verification is complete and merge has been confirmed.
+
+Requirements:
+- record that the branch was merged
+- mark this prompt `Completed`
+- mark `Merge To Main` as `Completed`
+- move the task folder to `ProjectTasks_Done`
+
+### Required Outcome
+
+The task remains visible in the manual dashboard and cannot be mistaken for fully closed before merge.
+
+### Completion Note
+
+- `Changed`
+  - Marked `Merge To Main` as `Completed` and closed the final merge-tracking prompt.
+- `Verified`
+  - Merge to main was confirmed for this task.
+
+## Manual Testing
+
+Execution-state tracking for manual verification should be kept in:
+- `manual_testing_coverage.json`
+
+Use this markdown section only as the compact human-readable overview of what must be covered.
+
+### Category 1 - Booking And Scheduling UX Guardrails
+
+- `Test 1.1 - Booking configuration failure stays user-safe`
+  Purpose: confirm the booking flow still returns a bounded user-safe message when scheduling configuration fails, without exposing raw internal exception text.
+- `Test 1.2 - Normal scheduling flow still completes`
+  Purpose: confirm the standard scheduling-first flow still reaches slot selection and booking completion behavior without regression.
+
+### Category 2 - Chat And Route Surface Stability
+
+- `Test 2.1 - Main chat still responds normally`
+  Purpose: confirm `/chat` behavior remains stable after route-layer exception-chaining cleanup.
+- `Test 2.2 - Scheduling route error handling still returns expected status and message shape`
+  Purpose: confirm the scheduling endpoints preserve their expected response semantics after the `B904` fixes.
+
+### Category 3 - Tenant Profile Boundary
+
+- `Test 3.1 - Valid tenant slug still loads`
+  Purpose: confirm a normal valid tenant profile still loads successfully after the config-loader hardening.
+- `Test 3.2 - Invalid traversal-style tenant input is rejected safely`
+  Purpose: confirm path-style or traversal-style tenant input is rejected cleanly at the validation boundary.
 
 ---
 

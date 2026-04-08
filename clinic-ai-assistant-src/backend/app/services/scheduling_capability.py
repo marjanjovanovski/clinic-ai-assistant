@@ -4,8 +4,14 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, replace
 from datetime import date, datetime, timedelta
+import re
 
-from app.services.scheduling.models import AvailabilityRequest, BookingRequest, BookingResult
+from app.services.scheduling.models import (
+    AvailabilityRequest,
+    AvailabilityResult,
+    BookingRequest,
+    BookingResult,
+)
 from app.services.scheduling.service import (
     SchedulingConfigError,
     SchedulingDisabledError,
@@ -34,6 +40,16 @@ SLOT_CONFLICT_NEXT_ACTION = "refresh_availability"
 SLOT_CONFLICT_REASON = "slot_conflict"
 SLOT_CONFLICT_SCOPE = "same_day"
 NO_AVAILABILITY_MESSAGE = "Momentalno nema slobodni termini vo tekovniot period. Kazete drug datum ili drug period i ke proveram povtorno."
+BROAD_RANGE_NARROWING_MESSAGE = "Ima slobodni termini vo baraniot period. Kazete mi koj den vi odgovara i ke pokazam tocni termini."
+WEEKDAY_TO_INDEX = {
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
+}
 
 
 class SchedulingSlotConflictError(SchedulingConfigError):
@@ -138,6 +154,19 @@ class CapabilityResult:
     final_response: tuple[str, str] | None = None
 
 
+@dataclass(slots=True)
+class SchedulingResponsePayload:
+    reply_text: str | None
+    widget_payload: dict | None
+
+
+@dataclass(slots=True)
+class SchedulingExecutionPayload:
+    state: dict | None
+    result: CapabilityResult
+    response_payload: SchedulingResponsePayload | None = None
+
+
 def get_capability_snapshot(tenant: str) -> SchedulingCapabilitySnapshot:
     config = get_scheduling_public_config(tenant)
     return SchedulingCapabilitySnapshot(
@@ -167,6 +196,19 @@ def has_pending_availability_intent(state: dict | None) -> bool:
     return isinstance(state, dict) and bool(state.get(AVAILABILITY_INTENT_MARKER_KEY))
 
 
+def resolve_requested_operation(
+    *,
+    allow_scheduling_first: bool,
+    state: dict | None,
+    availability_intent_requested: bool = False,
+) -> str | None:
+    if not allow_scheduling_first:
+        return None
+    if availability_intent_requested or has_pending_availability_intent(state):
+        return OPERATION_AVAILABILITY
+    return None
+
+
 def _slots_from_assessment(assessment: SchedulingCapabilityAssessment) -> list[dict]:
     output_payload = assessment.output_payload if isinstance(assessment.output_payload, dict) else None
     result_payload = output_payload.get("result") if isinstance(output_payload, dict) else None
@@ -183,6 +225,11 @@ def store_scheduling_state(
 ) -> dict:
     next_state = dict(state) if isinstance(state, dict) else {}
     next_state.pop(AVAILABILITY_INTENT_MARKER_KEY, None)
+    output_payload = assessment.output_payload if isinstance(assessment.output_payload, dict) else {}
+    presentation = output_payload.get("presentation") if isinstance(output_payload.get("presentation"), dict) else {}
+    result_payload = output_payload.get("result") if isinstance(output_payload.get("result"), dict) else {}
+    slots = result_payload.get("slots") if isinstance(result_payload.get("slots"), list) else []
+    widget_mode = presentation.get("widget_mode") if isinstance(presentation.get("widget_mode"), str) else None
 
     scheduling_state = {
         "operation": assessment.operation,
@@ -193,7 +240,8 @@ def store_scheduling_state(
         "booking_handoff_ready": bool(
             assessment.operation == OPERATION_AVAILABILITY
             and assessment.status == "completed"
-            and bool(_slots_from_assessment(assessment))
+            and bool(slots)
+            and widget_mode != "suppress"
         ),
     }
     next_state["scheduling"] = scheduling_state
@@ -206,6 +254,38 @@ def scheduling_handoff_ready(state: dict | None) -> bool:
         return False
     scheduling_state = state.get("scheduling")
     return bool(isinstance(scheduling_state, dict) and scheduling_state.get("booking_handoff_ready"))
+
+
+def pending_availability_reply(state: dict | None) -> str | None:
+    if not isinstance(state, dict):
+        return None
+
+    scheduling_state = state.get("scheduling")
+    if not isinstance(scheduling_state, dict):
+        return None
+    if scheduling_state.get("operation") != OPERATION_AVAILABILITY:
+        return None
+    if scheduling_state.get("status") != "completed":
+        return None
+    if scheduling_state.get("booking_handoff_ready"):
+        return None
+
+    output_payload = scheduling_state.get("output_payload")
+    reply_text = output_payload.get("reply_text") if isinstance(output_payload, dict) else None
+    return reply_text.strip() if isinstance(reply_text, str) and reply_text.strip() else None
+
+
+def should_reenter_scheduling_from_followup(state: dict | None) -> bool:
+    if not isinstance(state, dict):
+        return False
+    scheduling_state = state.get("scheduling")
+    if not isinstance(scheduling_state, dict):
+        return False
+    return (
+        scheduling_state.get("operation") == OPERATION_AVAILABILITY
+        and scheduling_state.get("status") == "completed"
+        and not scheduling_state.get("booking_handoff_ready")
+    )
 
 
 def scheduling_handoff_payload(state: dict | None) -> dict | None:
@@ -296,6 +376,9 @@ def assessment_widget_payload(assessment: SchedulingCapabilityAssessment) -> dic
         return None
 
     output_payload = assessment.output_payload if isinstance(assessment.output_payload, dict) else None
+    presentation = output_payload.get("presentation") if isinstance(output_payload, dict) else None
+    if isinstance(presentation, dict) and presentation.get("widget_mode") == "suppress":
+        return None
     result_payload = output_payload.get("result") if isinstance(output_payload, dict) else None
     slots = result_payload.get("slots") if isinstance(result_payload, dict) else None
     capability_state = assessment.capability_state if isinstance(assessment.capability_state, dict) else None
@@ -316,10 +399,266 @@ def assessment_widget_payload(assessment: SchedulingCapabilityAssessment) -> dic
     }
 
 
+def assessment_response_payload(assessment: SchedulingCapabilityAssessment) -> SchedulingResponsePayload:
+    return SchedulingResponsePayload(
+        reply_text=assessment_reply_text(assessment),
+        widget_payload=assessment_widget_payload(assessment),
+    )
+
+
+def persist_scheduling_assessment(
+    session_key: str,
+    state: dict | None,
+    *,
+    assessment: SchedulingCapabilityAssessment,
+    session_state: dict,
+) -> tuple[dict, SchedulingResponsePayload]:
+    next_state = store_scheduling_state(
+        session_key,
+        state,
+        assessment=assessment,
+        session_state=session_state,
+    )
+    return next_state, assessment_response_payload(assessment)
+
+
+def execute_scheduling_turn(
+    context: CapabilityContext,
+    *,
+    session_state: dict,
+    mark_availability_intent: bool = False,
+) -> SchedulingExecutionPayload:
+    next_state = context.state
+    if mark_availability_intent:
+        next_state = mark_availability_intent_pending(
+            context.session_key,
+            next_state,
+            session_state,
+        )
+    effective_context = replace(context, state=next_state)
+    result = handle_scheduling_capability(effective_context)
+    next_state = result.state
+    response_payload = None
+    if result.assessment.operation == OPERATION_AVAILABILITY:
+        next_state, response_payload = persist_scheduling_assessment(
+            context.session_key,
+            next_state,
+            assessment=result.assessment,
+            session_state=session_state,
+        )
+    return SchedulingExecutionPayload(
+        state=next_state,
+        result=result,
+        response_payload=response_payload,
+    )
+
+
 def _resolved_timezone(context: CapabilityContext, snapshot: SchedulingCapabilitySnapshot) -> str:
     if isinstance(context.timezone, str) and context.timezone.strip():
         return context.timezone.strip()
     return snapshot.timezone
+
+
+def _normalized_message_text(value: str | None) -> str:
+    if not isinstance(value, str):
+        return ""
+    normalized = re.sub(r"[^\w\s]", " ", value.casefold())
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+def _explicit_date_from_message(message: str) -> str | None:
+    if not message:
+        return None
+
+    iso_match = re.search(r"\b(\d{4})-(\d{2})-(\d{2})\b", message)
+    if iso_match:
+        year, month, day = iso_match.groups()
+        try:
+            return date(int(year), int(month), int(day)).isoformat()
+        except ValueError:
+            return None
+
+    dotted_match = re.search(r"\b(\d{2})[./-](\d{2})[./-](\d{4})\b", message)
+    if dotted_match:
+        day, month, year = dotted_match.groups()
+        try:
+            return date(int(year), int(month), int(day)).isoformat()
+        except ValueError:
+            return None
+    return None
+
+
+def _message_contains_term(message: str, term: str) -> bool:
+    normalized_term = _normalized_message_text(term)
+    if not normalized_term:
+        return False
+    return bool(re.search(rf"(?<!\w){re.escape(normalized_term)}(?!\w)", message))
+
+
+def _first_matching_term_key(message: str, term_map: dict | None) -> str | None:
+    if not isinstance(term_map, dict) or not message:
+        return None
+    for canonical_key, terms in term_map.items():
+        if not isinstance(terms, list):
+            continue
+        if any(_message_contains_term(message, term) for term in terms if isinstance(term, str)):
+            return canonical_key
+    return None
+
+
+def _next_weekday_date(target_weekday: str, *, today: date) -> str | None:
+    target_index = WEEKDAY_TO_INDEX.get(target_weekday)
+    if target_index is None:
+        return None
+    days_ahead = (target_index - today.weekday()) % 7
+    return (today + timedelta(days=days_ahead)).isoformat()
+
+
+def _next_week_range(*, today: date) -> tuple[str, str]:
+    days_until_next_monday = (7 - today.weekday()) or 7
+    start_date = today + timedelta(days=days_until_next_monday)
+    end_date = start_date + timedelta(days=6)
+    return start_date.isoformat(), end_date.isoformat()
+
+
+def _relative_date_from_key(relative_key: str, *, today: date) -> str | None:
+    if relative_key == "today":
+        return today.isoformat()
+    if relative_key == "tomorrow":
+        return (today + timedelta(days=1)).isoformat()
+    if relative_key == "in_two_weeks":
+        return (today + timedelta(days=14)).isoformat()
+    return None
+
+
+def _slot_matches_preferred_time_range(slot: dict, preferred_time_range: str) -> bool:
+    start_at = slot.get("start_at")
+    if not isinstance(start_at, str) or not start_at.strip():
+        return True
+    try:
+        slot_time = datetime.fromisoformat(start_at.strip())
+    except ValueError:
+        return True
+
+    if preferred_time_range == "morning":
+        return slot_time.hour < 12
+    if preferred_time_range == "afternoon":
+        return slot_time.hour >= 12
+    return True
+
+
+def _filter_availability_for_time_range(
+    availability: AvailabilityResult,
+    preferred_time_range: str | None,
+) -> AvailabilityResult:
+    if preferred_time_range not in {"morning", "afternoon"}:
+        return availability
+
+    filtered_slots = [
+        slot
+        for slot in availability.slots
+        if _slot_matches_preferred_time_range(slot.to_dict(), preferred_time_range)
+    ]
+    if len(filtered_slots) == len(availability.slots):
+        return availability
+    return AvailabilityResult(provider=availability.provider, slots=filtered_slots)
+
+
+def _apply_language_aware_availability_hints(context: CapabilityContext) -> CapabilityContext:
+    if _normalized_operation(context.requested_operation) != OPERATION_AVAILABILITY:
+        return context
+
+    scheduling = context.profile.get("scheduling") if isinstance(context.profile, dict) else {}
+    language_support = scheduling.get("language_support") if isinstance(scheduling, dict) else None
+    if not isinstance(language_support, dict):
+        return context
+
+    raw_message = context.message if isinstance(context.message, str) else ""
+    normalized_message = _normalized_message_text(raw_message)
+    if not normalized_message:
+        return context
+
+    resolved_time_range = context.preferred_time_range
+    if not resolved_time_range:
+        matched_time_range = _first_matching_term_key(
+            normalized_message,
+            language_support.get("time_window_terms"),
+        )
+        if matched_time_range:
+            resolved_time_range = matched_time_range
+
+    resolved_date_from = context.date_from
+    resolved_date_to = context.date_to
+    today = date.today()
+    if not resolved_date_from or not resolved_date_to:
+        explicit_date = _explicit_date_from_message(raw_message)
+        if explicit_date:
+            resolved_date_from = explicit_date
+            resolved_date_to = explicit_date
+        else:
+            matched_relative_date = _first_matching_term_key(
+                normalized_message,
+                language_support.get("relative_date_terms"),
+            )
+            resolved_relative_date = (
+                _relative_date_from_key(matched_relative_date, today=today)
+                if isinstance(matched_relative_date, str)
+                else None
+            )
+            if resolved_relative_date:
+                resolved_date_from = resolved_relative_date
+                resolved_date_to = resolved_relative_date
+            else:
+                matched_relative_range = _first_matching_term_key(
+                    normalized_message,
+                    language_support.get("relative_range_terms"),
+                )
+                if matched_relative_range == "next_week":
+                    resolved_date_from, resolved_date_to = _next_week_range(today=today)
+                else:
+                    matched_weekday = _first_matching_term_key(
+                        normalized_message,
+                        language_support.get("weekday_terms"),
+                    )
+                    if matched_weekday:
+                        resolved_weekday = _next_weekday_date(matched_weekday, today=today)
+                        if resolved_weekday:
+                            resolved_date_from = resolved_weekday
+                            resolved_date_to = resolved_weekday
+
+    return replace(
+        context,
+        date_from=resolved_date_from,
+        date_to=resolved_date_to,
+        preferred_time_range=resolved_time_range,
+    )
+
+
+def _availability_contract_text(context: CapabilityContext, key: str, default: str) -> str:
+    scheduling = context.profile.get("scheduling") if isinstance(context.profile, dict) else {}
+    contract_texts = scheduling.get("contract_texts") if isinstance(scheduling, dict) else None
+    value = contract_texts.get(key) if isinstance(contract_texts, dict) else None
+    return value.strip() if isinstance(value, str) and value.strip() else default
+
+
+def _availability_presentation_plan(context: CapabilityContext) -> dict:
+    raw_message = context.message if isinstance(context.message, str) else ""
+    normalized_message = _normalized_message_text(raw_message)
+    scheduling = context.profile.get("scheduling") if isinstance(context.profile, dict) else {}
+    language_support = scheduling.get("language_support") if isinstance(scheduling, dict) else None
+
+    if _explicit_date_from_message(raw_message):
+        return {"request_kind": "specific_day", "widget_mode": "default"}
+
+    if isinstance(language_support, dict):
+        if _first_matching_term_key(normalized_message, language_support.get("relative_range_terms")) == "next_week":
+            return {"request_kind": "broad_range", "widget_mode": "default"}
+        if _first_matching_term_key(normalized_message, language_support.get("relative_date_terms")) in {"today", "tomorrow"}:
+            return {"request_kind": "specific_day", "widget_mode": "default"}
+        if _first_matching_term_key(normalized_message, language_support.get("weekday_terms")):
+            return {"request_kind": "specific_day", "widget_mode": "default"}
+
+    return {"request_kind": "generic", "widget_mode": "default"}
 
 
 def _base_capability_state(
@@ -385,6 +724,7 @@ def _with_availability_defaults(
     if _normalized_operation(context.requested_operation) != OPERATION_AVAILABILITY:
         return context
 
+    context = _apply_language_aware_availability_hints(context)
     date_from, date_to = _availability_default_dates(context)
     return replace(
         context,
@@ -563,18 +903,69 @@ def assess_scheduling_capability(context: CapabilityContext) -> SchedulingCapabi
     )
 
 
-def _availability_reply_text(context: CapabilityContext, slots_payload: list[dict]) -> str:
+def _availability_reply_text(
+    context: CapabilityContext,
+    slots_payload: list[dict],
+    *,
+    presentation_plan: dict | None = None,
+) -> str:
+    request_kind = presentation_plan.get("request_kind") if isinstance(presentation_plan, dict) else None
     intro_message = context.intro_message.strip() if isinstance(context.intro_message, str) and context.intro_message.strip() else ""
-    slot_lines = [f"• {slot['display_label']}" for slot in slots_payload[:6] if isinstance(slot.get("display_label"), str)]
-    if intro_message and slot_lines:
-        return f"{intro_message}\n\n" + "\n".join(slot_lines)
-    if not slot_lines:
-        return NO_AVAILABILITY_MESSAGE
+    if not slots_payload:
+        return _no_availability_reply_text(context, presentation_plan=presentation_plan)
+    if request_kind == "broad_range":
+        return _availability_contract_text(
+            context,
+            "broad_range_narrowing",
+            BROAD_RANGE_NARROWING_MESSAGE,
+        )
     if intro_message:
         return intro_message
-    if slot_lines:
-        return "\n".join(slot_lines)
-    return ""
+    if context.date_from and context.date_from == context.date_to:
+        return f"Available appointments for {context.date_from} are shown in the slot widget."
+    return "Available appointments are shown in the slot widget."
+
+
+def _localized_no_availability_text(context: CapabilityContext, *, specific_date: str | None = None) -> str:
+    business = context.profile.get("business") if isinstance(context.profile, dict) else {}
+    language = business.get("language") if isinstance(business, dict) else None
+    if isinstance(language, str) and language.lower().startswith("mk"):
+        if specific_date:
+            return f"\u041d\u0435\u043c\u0430 \u0441\u043b\u043e\u0431\u043e\u0434\u043d\u0438 \u0442\u0435\u0440\u043c\u0438\u043d\u0438 \u043d\u0430 {specific_date}. \u041a\u0430\u0436\u0435\u0442\u0435 \u043c\u0438 \u0434\u0440\u0443\u0433 \u0434\u0430\u0442\u0443\u043c \u0438\u043b\u0438 \u0434\u0440\u0443\u0433 \u043f\u0435\u0440\u0438\u043e\u0434 \u0438 \u045c\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u0430\u043c \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u043e."
+        return "\u041c\u043e\u043c\u0435\u043d\u0442\u0430\u043b\u043d\u043e \u043d\u0435\u043c\u0430 \u0441\u043b\u043e\u0431\u043e\u0434\u043d\u0438 \u0442\u0435\u0440\u043c\u0438\u043d\u0438 \u0432\u043e \u0431\u0430\u0440\u0430\u043d\u0438\u043e\u0442 \u043f\u0435\u0440\u0438\u043e\u0434. \u041a\u0430\u0436\u0435\u0442\u0435 \u043c\u0438 \u0434\u0440\u0443\u0433 \u0434\u0430\u0442\u0443\u043c \u0438\u043b\u0438 \u0434\u0440\u0443\u0433 \u043f\u0435\u0440\u0438\u043e\u0434 \u0438 \u045c\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u0430\u043c \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u043e."
+    if specific_date:
+        return f"There are no available appointments on {specific_date}. Tell me another date or time period and I will check again."
+    return "There are currently no available appointments in the requested period. Tell me another date or time period and I will check again."
+
+
+def selected_slot_handoff_reply_text(profile: dict, selected_slot: dict | None, field_prompt: str) -> str:
+    business = profile.get("business") if isinstance(profile, dict) else {}
+    language = business.get("language") if isinstance(business, dict) else None
+    display_label = (
+        selected_slot.get("display_label").strip()
+        if isinstance(selected_slot, dict) and isinstance(selected_slot.get("display_label"), str) and selected_slot.get("display_label").strip()
+        else None
+    )
+    if isinstance(language, str) and language.lower().startswith("mk"):
+        slot_text = display_label or "\u0438\u0437\u0431\u0440\u0430\u043d\u0438\u043e\u0442 \u0442\u0435\u0440\u043c\u0438\u043d"
+        return (
+            f"\u0413\u043e \u0438\u0437\u0431\u0440\u0430\u0432 \u043e\u0432\u043e\u0458 \u0442\u0435\u0440\u043c\u0438\u043d: {slot_text}. "
+            f"\u0410\u043a\u043e \u0441\u0430\u043a\u0430\u0442\u0435 \u0434\u0440\u0443\u0433 \u0442\u0435\u0440\u043c\u0438\u043d, \u043f\u0438\u0448\u0435\u0442\u0435 \u201e\u0441\u043b\u043e\u0431\u043e\u0434\u043d\u0438 \u0442\u0435\u0440\u043c\u0438\u043d\u0438\u201c. "
+            f"{field_prompt}"
+        )
+    slot_text = display_label or "the selected slot"
+    return f"I selected this appointment: {slot_text}. If you want a different slot, write \"available slots\". {field_prompt}"
+
+
+def _no_availability_reply_text(
+    context: CapabilityContext,
+    *,
+    presentation_plan: dict | None = None,
+) -> str:
+    request_kind = presentation_plan.get("request_kind") if isinstance(presentation_plan, dict) else None
+    if request_kind == "specific_day" and context.date_from and context.date_from == context.date_to:
+        return _localized_no_availability_text(context, specific_date=context.date_from)
+    return _localized_no_availability_text(context)
 
 
 def handle_scheduling_capability(context: CapabilityContext) -> CapabilityResult:
@@ -585,12 +976,13 @@ def handle_scheduling_capability(context: CapabilityContext) -> CapabilityResult
 
     if operation == OPERATION_AVAILABILITY and assessment.can_handle and assessment.status == "ready":
         execution_context = replace(
-            context,
+            effective_context,
             service_id=assessment.capability_state.get("service_id") if isinstance(assessment.capability_state, dict) else context.service_id,
             date_from=assessment.output_payload.get("request", {}).get("date_from") if isinstance(assessment.output_payload, dict) else context.date_from,
             date_to=assessment.output_payload.get("request", {}).get("date_to") if isinstance(assessment.output_payload, dict) else context.date_to,
             timezone=assessment.capability_state.get("timezone") if isinstance(assessment.capability_state, dict) else context.timezone,
         )
+        presentation_plan = _availability_presentation_plan(execution_context)
         try:
             availability = lookup_availability(
                 tenant=execution_context.tenant,
@@ -601,11 +993,20 @@ def handle_scheduling_capability(context: CapabilityContext) -> CapabilityResult
                 preferred_days=execution_context.preferred_days,
                 preferred_time_range=execution_context.preferred_time_range,
             )
+            availability = _filter_availability_for_time_range(
+                availability,
+                execution_context.preferred_time_range,
+            )
             result_payload = availability.to_dict()
             output_payload = {
                 **(assessment.output_payload or {}),
                 "result": result_payload,
-                "reply_text": _availability_reply_text(execution_context, result_payload.get("slots", [])),
+                "presentation": presentation_plan,
+                "reply_text": _availability_reply_text(
+                    execution_context,
+                    result_payload.get("slots", []),
+                    presentation_plan=presentation_plan,
+                ),
             }
             return CapabilityResult(
                 next_action=CAPABILITY_NEXT_CONTINUE,
@@ -796,6 +1197,70 @@ def slot_conflict_error(
     )
 
 
+def slot_conflict_widget_payload(
+    booking_result: dict | None,
+    *,
+    fallback_service_id: str | None = None,
+) -> dict | None:
+    if not isinstance(booking_result, dict) or booking_result.get("status") != "slot_unavailable":
+        return None
+
+    source_payload = booking_result.get("source_payload")
+    if not isinstance(source_payload, dict):
+        return None
+
+    replacement_slots = source_payload.get("replacement_slots")
+    if not isinstance(replacement_slots, list) or not replacement_slots:
+        return None
+
+    selected_slot = source_payload.get("selected_slot")
+    timezone_name = (
+        selected_slot.get("timezone")
+        if isinstance(selected_slot, dict) and isinstance(selected_slot.get("timezone"), str)
+        else None
+    )
+
+    return {
+        "type": "slot-list",
+        "title": booking_result.get("confirmation_message"),
+        "service_id": source_payload.get("service_id") or fallback_service_id,
+        "provider": booking_result.get("provider"),
+        "request": {
+            "service_id": source_payload.get("service_id") or fallback_service_id,
+            "date_from": source_payload.get("fallback_date"),
+            "date_to": source_payload.get("fallback_date"),
+            "timezone": timezone_name,
+            "preferred_days": [],
+            "preferred_time_range": None,
+        },
+        "slots": [slot for slot in replacement_slots if isinstance(slot, dict)],
+    }
+
+
+def handoff_response_payload(
+    scheduling_handoff: dict | None,
+    *,
+    booking_result: dict | None = None,
+    fallback_service_id: str | None = None,
+    next_action: str,
+) -> dict:
+    handoff = scheduling_handoff if isinstance(scheduling_handoff, dict) else {}
+    resolved_next_action = next_action
+    widget_payload = slot_conflict_widget_payload(
+        booking_result,
+        fallback_service_id=fallback_service_id,
+    )
+    if isinstance(booking_result, dict) and booking_result.get("status") == "slot_unavailable":
+        resolved_next_action = SLOT_CONFLICT_NEXT_ACTION
+
+    return {
+        "selected_slot": handoff.get("selected_slot") if isinstance(handoff.get("selected_slot"), dict) else None,
+        "hold": handoff.get("hold") if isinstance(handoff.get("hold"), dict) else None,
+        "widget_payload": widget_payload,
+        "next_action": resolved_next_action,
+    }
+
+
 def _trace_scheduling_decision(
     tenant: str,
     session_id: str | None,
@@ -805,6 +1270,49 @@ def _trace_scheduling_decision(
     if not isinstance(session_id, str) or not session_id.strip():
         return
     trace_event(tenant, session_id.strip(), event, **fields)
+
+
+def prepare_selected_slot_handoff(
+    *,
+    tenant: str,
+    session_id: str,
+    state: dict | None,
+    service_id: str,
+    slot_id: str,
+) -> dict:
+    scheduling_handoff = selected_slot_handoff_payload(
+        state,
+        service_id=service_id,
+        slot_id=slot_id,
+    )
+    hold = create_slot_hold(
+        tenant=tenant,
+        service_id=service_id,
+        slot_id=slot_id,
+        session_id=session_id,
+    )
+    if not isinstance(hold, dict) or hold.get("session_id") != session_id:
+        _trace_scheduling_decision(
+            tenant,
+            session_id,
+            "SCHEDULING_SLOT_SELECTION_REJECTED",
+            service_id=service_id,
+            slot_id=slot_id,
+            owner_session_id=hold.get("session_id") if isinstance(hold, dict) else None,
+        )
+        raise ValueError("This slot was just taken by another booking. I will show available slots for the same day.")
+
+    return {
+        **scheduling_handoff,
+        "hold": {
+            "hold_id": hold.get("hold_id"),
+            "hold_status": hold.get("status"),
+            "hold_expires_at": hold.get("expires_at"),
+            "session_id": hold.get("session_id"),
+            "service_id": hold.get("service_id"),
+            "slot_id": hold.get("slot_id"),
+        },
+    }
 
 
 def book_selected_slot(

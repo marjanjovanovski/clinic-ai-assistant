@@ -1,0 +1,34 @@
+{
+  "task_name": "Z Archive Ready Task",
+  "task_file": "Z Archive Ready Task.md",
+  "status": "manual_verification_completed",
+  "manual_verification": {
+    "branch_merge_ready": true,
+    "general_comment": "Merged and ready to archive"
+  },
+  "categories": [
+    {
+      "name": "Category 1 - Archive",
+      "tests": [
+        {
+          "name": "Test 1.1 - Archive button eligibility",
+          "rows": [
+            {
+              "step": 1,
+              "action": "Load archived-ready coverage",
+              "what_is_tested": "Merged tasks still appear until archived",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "not_run": 0,
+    "pass": 1,
+    "fail": 0
+  }
+}

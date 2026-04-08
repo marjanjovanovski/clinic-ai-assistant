@@ -1,0 +1,199 @@
+{
+  "task_name": "20260330_1223_AGENT - Scheduling Contract and Flow Extraction FIX 01",
+  "task_file": "20260330_1223_AGENT - Scheduling Contract and Flow Extraction FIX 01.md",
+  "status": "pending_fix_implementation",
+  "manual_verification": {
+    "branch_merge_ready": true,
+    "general_comment": "Scheduling FIX 01 is ready to close. A separate follow-up task was recorded for the long-running regression where the system can sometimes enter booking/contact collection prematurely on the first typed-date submission."
+  },
+  "categories": [
+    {
+      "name": "Category 1 - Typed Date And Widget Availability",
+      "tests": [
+        {
+          "name": "Test 1.1 - Specific date resolves to the requested day",
+          "purpose": "Retest the parent-task failures where typed dates collapsed to the wrong day or to a default next-days window.",
+          "rows": [
+            {
+              "row_id": 1,
+              "step": 1,
+              "action": "Ask for availability on a concrete future date with known availability such as `09.04.2026`.",
+              "what_is_tested": "Specific-date request resolution.",
+              "status": "Pass",
+              "comment": "The first submission with 09.04.2026 entered name/phone/email collection prematurely. The second and third attempts behaved as expected. This known long-running regression was recorded in a separate standalone bug task so FIX 01 can still close.",
+              "reference_files": "trace_2026-04-08_09-31-40_milena_dental_ee8de312-22e3-42e9-bac0-c857a699cf04.txt"
+            },
+            {
+              "row_id": 2,
+              "step": 2,
+              "action": "Confirm the reply references the interpreted requested date truthfully.",
+              "what_is_tested": "Direct date answer behavior.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "row_id": 3,
+              "step": 3,
+              "action": "Confirm actionable availability is rendered as a clickable slot widget instead of a plain text list.",
+              "what_is_tested": "Widget-first scheduling presentation.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 1.2 - Specific date without availability stays helpful",
+          "purpose": "Retest the no-availability path for typed-date scheduling without leaking into booking.",
+          "rows": [
+            {
+              "row_id": 4,
+              "step": 1,
+              "action": "Ask for availability on a concrete date known to have no slots.",
+              "what_is_tested": "Typed-date no-availability recovery.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "row_id": 5,
+              "step": 2,
+              "action": "After the no-availability reply, ask a follow-up such as `koga ima sloboden termin`.",
+              "what_is_tested": "Booking-boundary protection after no availability.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "row_id": 6,
+              "step": 3,
+              "action": "Confirm Macedonian no-availability wording is displayed in the tenant-native script rather than Latin transliteration.",
+              "what_is_tested": "Language/script integrity for scheduling fallback text.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 2 - Broad, Relative, And Language-Aware Scheduling",
+      "tests": [
+        {
+          "name": "Test 2.1 - Broad range such as next week narrows truthfully",
+          "purpose": "Retest broad-range scheduling so it no longer falls back poorly or misstates the request window.",
+          "rows": [
+            {
+              "row_id": 7,
+              "step": 1,
+              "action": "Ask for availability using a broad-range phrase such as `slednata nedela` or `next week`.",
+              "what_is_tested": "Broad-range scheduling interpretation.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "row_id": 8,
+              "step": 2,
+              "action": "Confirm the system either states truthful in-range availability or truthful in-range absence, then asks for focused narrowing if appropriate.",
+              "what_is_tested": "Broad-range narrowing behavior.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 2.2 - Relative day and time window behave as requested",
+          "purpose": "Retest combined relative-date and time-window concepts.",
+          "rows": [
+            {
+              "row_id": 9,
+              "step": 1,
+              "action": "Ask for something like `termin utre popladne`.",
+              "what_is_tested": "Relative-date and time-window resolution.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "row_id": 10,
+              "step": 2,
+              "action": "Confirm the returned results are filtered or shaped according to the requested day-plus-time-window and are presented through the clickable widget contract when actionable slots exist.",
+              "what_is_tested": "Low-friction relative scheduling response behavior.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 2.3 - Macedonian weekday and period concepts stay contract-consistent",
+          "purpose": "Retest Macedonian scheduling concepts that previously collapsed to the next day and plain text slot lists.",
+          "rows": [
+            {
+              "row_id": 11,
+              "step": 1,
+              "action": "Use Macedonian scheduling concepts such as `sloboden termin vo sreda` and a broad period request such as `slednata nedela`.",
+              "what_is_tested": "Macedonian scheduling concept handling.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 3 - Slot Handoff And Booking Escape",
+      "tests": [
+        {
+          "name": "Test 3.1 - Selected slot handoff remains accurate",
+          "purpose": "Retest the user-visible slot-selection transition for time accuracy and encoding integrity.",
+          "rows": [
+            {
+              "row_id": 12,
+              "step": 1,
+              "action": "Reach a clickable slot widget, click a slot, and inspect the immediate follow-up reply before entering the contact fields.",
+              "what_is_tested": "Selected-slot confirmation integrity.",
+              "status": "Pass",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "row_id": 13,
+              "step": 2,
+              "action": "Confirm the selected-slot and surrounding UI text are displayed without mojibake or broken encoding artifacts in both Macedonian and English tenant checks where relevant.",
+              "what_is_tested": "Encoding-safe scheduling handoff display.",
+              "status": "Pass",
+              "comment": "Carries the actionable remark from original passed row 35.",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 3.2 - User can change the chosen slot path",
+          "purpose": "Retest the missing escape path after slot selection without breaking direct booking handoff.",
+          "rows": [
+            {
+              "row_id": 14,
+              "step": 1,
+              "action": "After selecting a slot and entering booking state, try the supported change-slot or back-out path.",
+              "what_is_tested": "Low-friction slot-change escape path.",
+              "status": "Pass",
+              "comment": "Maps original failed row 26.",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "not_run": 0,
+    "pass": 14,
+    "fail": 0
+  }
+}

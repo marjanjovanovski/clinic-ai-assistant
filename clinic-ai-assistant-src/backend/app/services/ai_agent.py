@@ -68,7 +68,6 @@ CANONICAL_INTENTS = {"greeting", "suggest_service", "business_overview", "list_s
 BOOKING_INPUT_FIELD_VALUE = "FIELD_VALUE"
 BOOKING_INPUT_CLARIFICATION = "CLARIFICATION_QUESTION"
 BOOKING_INPUT_FEEDBACK = "FEEDBACK_OR_META"
-AVAILABILITY_INTENT_MARKER_KEY = scheduling_capability.AVAILABILITY_INTENT_MARKER_KEY
 AVAILABILITY_INTENT_OUTPUT = "availability_lookup"
 UNKNOWN_NAME_CONFIRM_MODE = booking_credentials.UNKNOWN_NAME_CONFIRM_MODE
 UNKNOWN_NAME_REPEAT_MODE = booking_credentials.UNKNOWN_NAME_REPEAT_MODE
@@ -566,6 +565,10 @@ def _redirect_contact_message_to_availability(message: str, state: dict | None, 
     availability_phrases = (
         "slobodni termini",
         "sloboden termin",
+        "drug termin",
+        "drugi termini",
+        "change slot",
+        "different slot",
         "ima termini",
         "koi termini",
         "available slots",
@@ -942,9 +945,15 @@ def _booking_guidance_reply(
         "missing_digits": missing_digits,
         "service_id": state.get("service_id") if isinstance(state, dict) else None,
     }
+    business_language = str(profile.get("business", {}).get("language", "")).strip().lower()
+    language_instruction = (
+        "Always reply in English. "
+        if business_language == "en"
+        else "Always reply in Macedonian Cyrillic. "
+    )
     system_prompt = (
         f"You are writing a short booking-guidance reply for {business_name}. "
-        "Always reply in Macedonian Cyrillic. "
+        f"{language_instruction}"
         "The backend already knows which contact field is being collected; do not change the field. "
         "Answer the user's clarification or guide the retry naturally in 1-2 sentences. "
         "Keep the tone warm and direct, avoid diagnosis, avoid markdown, and end by guiding the user back to the same field."
@@ -972,8 +981,8 @@ def _booking_guidance_reply(
                 field_name=field_name,
             )
             return reply
-    except (OpenAIError, RateLimitError, json.JSONDecodeError):
-        pass
+    except (OpenAIError, RateLimitError, json.JSONDecodeError) as exc:
+        logger.debug("Booking guidance fallback used due to model guidance error: %s", exc)
 
     return fallback_reply
 
@@ -1435,39 +1444,13 @@ def _runtime_response_type(response_payload: dict | None, session_status: str | 
 
 def _replacement_slot_widget_payload(runtime_state: dict | None) -> dict | None:
     booking_result = runtime_state.get("booking_result") if isinstance(runtime_state, dict) else None
-    if not isinstance(booking_result, dict) or booking_result.get("status") != "slot_unavailable":
-        return None
-
-    source_payload = booking_result.get("source_payload")
-    if not isinstance(source_payload, dict):
-        return None
-
-    replacement_slots = source_payload.get("replacement_slots")
-    if not isinstance(replacement_slots, list) or not replacement_slots:
-        return None
-
-    selected_slot = source_payload.get("selected_slot")
-    timezone_name = (
-        selected_slot.get("timezone")
-        if isinstance(selected_slot, dict) and isinstance(selected_slot.get("timezone"), str)
-        else None
-    )
-
-    return {
-        "type": "slot-list",
-        "title": booking_result.get("confirmation_message"),
-        "service_id": source_payload.get("service_id") or runtime_state.get("service_id"),
-        "provider": booking_result.get("provider"),
-        "request": {
-            "service_id": source_payload.get("service_id") or runtime_state.get("service_id"),
-            "date_from": source_payload.get("fallback_date"),
-            "date_to": source_payload.get("fallback_date"),
-            "timezone": timezone_name,
-            "preferred_days": [],
-            "preferred_time_range": None,
-        },
-        "slots": [slot for slot in replacement_slots if isinstance(slot, dict)],
-    }
+    fallback_service_id = runtime_state.get("service_id") if isinstance(runtime_state, dict) else None
+    return scheduling_capability.handoff_response_payload(
+        None,
+        booking_result=booking_result,
+        fallback_service_id=fallback_service_id if isinstance(fallback_service_id, str) else None,
+        next_action="message",
+    ).get("widget_payload")
 
 
 def build_runtime_inspector_payload(
@@ -1590,29 +1573,23 @@ def start_contact_collection_from_scheduling_handoff(
             confirmation_message = booking_result.get("confirmation_message")
             if isinstance(confirmation_message, str) and confirmation_message.strip():
                 reply = confirmation_message.strip()
-        widget_payload = _replacement_slot_widget_payload(runtime_state)
-        next_action = "booking_completed"
-        if isinstance(booking_result, dict) and booking_result.get("status") == "slot_unavailable":
-            next_action = "refresh_availability"
+        response_payload = scheduling_capability.handoff_response_payload(
+            scheduling_handoff,
+            booking_result=booking_result,
+            fallback_service_id=service_id if isinstance(service_id, str) else None,
+            next_action="booking_completed",
+        )
 
         return {
             "reply": reply,
             "session_id": session_id,
             "session_status": session_status,
             "booking_progress": booking_progress,
-            "selected_slot": scheduling_handoff.get("selected_slot"),
-            "hold": scheduling_handoff.get("hold"),
-            "widget_payload": widget_payload,
-            "next_action": next_action,
+            **response_payload,
             "inspector_payload": build_runtime_inspector_payload(
                 tenant,
                 session_id,
-                response_payload={
-                    "selected_slot": scheduling_handoff.get("selected_slot"),
-                    "hold": scheduling_handoff.get("hold"),
-                    "widget_payload": widget_payload,
-                    "next_action": next_action,
-                },
+                response_payload=response_payload,
                 session_status=session_status,
                 booking_progress=booking_progress,
                 state=runtime_state,
@@ -1628,26 +1605,30 @@ def start_contact_collection_from_scheduling_handoff(
         profile=profile,
         scheduling_handoff=scheduling_handoff,
     )
+    reply = scheduling_capability.selected_slot_handoff_reply_text(
+        profile,
+        scheduling_handoff.get("selected_slot") if isinstance(scheduling_handoff, dict) else None,
+        reply,
+    )
     session_status = get_session_status(tenant, session_id)
     booking_progress = get_booking_progress(tenant, session_id)
     runtime_state = get_runtime_session_state(tenant, session_id)
+    response_payload = scheduling_capability.handoff_response_payload(
+        scheduling_handoff,
+        fallback_service_id=service_id if isinstance(service_id, str) else None,
+        next_action="collect_contact",
+    )
 
     return {
         "reply": reply,
         "session_id": session_id,
         "session_status": session_status,
         "booking_progress": booking_progress,
-        "selected_slot": scheduling_handoff.get("selected_slot"),
-        "hold": scheduling_handoff.get("hold"),
-        "next_action": "collect_contact",
+        **response_payload,
         "inspector_payload": build_runtime_inspector_payload(
             tenant,
             session_id,
-            response_payload={
-                "selected_slot": scheduling_handoff.get("selected_slot"),
-                "hold": scheduling_handoff.get("hold"),
-                "next_action": "collect_contact",
-            },
+            response_payload=response_payload,
             session_status=session_status,
             booking_progress=booking_progress,
             state=runtime_state,
@@ -1919,26 +1900,20 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
         state=state,
         profile=profile,
         services=services,
-        requested_operation=(
-            scheduling_capability.OPERATION_AVAILABILITY
-            if allow_scheduling_first and scheduling_capability.has_pending_availability_intent(state)
-            else None
+        requested_operation=scheduling_capability.resolve_requested_operation(
+            allow_scheduling_first=allow_scheduling_first,
+            state=state,
         ),
     )
-    scheduling_result = scheduling_capability.handle_scheduling_capability(
+    scheduling_execution = scheduling_capability.execute_scheduling_turn(
         scheduling_context,
+        session_state=SESSION_STATE,
     )
-    state = scheduling_result.state
+    scheduling_result = scheduling_execution.result
+    state = scheduling_execution.state
+    scheduling_response = scheduling_execution.response_payload
     if scheduling_result.assessment.operation == scheduling_capability.OPERATION_AVAILABILITY:
-        state = scheduling_capability.store_scheduling_state(
-            session_key,
-            state,
-            assessment=scheduling_result.assessment,
-            session_state=SESSION_STATE,
-        )
-        scheduling_reply = scheduling_capability.assessment_reply_text(
-            scheduling_result.assessment
-        )
+        scheduling_reply = scheduling_response.reply_text
         if isinstance(scheduling_reply, str) and scheduling_reply.strip():
             _log_chat_state(
                 message=message,
@@ -1957,9 +1932,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                 services=services,
                 profile=profile,
                 stage_after=_stage_name(SESSION_STATE.get(session_key)),
-                widget_payload=scheduling_capability.assessment_widget_payload(
-                    scheduling_result.assessment,
-                ),
+                widget_payload=scheduling_response.widget_payload,
             )
             return final_reply, session_id
     if scheduling_result.next_action == scheduling_capability.CAPABILITY_NEXT_RETURN:
@@ -2208,14 +2181,13 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             intent = _normalize_intent(raw_intent)
             service_id = parsed.get("service_id")
             message_text = parsed.get("message")
-            booking_input_type = _classify_booking_input(message, profile)
 
-            if availability_intent_requested and allow_scheduling_first:
-                state = scheduling_capability.mark_availability_intent_pending(
-                    session_key,
-                    state,
-                    SESSION_STATE,
-                )
+            requested_operation = scheduling_capability.resolve_requested_operation(
+                allow_scheduling_first=allow_scheduling_first,
+                state=state,
+                availability_intent_requested=availability_intent_requested,
+            )
+            if requested_operation == scheduling_capability.OPERATION_AVAILABILITY:
                 scheduling_context = scheduling_capability.CapabilityContext(
                     tenant=tenant,
                     session_id=session_id,
@@ -2224,22 +2196,19 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                     state=state,
                     profile=profile,
                     services=services,
-                    requested_operation=scheduling_capability.OPERATION_AVAILABILITY,
+                    requested_operation=requested_operation,
                     service_id=service_id if isinstance(service_id, str) and service_id.strip() else None,
                     intro_message=message_text,
                 )
-                scheduling_result = scheduling_capability.handle_scheduling_capability(
+                scheduling_execution = scheduling_capability.execute_scheduling_turn(
                     scheduling_context,
-                )
-                state = scheduling_capability.store_scheduling_state(
-                    session_key,
-                    scheduling_result.state,
-                    assessment=scheduling_result.assessment,
                     session_state=SESSION_STATE,
+                    mark_availability_intent=availability_intent_requested,
                 )
-                scheduling_reply = scheduling_capability.assessment_reply_text(
-                    scheduling_result.assessment
-                )
+                scheduling_result = scheduling_execution.result
+                state = scheduling_execution.state
+                scheduling_response = scheduling_execution.response_payload
+                scheduling_reply = scheduling_response.reply_text
                 if isinstance(scheduling_reply, str) and scheduling_reply.strip():
                     _log_chat_state(
                         message=message,
@@ -2258,9 +2227,7 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
                         services=services,
                         profile=profile,
                         stage_after=_stage_name(SESSION_STATE.get(session_key)),
-                        widget_payload=scheduling_capability.assessment_widget_payload(
-                            scheduling_result.assessment,
-                        ),
+                        widget_payload=scheduling_response.widget_payload,
                     )
                     return final_reply, session_id
 
@@ -2275,6 +2242,70 @@ def generate_reply(tenant: str, message: str, session_id: str | None = None) -> 
             )
 
             if intent == "confirm_booking" and allow_booking and not availability_intent_requested:
+                if allow_scheduling_first:
+                    if scheduling_capability.should_reenter_scheduling_from_followup(state):
+                        scheduling_context = scheduling_capability.CapabilityContext(
+                            tenant=tenant,
+                            session_id=session_id,
+                            session_key=session_key,
+                            message=message,
+                            state=state,
+                            profile=profile,
+                            services=services,
+                            requested_operation=scheduling_capability.OPERATION_AVAILABILITY,
+                        )
+                        scheduling_execution = scheduling_capability.execute_scheduling_turn(
+                            scheduling_context,
+                            session_state=SESSION_STATE,
+                        )
+                        scheduling_result = scheduling_execution.result
+                        state = scheduling_execution.state
+                        scheduling_response = scheduling_execution.response_payload
+                        scheduling_reply = scheduling_response.reply_text
+                        if isinstance(scheduling_reply, str) and scheduling_reply.strip():
+                            _log_chat_state(
+                                message=message,
+                                session_id=session_id,
+                                intent=AVAILABILITY_INTENT_OUTPUT,
+                                stage_before=stage_before,
+                                stage_after=_stage_name(SESSION_STATE.get(session_key)),
+                            )
+                            final_reply = _finalize_reply(
+                                tenant=tenant,
+                                session_id=session_id,
+                                session_key=session_key,
+                                message=message,
+                                reply=scheduling_reply.strip(),
+                                response_type=AVAILABILITY_INTENT_OUTPUT,
+                                services=services,
+                                profile=profile,
+                                stage_after=_stage_name(SESSION_STATE.get(session_key)),
+                                widget_payload=scheduling_response.widget_payload,
+                            )
+                            return final_reply, session_id
+
+                    scheduling_first_reply = scheduling_capability.pending_availability_reply(state)
+                    if scheduling_first_reply:
+                        _log_chat_state(
+                            message=message,
+                            session_id=session_id,
+                            intent=intent,
+                            stage_before=stage_before,
+                            stage_after=stage_before,
+                        )
+                        final_reply = _finalize_reply(
+                            tenant=tenant,
+                            session_id=session_id,
+                            session_key=session_key,
+                            message=message,
+                            reply=scheduling_first_reply,
+                            response_type="message",
+                            services=services,
+                            profile=profile,
+                            stage_after=stage_before,
+                        )
+                        return final_reply, session_id
+
                 reply, session_id = booking_credentials.start_collecting_contact(
                     tenant=tenant,
                     session_id=session_id,

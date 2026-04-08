@@ -74,10 +74,10 @@ def get_config(tenant: str):
     try:
         load_profile_config(tenant)
         return load_public_profile_config(tenant)
-    except TenantNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found")
-    except TenantConfigError:
-        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid")
+    except TenantNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found") from exc
+    except TenantConfigError as exc:
+        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid") from exc
 
 
 @app.get("/agent/{tenant}")
@@ -85,7 +85,7 @@ def serve_agent(tenant: str):
     try:
         load_profile_config(tenant)
         return FileResponse(str(INDEX_FILE))
-    except TenantNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found")
-    except TenantConfigError:
-        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid")
+    except TenantNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found") from exc
+    except TenantConfigError as exc:
+        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid") from exc

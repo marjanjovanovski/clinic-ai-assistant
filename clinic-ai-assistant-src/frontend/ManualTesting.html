@@ -86,6 +86,13 @@
       gap: 8px;
     }
 
+    .field-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+
     .field-label {
       font-size: 13px;
       font-weight: 600;
@@ -280,6 +287,14 @@
       padding: 0 6px;
     }
 
+    .table-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      min-width: 160px;
+    }
+
     .table-title {
       margin: 0;
       font-size: 20px;
@@ -292,10 +307,27 @@
       font-size: 14px;
     }
 
-    .runtime-note {
+    .action-status {
       color: var(--text-muted);
       font-size: 13px;
       text-align: right;
+      min-height: 18px;
+    }
+
+    .secondary-button {
+      padding: 10px 18px;
+      border: 1px solid #d94645;
+      border-radius: 12px;
+      background: #ffffff;
+      color: #d94645;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .secondary-button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
     }
 
     .table-scroll {
@@ -354,6 +386,17 @@
       width: 72px;
       font-weight: 700;
       color: #27405f;
+    }
+
+    .col-row-id {
+      width: 48px;
+      min-width: 48px;
+      max-width: 48px;
+      text-align: center;
+      white-space: nowrap;
+      font-weight: 700;
+      color: #27405f;
+      font-variant-numeric: tabular-nums;
     }
 
     .badge {
@@ -480,11 +523,19 @@
       </div>
 
       <div class="toolbar">
-        <div class="field-group">
-          <label class="field-label" for="taskSelector">Pending Task</label>
-          <select id="taskSelector" class="task-select">
-            <option>Loading tasks...</option>
-          </select>
+        <div class="field-stack">
+          <div class="field-group">
+            <label class="field-label" for="taskSelector">Pending Task</label>
+            <select id="taskSelector" class="task-select">
+              <option>Loading tasks...</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="promptStatusSelector">Prompt Progress</label>
+            <select id="promptStatusSelector" class="task-select" disabled>
+              <option>No prompt data available</option>
+            </select>
+          </div>
         </div>
 
         <div class="field-group">
@@ -547,13 +598,17 @@
           <h2 class="table-title" id="tableTitle">Manual Verification Rows</h2>
           <p class="table-subtitle" id="tableSubtitle">Select a task to load its coverage rows.</p>
         </div>
-        <div class="runtime-note" id="runtimeNote">Awaiting task selection</div>
+        <div class="table-actions">
+          <button id="archiveButton" class="secondary-button" disabled>Archive</button>
+          <span class="action-status" id="archiveStatus"></span>
+        </div>
       </div>
 
       <div class="table-scroll">
         <table>
           <thead>
             <tr>
+              <th class="col-row-id">ID</th>
               <th>Category</th>
               <th>Test</th>
               <th>Step</th>
@@ -566,7 +621,7 @@
           </thead>
           <tbody id="coverageTableBody">
             <tr>
-              <td colspan="8" class="empty-state">Loading manual verification tasks...</td>
+              <td colspan="9" class="empty-state">Loading manual verification tasks...</td>
             </tr>
           </tbody>
         </table>
@@ -577,6 +632,7 @@
   <script type="module">
     const TASKS_URL = "/manual-verification/tasks";
     const taskSelector = document.getElementById("taskSelector");
+    const promptStatusSelector = document.getElementById("promptStatusSelector");
     const coverageTableBody = document.getElementById("coverageTableBody");
     const notRunCount = document.getElementById("notRunCount");
     const passCount = document.getElementById("passCount");
@@ -585,7 +641,8 @@
     const taskMeta = document.getElementById("taskMeta");
     const tableTitle = document.getElementById("tableTitle");
     const tableSubtitle = document.getElementById("tableSubtitle");
-    const runtimeNote = document.getElementById("runtimeNote");
+    const archiveButton = document.getElementById("archiveButton");
+    const archiveStatus = document.getElementById("archiveStatus");
     const saveButton = document.getElementById("saveButton");
     const saveStatus = document.getElementById("saveStatus");
     const statusFilter = document.getElementById("statusFilter");
@@ -598,6 +655,7 @@
     let selectedStatusFilter = "All";
     let isDirty = false;
     let isSaving = false;
+    let isArchiving = false;
 
     function escapeHtml(value) {
       return String(value ?? "")
@@ -623,10 +681,25 @@
       if (!task) {
         taskState.textContent = "-";
         taskMeta.textContent = "No task selected";
+        promptStatusSelector.innerHTML = `<option>No prompt data available</option>`;
+        promptStatusSelector.disabled = true;
         return;
       }
-      taskState.textContent = task.coverage_available ? "In Review / Pending" : "Needs JSON";
-      taskMeta.textContent = `${task.entry_type} | Prompt ${task.manual_prompt_number} | Merge: ${task.merge_to_main ?? "Pending"}`;
+      taskState.textContent = task.workflow_state || (task.coverage_available ? "Ready for Review" : "Needs JSON");
+      taskMeta.textContent = `${task.entry_type} | Manual review prompt: ${task.manual_prompt_number ?? "-"} | Merge: ${task.merge_to_main ?? "Pending"}`;
+      renderPromptStatuses(task.prompt_statuses);
+    }
+
+    function renderPromptStatuses(promptStatuses = []) {
+      if (!Array.isArray(promptStatuses) || !promptStatuses.length) {
+        promptStatusSelector.innerHTML = `<option>No prompt data available</option>`;
+        promptStatusSelector.disabled = true;
+        return;
+      }
+      promptStatusSelector.innerHTML = promptStatuses.map((prompt) => `
+        <option value="${escapeHtml(String(prompt.prompt_number ?? ""))}">${escapeHtml(prompt.label ?? "")}</option>
+      `).join("");
+      promptStatusSelector.disabled = false;
     }
 
     function computeSummaryFromCoverage(coverage) {
@@ -646,6 +719,39 @@
       return summary;
     }
 
+    function countTestsFromCoverage(coverage) {
+      const categories = Array.isArray(coverage?.categories) ? coverage.categories : [];
+      let totalTests = 0;
+      for (const category of categories) {
+        const tests = Array.isArray(category?.tests) ? category.tests : [];
+        totalTests += tests.length;
+      }
+      return totalTests;
+    }
+
+    function countRowsFromCoverage(coverage) {
+      const categories = Array.isArray(coverage?.categories) ? coverage.categories : [];
+      let totalRows = 0;
+      for (const category of categories) {
+        const tests = Array.isArray(category?.tests) ? category.tests : [];
+        for (const test of tests) {
+          const rows = Array.isArray(test?.rows) ? test.rows : [];
+          totalRows += rows.length;
+        }
+      }
+      return totalRows;
+    }
+
+    function taskTitleWithTestCount(task, coverage) {
+      const baseTitle = coverage?.task_name || task?.task_name || "Manual Verification Rows";
+      return `${baseTitle} - Total Tests = ${countTestsFromCoverage(coverage)}`;
+    }
+
+    function taskSubtitleWithRowCount(task, coverage) {
+      const baseSubtitle = coverage?.task_file || task?.task_file || "Select a task to load its coverage rows.";
+      return `${baseSubtitle} - Total Rows = ${countRowsFromCoverage(coverage)}`;
+    }
+
     function mergeReadinessLabel(summary) {
       if ((summary.fail ?? 0) > 0) return "Blocked";
       if ((summary.not_run ?? 0) > 0) return "In Review";
@@ -660,12 +766,14 @@
       setSummary(summary);
       if (selectedTask) {
         const branchApproved = Boolean(selectedCoverage?.manual_verification?.branch_merge_ready);
-        taskState.textContent = `${mergeReadinessLabel(summary)} / ${branchApproved ? "Approved" : "Pending"}`;
+        taskState.textContent = selectedTask.workflow_state || mergeReadinessLabel(summary);
+        taskMeta.textContent = `Manual review prompt: ${selectedTask.manual_prompt_number ?? "-"} | Merge review: ${branchApproved ? "Approved" : "Pending approval"} | Merge to main: ${selectedTask.merge_to_main ?? "Pending"}`;
       }
     }
 
     function updateSaveState() {
       saveButton.disabled = !selectedTask || !selectedTask.coverage_available || !isDirty || isSaving;
+      archiveButton.disabled = !selectedTask || !selectedTask.archive_ready || isSaving || isArchiving || isDirty;
       branchMergeReadyInput.disabled = !selectedTask || !selectedTask.coverage_available || isSaving;
       generalCommentInput.disabled = !selectedTask || !selectedTask.coverage_available || isSaving;
       if (isSaving) {
@@ -675,12 +783,21 @@
       } else {
         saveStatus.textContent = selectedTask && selectedTask.coverage_available ? "All changes saved" : "No changes";
       }
+      if (isArchiving) {
+        archiveStatus.textContent = "Archiving...";
+      } else if (!selectedTask) {
+        archiveStatus.textContent = archiveStatus.textContent || "";
+      } else if (selectedTask.archive_ready) {
+        archiveStatus.textContent = isDirty ? "Save changes before archiving" : "Merged task can be archived";
+      } else {
+        archiveStatus.textContent = "Archive unlocks after Merge To Main is completed";
+      }
     }
 
     function renderMessageRow(message, cssClass = "empty-state") {
       coverageTableBody.innerHTML = `
         <tr>
-          <td colspan="8" class="${cssClass}">${escapeHtml(message)}</td>
+          <td colspan="9" class="${cssClass}">${escapeHtml(message)}</td>
         </tr>
       `;
     }
@@ -705,6 +822,7 @@
             }
             rows.push(`
               <tr>
+                <td class="col-row-id">${escapeHtml(row?.row_id ?? "")}</td>
                 <td class="col-category">${escapeHtml(categoryName)}</td>
                 <td class="col-test">${escapeHtml(testName)}</td>
                 <td class="col-step">${escapeHtml(row?.step ?? "")}</td>
@@ -715,7 +833,7 @@
                     class="${statusSelectClass(row?.status)}"
                     data-category="${escapeHtml(categoryName)}"
                     data-test="${escapeHtml(testName)}"
-                    data-step="${escapeHtml(row?.step ?? "")}"
+                    data-row-id="${escapeHtml(row?.row_id ?? "")}"
                   >
                     <option value="Not Run" ${row?.status === "Not Run" ? "selected" : ""}>Not Run</option>
                     <option value="Pass" ${row?.status === "Pass" ? "selected" : ""}>Pass</option>
@@ -728,7 +846,7 @@
                     data-field="comment"
                     data-category="${escapeHtml(categoryName)}"
                     data-test="${escapeHtml(testName)}"
-                    data-step="${escapeHtml(row?.step ?? "")}"
+                    data-row-id="${escapeHtml(row?.row_id ?? "")}"
                   >${escapeHtml(row?.comment ?? "")}</textarea>
                 </td>
                 <td class="col-reference">
@@ -737,7 +855,7 @@
                     data-field="reference_files"
                     data-category="${escapeHtml(categoryName)}"
                     data-test="${escapeHtml(testName)}"
-                    data-step="${escapeHtml(row?.step ?? "")}"
+                    data-row-id="${escapeHtml(row?.row_id ?? "")}"
                   >${escapeHtml(row?.reference_files ?? "")}</textarea>
                 </td>
               </tr>
@@ -748,8 +866,8 @@
 
       if (!rows.length) {
         renderMessageRow(`No rows match the selected status filter: ${selectedStatusFilter}.`);
-        tableTitle.textContent = coverage.task_name || task.task_name;
-        tableSubtitle.textContent = coverage.task_file || task.task_file;
+        tableTitle.textContent = taskTitleWithTestCount(task, coverage);
+        tableSubtitle.textContent = taskSubtitleWithRowCount(task, coverage);
         branchMergeReadyInput.checked = Boolean(coverage?.manual_verification?.branch_merge_ready);
         generalCommentInput.value = String(coverage?.manual_verification?.general_comment ?? "");
         refreshSummaryState();
@@ -758,8 +876,8 @@
       }
 
       coverageTableBody.innerHTML = rows.join("");
-      tableTitle.textContent = coverage.task_name || task.task_name;
-      tableSubtitle.textContent = coverage.task_file || task.task_file;
+      tableTitle.textContent = taskTitleWithTestCount(task, coverage);
+      tableSubtitle.textContent = taskSubtitleWithRowCount(task, coverage);
       branchMergeReadyInput.checked = Boolean(coverage?.manual_verification?.branch_merge_ready);
       generalCommentInput.value = String(coverage?.manual_verification?.general_comment ?? "");
       bindRowInputs();
@@ -767,7 +885,7 @@
       updateSaveState();
     }
 
-    function findCoverageRow(categoryName, testName, stepValue) {
+    function findCoverageRow(categoryName, testName, rowIdValue) {
       const categories = Array.isArray(selectedCoverage?.categories) ? selectedCoverage.categories : [];
       for (const category of categories) {
         if ((category?.name ?? "") !== categoryName) continue;
@@ -776,7 +894,7 @@
           if ((test?.name ?? "") !== testName) continue;
           const rows = Array.isArray(test?.rows) ? test.rows : [];
           for (const row of rows) {
-            if (String(row?.step ?? "") === stepValue) {
+            if (String(row?.row_id ?? "") === rowIdValue) {
               return row;
             }
           }
@@ -797,7 +915,7 @@
           const row = findCoverageRow(
             event.target.dataset.category,
             event.target.dataset.test,
-            event.target.dataset.step
+            event.target.dataset.rowId
           );
           if (!row) return;
           row.status = event.target.value;
@@ -811,7 +929,7 @@
           const row = findCoverageRow(
             event.target.dataset.category,
             event.target.dataset.test,
-            event.target.dataset.step
+            event.target.dataset.rowId
           );
           if (!row) return;
           row[event.target.dataset.field] = event.target.value;
@@ -861,13 +979,57 @@
         isDirty = false;
         setTaskMeta(selectedTask);
         renderCoverageRows(selectedTask, selectedCoverage);
-        runtimeNote.textContent = `Saved ${selectedTask.task_name}`;
         saveStatus.textContent = "Saved";
       } catch (error) {
-        runtimeNote.textContent = "Save failed";
         saveStatus.textContent = error.message || "Save failed";
       } finally {
         isSaving = false;
+        updateSaveState();
+      }
+    }
+
+    async function archiveTask() {
+      if (!selectedTask || !selectedTask.archive_ready || isArchiving || isDirty) {
+        return;
+      }
+
+      isArchiving = true;
+      updateSaveState();
+
+      try {
+        const response = await fetch(`/manual-verification/tasks/${encodeURIComponent(selectedTask.id)}/archive`, {
+          method: "POST",
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(typeof data.detail === "string" ? data.detail : "Failed to archive task.");
+        }
+
+        const archivedTaskName = selectedTask.task_name;
+        discoveredTasks = discoveredTasks.filter((task) => task.id !== selectedTask.id);
+        selectedTask = null;
+        selectedCoverage = null;
+        isDirty = false;
+        setSummary({ not_run: 0, pass: 0, fail: 0 });
+        branchMergeReadyInput.checked = false;
+        generalCommentInput.value = "";
+
+        if (!discoveredTasks.length) {
+          taskSelector.innerHTML = `<option value="">No pending manual verification tasks found</option>`;
+          renderMessageRow("No pending tasks are currently waiting for manual verification or archiving.");
+          tableTitle.textContent = "Manual Verification Rows";
+          tableSubtitle.textContent = "Select a task to load its coverage rows.";
+        } else {
+          taskSelector.innerHTML = discoveredTasks.map((task) => `
+            <option value="${escapeHtml(task.id)}">${escapeHtml(task.task_name)}${task.coverage_available ? "" : " (needs JSON)"}</option>
+          `).join("");
+          await handleTaskSelection(taskSelector.value);
+        }
+        archiveStatus.textContent = `Archived ${archivedTaskName}`;
+      } catch (error) {
+        archiveStatus.textContent = error.message || "Archive failed";
+      } finally {
+        isArchiving = false;
         updateSaveState();
       }
     }
@@ -883,7 +1045,6 @@
       if (!selectedTask) {
         tableTitle.textContent = "Manual Verification Rows";
         tableSubtitle.textContent = "Select a task to load its coverage rows.";
-        runtimeNote.textContent = "Awaiting task selection";
         branchMergeReadyInput.checked = false;
         generalCommentInput.value = "";
         renderMessageRow("Select a task to inspect manual verification coverage.");
@@ -891,9 +1052,8 @@
       }
 
       if (!selectedTask.coverage_available) {
-        tableTitle.textContent = selectedTask.task_name;
+        tableTitle.textContent = taskTitleWithTestCount(selectedTask, selectedCoverage);
         tableSubtitle.textContent = selectedTask.task_file;
-        runtimeNote.textContent = "Migration needed";
         branchMergeReadyInput.checked = false;
         generalCommentInput.value = "";
         renderMessageRow(
@@ -903,23 +1063,19 @@
         return;
       }
 
-      runtimeNote.textContent = "Loading coverage...";
       try {
         const payload = await loadTaskCoverage(taskId);
         selectedTask = payload.task;
         selectedCoverage = payload.coverage;
         setTaskMeta(payload.task);
         renderCoverageRows(payload.task, payload.coverage);
-        runtimeNote.textContent = `Loaded ${payload.task.task_name}`;
       } catch (error) {
-        runtimeNote.textContent = "Load failed";
         renderMessageRow(error.message || "Failed to load task coverage.", "error-state");
       }
     }
 
     async function bootstrap() {
       renderMessageRow("Loading manual verification tasks...");
-      runtimeNote.textContent = "Loading task list...";
 
       try {
         const response = await fetch(TASKS_URL);
@@ -931,8 +1087,7 @@
         discoveredTasks = Array.isArray(data.tasks) ? data.tasks : [];
         if (!discoveredTasks.length) {
           taskSelector.innerHTML = `<option value="">No pending manual verification tasks found</option>`;
-          renderMessageRow("No pending tasks are currently waiting for manual verification.");
-          runtimeNote.textContent = "No pending manual verification tasks found";
+          renderMessageRow("No pending tasks are currently waiting for manual verification or archiving.");
           return;
         }
 
@@ -947,9 +1102,6 @@
           selectedStatusFilter = event.target.value;
           if (selectedTask && selectedCoverage) {
             renderCoverageRows(selectedTask, selectedCoverage);
-            runtimeNote.textContent = selectedStatusFilter === "All"
-              ? `Loaded ${selectedTask.task_name}`
-              : `Filtered ${selectedTask.task_name} by ${selectedStatusFilter}`;
           }
         });
         branchMergeReadyInput.addEventListener("change", (event) => {
@@ -969,12 +1121,12 @@
           markDirty();
         });
         saveButton.addEventListener("click", saveCoverage);
+        archiveButton.addEventListener("click", archiveTask);
 
         await handleTaskSelection(taskSelector.value);
       } catch (error) {
         taskSelector.innerHTML = `<option value="">Failed to load tasks</option>`;
         renderMessageRow(error.message || "Failed to load manual verification tasks.", "error-state");
-        runtimeNote.textContent = "Task discovery failed";
       }
     }
 

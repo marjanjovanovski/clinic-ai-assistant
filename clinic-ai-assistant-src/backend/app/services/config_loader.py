@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -15,6 +16,18 @@ class TenantNotFoundError(FileNotFoundError):
 
 DEFAULT_ALLOW_SCHEDULING_FIRST = False
 DEFAULT_REQUIRE_CREDENTIALS_BEFORE_CONFIRM = True
+TENANT_SLUG_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def _normalize_tenant_slug(tenant: str) -> str:
+    if not isinstance(tenant, str):
+        raise TenantNotFoundError(f"Profile '{tenant}' not found")
+
+    normalized_tenant = tenant.strip()
+    if not normalized_tenant or not TENANT_SLUG_PATTERN.fullmatch(normalized_tenant):
+        raise TenantNotFoundError(f"Profile '{tenant}' not found")
+
+    return normalized_tenant
 
 
 def _require_non_empty_string(section_name: str, payload: dict, field_name: str):
@@ -94,6 +107,71 @@ def _validate_business_hours(section_name: str, business_hours):
                 raise TenantConfigError(f"{section_name}.{day_name}[{index}][1] must be a non-empty string")
 
 
+def _validate_string_term_map(section_name: str, payload, *, allowed_keys: set[str] | None = None):
+    if payload is None:
+        return
+    mapping = _require_object(section_name, payload)
+    for key, terms in mapping.items():
+        if not isinstance(key, str) or not key.strip():
+            raise TenantConfigError(f"{section_name} keys must be non-empty strings")
+        normalized_key = key.strip()
+        if allowed_keys is not None and normalized_key not in allowed_keys:
+            raise TenantConfigError(f"{section_name}.{normalized_key} is not a supported key")
+        if not isinstance(terms, list) or not terms:
+            raise TenantConfigError(f"{section_name}.{normalized_key} must be a non-empty list")
+        for index, term in enumerate(terms):
+            if not isinstance(term, str) or not term.strip():
+                raise TenantConfigError(f"{section_name}.{normalized_key}[{index}] must be a non-empty string")
+
+
+def _validate_optional_string_map(section_name: str, payload, *, allowed_keys: set[str] | None = None):
+    if payload is None:
+        return
+    mapping = _require_object(section_name, payload)
+    for key, value in mapping.items():
+        if not isinstance(key, str) or not key.strip():
+            raise TenantConfigError(f"{section_name} keys must be non-empty strings")
+        normalized_key = key.strip()
+        if allowed_keys is not None and normalized_key not in allowed_keys:
+            raise TenantConfigError(f"{section_name}.{normalized_key} is not a supported key")
+        if not isinstance(value, str) or not value.strip():
+            raise TenantConfigError(f"{section_name}.{normalized_key} must be a non-empty string")
+
+
+def _validate_scheduling_language_support(section_name: str, payload):
+    if payload is None:
+        return
+    language_support = _require_object(section_name, payload)
+    _validate_string_term_map(
+        f"{section_name}.weekday_terms",
+        language_support.get("weekday_terms"),
+        allowed_keys={
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday",
+            "sunday",
+        },
+    )
+    _validate_string_term_map(
+        f"{section_name}.relative_date_terms",
+        language_support.get("relative_date_terms"),
+        allowed_keys={"today", "tomorrow", "in_two_weeks"},
+    )
+    _validate_string_term_map(
+        f"{section_name}.relative_range_terms",
+        language_support.get("relative_range_terms"),
+        allowed_keys={"next_week"},
+    )
+    _validate_string_term_map(
+        f"{section_name}.time_window_terms",
+        language_support.get("time_window_terms"),
+        allowed_keys={"morning", "afternoon"},
+    )
+
+
 def _validate_scheduling(profile: dict, tenant: str):
     scheduling = profile.get("scheduling")
     if scheduling is None:
@@ -143,6 +221,16 @@ def _validate_scheduling(profile: dict, tenant: str):
             f"Profile '{tenant}'.scheduling.providers.{provider_name}",
             provider_config,
         )
+
+    _validate_scheduling_language_support(
+        f"Profile '{tenant}'.scheduling.language_support",
+        scheduling.get("language_support"),
+    )
+    _validate_optional_string_map(
+        f"Profile '{tenant}'.scheduling.contract_texts",
+        scheduling.get("contract_texts"),
+        allowed_keys={"broad_range_narrowing"},
+    )
 
 
 def _normalize_actions(tenant: str, profile: dict) -> dict:
@@ -240,18 +328,19 @@ def _validate_profile(tenant: str, profile: dict):
 
 
 def load_profile_config(tenant: str):
-    profile_path = PROFILES_DIR / f"{tenant}.json"
+    normalized_tenant = _normalize_tenant_slug(tenant)
+    profile_path = PROFILES_DIR / f"{normalized_tenant}.json"
 
     if not profile_path.exists():
-        raise TenantNotFoundError(f"Profile '{tenant}' not found")
+        raise TenantNotFoundError(f"Profile '{normalized_tenant}' not found")
 
     try:
         with open(profile_path, encoding="utf-8") as f:
             profile = json.load(f)
     except json.JSONDecodeError as exc:
-        raise TenantConfigError(f"Profile '{tenant}' contains invalid JSON") from exc
+        raise TenantConfigError(f"Profile '{normalized_tenant}' contains invalid JSON") from exc
 
-    _validate_profile(tenant, profile)
+    _validate_profile(normalized_tenant, profile)
     return profile
 
 

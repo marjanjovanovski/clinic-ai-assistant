@@ -141,6 +141,26 @@ def test_create_lesson_links_multiple_execution_rows(isolated_history_db):
     assert lessons[0]["author_name"] == first["author_name"]
 
 
+def test_create_lesson_learned_rejects_unknown_execution_ids(isolated_history_db):
+    isolated_history_db.create_project_requirement(
+        req_code="REQ-LESSON-UNKNOWN-001",
+        title="Reject unknown execution links",
+        category_code="lessons_learned_repo",
+        description="Unknown execution ids should fail cleanly.",
+        status="active",
+    )
+
+    with pytest.raises(ValueError, match=r"Unknown execution ids: \[999\]"):
+        isolated_history_db.create_lesson_learned(
+            lesson_code="LESSON-UNKNOWN-EXEC-001",
+            title="Do not link missing execution rows",
+            statement="Lesson links should only reference existing execution evidence.",
+            why_it_matters="Missing execution ids should be rejected before lesson creation.",
+            source_execution_ids=[999],
+            status="validated",
+        )
+
+
 def test_execution_history_with_labels_includes_git_commit_hash(isolated_history_db):
     isolated_history_db.create_project_requirement(
         req_code="REQ-HASH-001",

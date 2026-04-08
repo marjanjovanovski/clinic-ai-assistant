@@ -229,10 +229,10 @@ class GoogleCalendarSchedulingProvider(SchedulingProvider):
     def _timezone_for_name(cls, timezone_name: str):
         try:
             return ZoneInfo(timezone_name)
-        except ZoneInfoNotFoundError:
+        except ZoneInfoNotFoundError as exc:
             fallback = cls._TIMEZONE_FALLBACKS.get(timezone_name)
             if fallback is None:
-                raise ValueError(f"Unsupported timezone without local tzdata: {timezone_name}")
+                raise ValueError(f"Unsupported timezone without local tzdata: {timezone_name}") from exc
             return fallback
 
     @staticmethod

@@ -1,5 +1,7 @@
 # TEST EXECUTION MANIFESTO: Before running tests, follow clinic-ai-assistant-src/backend/pytest.ini and never create repo-local pytest temp folders; use external TMP/TEMP plus --basetemp.
-from app.services.config_loader import load_profile_config, load_public_profile_config
+import pytest
+
+from app.services.config_loader import TenantNotFoundError, load_profile_config, load_public_profile_config
 
 
 def test_all_profiles_load_successfully():
@@ -15,3 +17,7 @@ def test_public_profile_config_hides_internal_prompt_fields():
     assert "output_contract" not in public_profile
     assert "business" in public_profile
     assert "services" in public_profile
+def test_load_profile_config_rejects_invalid_tenant_slug():
+    with pytest.raises(TenantNotFoundError, match=r"Profile '\.\./milena_dental' not found"):
+        load_profile_config("../milena_dental")
+

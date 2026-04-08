@@ -127,7 +127,7 @@ def test_agent_page_mounts_slot_list_widget_from_chat_response(monkeypatch, tmp_
     assert 'const [primaryReply] = replyText.split(/\\n\\s*\\n/, 1);' in response.text
     assert 'function addResponseWidget(widgetPayload, options = {})' in response.text
     assert 'widgetPayload.type !== "slot-list"' in response.text
-    assert 'const { hideTitle = false } = options;' in response.text
+    assert 'const { hideTitle = false, readOnly = false } = options;' in response.text
     assert 'slotListWidget.disableAll();' in response.text
     assert 'const response = await fetch(SELECT_SLOT_URL, {' in response.text
     assert 'session_id: sessionId,' in response.text
@@ -138,11 +138,17 @@ def test_agent_page_mounts_slot_list_widget_from_chat_response(monkeypatch, tmp_
     assert 'slotListWidget.enableAll();' in response.text
     assert 'onSelect: (slot, slotListWidget) => handleSlotSelection(slot, widgetPayload, slotListWidget),' in response.text
     assert 'title: hideTitle ? null : (widgetPayload.title || "Изберете термин:")' in response.text
-    assert "readOnly: false," in response.text
+    assert "readOnly," in response.text
     assert 'const primaryReplyText = getPrimaryReplyText(data.reply, includeWidget ? data.widget_payload : null);' in response.text
     assert 'applyBackendConversationUpdate(data, {' in response.text
     assert 'includeWidget: true,' in response.text
     assert 'addResponseWidget(data.widget_payload, { hideTitle: Boolean(primaryReplyText) });' in response.text
+    assert 'includeSelectedSlot: true,' in response.text
+    assert 'addSelectedSlotWidget(data.selected_slot);' in response.text
+    assert 'function buildSelectedSlotWidgetPayload(selectedSlot)' in response.text
+    assert 'function addSelectedSlotWidget(selectedSlot)' in response.text
+    assert 'slots: [selectedSlot],' in response.text
+    assert 'readOnly: true,' in response.text
 
 
 def test_slot_list_widget_supports_read_only_mode(monkeypatch, tmp_path):
@@ -159,7 +165,23 @@ def test_slot_list_widget_supports_read_only_mode(monkeypatch, tmp_path):
     assert 'buttonEl.classList.toggle("slot-list-button--read-only", readOnly);' in widget_js.text
     assert "buttonEl.disabled = readOnly;" in widget_js.text
     assert "if (readOnly) {" in widget_js.text
+    assert "function extractIsoDateParts(startAt)" in widget_js.text
+    assert "function extractIsoTimeLabel(startAt)" in widget_js.text
+    assert "return timeLabel || defaultSlotLabel(slot);" in widget_js.text
     assert ".slot-list-button--read-only:disabled {" in widget_css.text
+
+
+def test_slot_list_widget_formats_day_and_time_from_slot_payload_iso_strings(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+
+    widget_js = client.get("/frontend/widgets/slot-list/slot-list.js")
+
+    assert widget_js.status_code == 200
+    assert 'const parsedParts = extractIsoDateParts(startAt);' in widget_js.text
+    assert 'new Date(Date.UTC(parsedParts.year, parsedParts.monthIndex, parsedParts.day)).getUTCDay()' in widget_js.text
+    assert 'primary: `${day} ${month} ${year}`,' in widget_js.text
+    assert 'buttonEl.textContent = formatTimeLabel(slot);' in widget_js.text
+    assert 'buttonEl.title = getSlotLabel(slot);' in widget_js.text
 
 
 def test_reset_behavior_is_local_session_rollover_only(monkeypatch, tmp_path):

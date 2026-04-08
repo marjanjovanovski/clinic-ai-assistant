@@ -209,6 +209,42 @@ def test_complete_selected_slot_booking_if_ready_passes_hold_identity_and_return
     assert result["source_payload"]["replacement_slots"][0]["slot_id"] == "mock|slot-2"
 
 
+def test_complete_selected_slot_booking_if_ready_hides_internal_config_exception_text(monkeypatch):
+    from app.services.scheduling.service import SchedulingConfigError
+
+    monkeypatch.setattr(
+        "app.services.scheduling_capability.book_selected_slot",
+        lambda **kwargs: (_ for _ in ()).throw(
+            SchedulingConfigError("Internal provider secret failed to load from /tmp/private-config.json")
+        ),
+    )
+
+    state = {
+        "stage": "completed",
+        "service_id": "consultation",
+        "scheduling_handoff": {
+            "service_id": "consultation",
+            "selected_slot": {
+                "slot_id": "mock|slot-1",
+                "display_label": "26 Mar 2026 vo 16:00",
+                "start_at": "2026-03-26T16:00:00+01:00",
+                "end_at": "2026-03-26T16:30:00+01:00",
+            },
+        },
+    }
+
+    result = booking_credentials._complete_selected_slot_booking_if_ready(
+        tenant="milena_dental",
+        state=state,
+        data={"name": "Marjan", "phone": "070000000", "email": "mail@test.mk"},
+    )
+
+    assert result["status"] == "slot_unavailable"
+    assert result["confirmation_message"] == booking_credentials.BOOKING_CONFIGURATION_ERROR_MESSAGE
+    assert "private-config" not in result["confirmation_message"]
+    assert state["booking_result"]["confirmation_message"] == booking_credentials.BOOKING_CONFIGURATION_ERROR_MESSAGE
+
+
 def test_complete_selected_slot_booking_if_ready_preserves_recovery_success_payload(monkeypatch):
     class FakeBookingResult:
         def to_dict(self):

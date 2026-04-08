@@ -1,7 +1,9 @@
 from app.services.manual_verification_dashboard import (
+    ManualVerificationArchiveInvalid,
     ManualVerificationCoverageInvalid,
     ManualVerificationCoverageUnavailable,
     ManualVerificationTaskNotFound,
+    archive_manual_verification_task,
     discover_manual_verification_tasks,
     load_manual_verification_coverage,
     save_manual_verification_coverage,
@@ -28,11 +30,11 @@ def get_manual_verification_task(task_id: str):
     try:
         return load_manual_verification_coverage(task_id)
     except ManualVerificationTaskNotFound as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ManualVerificationCoverageUnavailable as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ManualVerificationCoverageInvalid as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.put("/manual-verification/tasks/{task_id}")
@@ -40,8 +42,18 @@ def update_manual_verification_task(task_id: str, body: ManualVerificationCovera
     try:
         return save_manual_verification_coverage(task_id, body.payload)
     except ManualVerificationTaskNotFound as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ManualVerificationCoverageUnavailable as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ManualVerificationCoverageInvalid as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/manual-verification/tasks/{task_id}/archive")
+def archive_manual_verification_dashboard_task(task_id: str):
+    try:
+        return archive_manual_verification_task(task_id)
+    except ManualVerificationTaskNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ManualVerificationArchiveInvalid as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc

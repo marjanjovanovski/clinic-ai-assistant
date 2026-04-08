@@ -287,6 +287,7 @@
         fallbackReply = "Нема одговор од серверот.",
         fallbackStatus = "Подготвено",
         includeWidget = false,
+        includeSelectedSlot = false,
       } = options;
 
       syncSessionId(data.session_id);
@@ -297,6 +298,9 @@
 
       if (includeWidget) {
         addResponseWidget(data.widget_payload, { hideTitle: Boolean(primaryReplyText) });
+      }
+      if (includeSelectedSlot) {
+        addSelectedSlotWidget(data.selected_slot);
       }
 
       updateStatusFromSessionStatus(data.session_status, fallbackStatus);
@@ -336,6 +340,7 @@
           fallbackReply: "Изборот на термин е примен.",
           fallbackStatus: "Терминот е избран.",
           includeWidget: true,
+          includeSelectedSlot: true,
         });
       } catch (error) {
         addMessage(`Неуспешен избор на термин. ${error.message}`, "bot");
@@ -354,14 +359,38 @@
         return null;
       }
 
-      const { hideTitle = false } = options;
+      const { hideTitle = false, readOnly = false } = options;
 
       return addSlotListConversationWidget(conversationDispatcher, {
         title: hideTitle ? null : (widgetPayload.title || "Изберете термин:"),
         slots,
         onSelect: (slot, slotListWidget) => handleSlotSelection(slot, widgetPayload, slotListWidget),
-        readOnly: false,
+        readOnly,
       }, { sender: "bot" });
+    }
+
+    function buildSelectedSlotWidgetPayload(selectedSlot) {
+      if (!selectedSlot || typeof selectedSlot !== "object") {
+        return null;
+      }
+
+      return {
+        type: "slot-list",
+        title: null,
+        slots: [selectedSlot],
+      };
+    }
+
+    function addSelectedSlotWidget(selectedSlot) {
+      const widgetPayload = buildSelectedSlotWidgetPayload(selectedSlot);
+      if (!widgetPayload) {
+        return null;
+      }
+
+      return addResponseWidget(widgetPayload, {
+        hideTitle: true,
+        readOnly: true,
+      });
     }
 
     async function performSend(userMessage, options = {}) {

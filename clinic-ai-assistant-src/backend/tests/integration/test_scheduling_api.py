@@ -251,8 +251,7 @@ def test_scheduling_select_slot_rejects_slot_not_in_active_session_result(monkey
 def test_scheduling_select_slot_rejects_when_another_session_already_holds_slot(monkeypatch, tmp_path):
     client = _build_client(monkeypatch, tmp_path)
 
-    import app.routes.scheduling as scheduling_route_module
-    from app.services import ai_agent
+    from app.services import ai_agent, scheduling_capability
 
     availability = client.post(
         "/scheduling/availability?tenant=milena_dental",
@@ -286,7 +285,7 @@ def test_scheduling_select_slot_rejects_when_another_session_already_holds_slot(
 
     trace_events = []
     monkeypatch.setattr(
-        scheduling_route_module,
+        scheduling_capability,
         "trace_event",
         lambda tenant, session_id, event, **fields: trace_events.append(
             {"tenant": tenant, "session_id": session_id, "event": event, "fields": fields}

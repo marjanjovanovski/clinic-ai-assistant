@@ -40,12 +40,12 @@ def chat(payload: ChatRequest, tenant: str = Query(...)):
         response_payload, session_id = generate_reply(tenant, payload.message, payload.session_id)
         session_status = get_session_status(tenant, session_id)
         booking_progress = get_booking_progress(tenant, session_id)
-    except TenantNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found")
-    except TenantConfigError:
-        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid")
+    except TenantNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found") from exc
+    except TenantConfigError as exc:
+        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid") from exc
     except AIInferenceError as exc:
-        raise HTTPException(status_code=503, detail=str(exc))
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return {
         "received_message": payload.message,

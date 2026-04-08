@@ -1,6 +1,6 @@
 {
-  "task_name": "UI - Slot Conflict Follow-Through FIX",
-  "task_file": "UI - Slot Conflict Follow-Through FIX.md",
+  "task_name": "20260327_1600_UI - Slot Conflict Follow-Through FIX",
+  "task_file": "20260327_1600_UI - Slot Conflict Follow-Through FIX.md",
   "status": "pending_manual_verification",
   "manual_verification": {
     "branch_merge_ready": false,

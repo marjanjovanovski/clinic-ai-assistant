@@ -11,6 +11,9 @@ from app.services.chat_session_state import SESSION_STATE, _recent_interactions
 
 UNKNOWN_NAME_CONFIRM_MODE = "confirm_candidate"
 UNKNOWN_NAME_REPEAT_MODE = "repeat_request"
+BOOKING_CONFIGURATION_ERROR_MESSAGE = (
+    "The selected slot could not be confirmed right now. Please try again or choose another available slot."
+)
 
 
 @dataclass
@@ -249,7 +252,7 @@ def _complete_selected_slot_booking_if_ready(
             "start_at": selected_slot.get("start_at"),
             "end_at": selected_slot.get("end_at"),
             "display_label": selected_slot.get("display_label", ""),
-            "confirmation_message": str(exc),
+            "confirmation_message": BOOKING_CONFIGURATION_ERROR_MESSAGE,
             "source_payload": {
                 "slot_id": slot_id.strip(),
                 "reason": "slot_conflict",

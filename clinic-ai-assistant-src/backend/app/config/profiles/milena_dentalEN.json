@@ -1,0 +1,998 @@
+{
+    "business":  {
+                     "id":  "milena_dentalEN",
+                     "name":  "Assistant for PHI Dr. Milena Ignatovski",
+                     "type":  "dentist",
+                     "language":  "en",
+                     "contact":  {
+                                     "phone":  "+38970000000",
+                                     "email":  "info@milena.mk",
+                                     "address":  "Skopje"
+                                 }
+                 },
+    "agent":  {
+                  "name":  "Assistant",
+                  "role":  "Assistant for dental questions and appointment booking",
+                  "tone":  "professional, calm, and friendly"
+              },
+    "prompt_template":  {
+                            "system":  "You are an AI assistant for {{business_name}}. Your goal: {{goal}}. Use only the provided clinic catalog and consultation rules. Consultation is the main booking path unless the catalog clearly supports something else."
+                        },
+    "conversation":  {
+                         "greeting":  "Hello,\n\nI am the assistant for PHI Dr. Milena Ignatovski. Tell me what you are interested in or what problem you are having, and I will guide you.\n\nIf it is not clear which service is the right fit, we can start with a consultation.",
+                         "goal":  "Help patients orient themselves based on symptoms, needs, or aesthetic goals, and guide them to the right dental service or to a dental consultation as the main booking path.",
+                         "rules":  [
+                                       "Always reply in English.",
+                                       "Do not diagnose and do not claim the patient definitely has a specific condition.",
+                                       "Suggest only services that exist in the clinic catalog.",
+                                       "When the situation is not clear enough, suggest a dental consultation.",
+                                       "Consultation is the main booking path when the patient wants an examination, an opinion, a treatment plan, or is not sure what they need.",
+                                       "If the patient asks generally what the clinic offers, briefly list categories or relevant services without forcing a single procedure.",
+                                       "Recommend a specific procedure only when there is a clear match between the patient request and the service description.",
+                                       "Do not state an exact price unless it is confirmed in the catalog.",
+                                       "When the price varies, say that there is a price range and that the final estimate depends on an examination.",
+                                       "If the request is outside the dental context, politely say the assistant helps only with dental questions.",
+                                       "If the patient declines booking, do not pressure them and end politely.",
+                                       "Use natural human language without rigid templates.",
+                                       "Avoid congratulatory phrasing when the patient selects a service or wants to book."
+                                   ],
+                         "decision_rules":  [
+                                                "Return only valid JSON.",
+                                                "Do not return markdown.",
+                                                "Do not return explanation outside JSON.",
+                                                "Use greeting for opening or social messages.",
+                                                "Use suggest_service when the request clearly maps to one catalog service or to the consultation entry.",
+                                                "Use business_overview when the user asks what the clinic does, asks about the business activity, or wants a general human explanation before the service list.",
+                                                "Use list_services when the user asks what the clinic offers, asks for the catalog, or wants the available services in general.",
+                                                "Use quote_price when the user asks for the price of a specific catalog service and the catalog contains pricing guidance for it.",
+                                                "Use confirm_booking when the patient clearly confirms scheduling.",
+                                                "Prefer the consultation service when the patient wants an appointment, a checkup, an opinion, or when the correct procedure is uncertain.",
+                                                "Use fallback when the request is unclear, outside scope, or no safe catalog match can be made.",
+                                                "The message value must be short, safe, natural, and written in English."
+                                            ],
+                         "fallback_message":  "Sorry, I am not sure I understood your message correctly. Could you briefly describe what is bothering you or what you would like to do?"
+                     },
+    "conversation_rules":  {
+                               "booking_confirm_words":  [
+                                                             "Ð´Ð°",
+                                                             "da",
+                                                             "yes",
+                                                             "ok",
+                                                             "okej",
+                                                             "okay",
+                                                             "Ð¼Ð¾Ð¶Ðµ",
+                                                             "moze"
+                                                         ],
+                               "greeting_triggers":  [
+                                                         "zdravo",
+                                                         "zdravoo",
+                                                         "hello",
+                                                         "hi"
+                                                     ],
+                               "service_list_triggers":  [
+                                                             "ÑˆÑ‚Ð¾ ÑƒÑÐ»ÑƒÐ³Ð¸",
+                                                             "ÐºÐ¾Ð¸ ÑƒÑÐ»ÑƒÐ³Ð¸",
+                                                             "ÑƒÑÐ»ÑƒÐ³Ð°",
+                                                             "ÑƒÑÐ»ÑƒÐ³Ð¸",
+                                                             "ÑƒÑÐ»ÑƒÐ³Ð¸ Ð½ÑƒÐ´Ð¸Ñ‚Ðµ",
+                                                             "ÑˆÑ‚Ð¾ Ð½ÑƒÐ´Ð¸Ñ‚Ðµ",
+                                                             "usluga",
+                                                             "uslugi",
+                                                             "service",
+                                                             "services",
+                                                             "koi uslugi",
+                                                             "shto uslugi",
+                                                             "uslugi nudite",
+                                                             "shto nudite",
+                                                             "sto nudite"
+                                                         ],
+                               "price_triggers":  [
+                                                      "Ñ†ÐµÐ½Ð°",
+                                                      "cena",
+                                                      "price"
+                                                  ],
+                               "contact_clarification_prefixes":  [
+                                                                      "dali",
+                                                                      "Ð´Ð°Ð»Ð¸",
+                                                                      "mozhe",
+                                                                      "moze",
+                                                                      "Ð¼Ð¾Ð¶Ðµ"
+                                                                  ],
+                               "contact_clarification_phrases":  [
+                                                                     "ili",
+                                                                     "Ð¸Ð»Ð¸",
+                                                                     "sluzbenata",
+                                                                     "sluzbena",
+                                                                     "privatnata",
+                                                                     "privatna",
+                                                                     "ÐºÐ¾Ñ˜Ð°",
+                                                                     "kakva",
+                                                                     "ÐºÐ°ÐºÐ²Ð°",
+                                                                     "which one"
+                                                                 ],
+                               "service_detail_triggers":  [
+                                                               "Ð°Ð½ÐµÑÑ‚ÐµÐ·",
+                                                               "anestez",
+                                                               "Ð¸Ð½Ñ˜ÐµÐºÑ†",
+                                                               "inekc",
+                                                               "Ð±Ð¾Ð»Ð¸",
+                                                               "boli",
+                                                               "Ð±Ð¾Ð»Ð¸ Ð»Ð¸",
+                                                               "koliko tra",
+                                                               "ÐºÐ¾Ð»ÐºÑƒ Ñ‚Ñ€Ð°Ðµ",
+                                                               "Ð´Ð°Ð»Ð¸ ÑÐµ ÑÑ‚Ð°Ð²Ð°",
+                                                               "dali se stava",
+                                                               "Ð´Ð°Ð»Ð¸ Ð¸Ð¼Ð°",
+                                                               "dali ima"
+                                                           ],
+                               "safe_detail_fallback":  "That can depend on the specific treatment. The dentist should assess that during an examination.",
+                               "service_clarification_triggers":  [
+                                                                      "soodvetna usluga",
+                                                                      "koja usluga",
+                                                                      "kakva usluga mi treba",
+                                                                      "recommend service"
+                                                                  ],
+                               "service_clarification_specific_triggers":  [
+                                                                               "koja usluga mi treba"
+                                                                           ],
+                               "service_description_triggers":  [
+                                                                    "kazete mi za",
+                                                                    "shto e",
+                                                                    "objasni mi",
+                                                                    "ÐºÐ°Ð¶ÐµÑ‚Ðµ Ð¼Ð¸ Ð·Ð°",
+                                                                    "ÑˆÑ‚Ð¾ Ðµ",
+                                                                    "Ð¾Ð±Ñ˜Ð°ÑÐ½Ð¸ Ð¼Ð¸"
+                                                                ],
+                               "consultation_explanation_triggers":  [
+                                                                         "ÐºÐ°ÐºÐ²Ð°",
+                                                                         "ÑˆÑ‚Ð¾ Ðµ",
+                                                                         "Ð¾Ð±Ñ˜Ð°ÑÐ½Ð¸",
+                                                                         "kakva",
+                                                                         "shto e",
+                                                                         "objasni"
+                                                                     ],
+                               "broad_pricing_price_terms":  [
+                                                                 "Ñ†ÐµÐ½Ð°",
+                                                                 "Ñ†ÐµÐ½Ð¸",
+                                                                 "ÐºÐ¾Ð»ÐºÑƒ",
+                                                                 "Ñ‡Ð¸Ð½Ð¸",
+                                                                 "Ñ‡Ð¸Ð½Ð°Ñ‚",
+                                                                 "cena",
+                                                                 "ceni",
+                                                                 "kolku",
+                                                                 "chini",
+                                                                 "cini",
+                                                                 "price",
+                                                                 "prices"
+                                                             ],
+                               "broad_pricing_service_terms":  [
+                                                                   "ÑƒÑÐ»ÑƒÐ³Ð°",
+                                                                   "ÑƒÑÐ»ÑƒÐ³Ð¸",
+                                                                   "ÑƒÑÐ»ÑƒÐ³Ð¸Ñ‚Ðµ",
+                                                                   "usluga",
+                                                                   "uslugi",
+                                                                   "service",
+                                                                   "services"
+                                                               ],
+                               "goal_redirect_reply_patterns":  [
+                                                                    {
+                                                                        "triggers":  [
+                                                                                         "ÑˆÑ‚Ð¾ Ð¿Ñ€Ð°Ð²Ð¸Ñˆ",
+                                                                                         "ÑˆÐ¾ Ð¿Ñ€Ð°Ð²Ð¸Ñˆ",
+                                                                                         "shto pravish",
+                                                                                         "sto pravish"
+                                                                                     ],
+                                                                        "reply_key":  "assistant_help"
+                                                                    },
+                                                                    {
+                                                                        "triggers":  [
+                                                                                         "Ð°Ñ˜Ð´Ðµ Ñ‚Ð¾Ð³Ð°Ñˆ",
+                                                                                         "ajde togash"
+                                                                                     ],
+                                                                        "reply_key":  "narrow_need"
+                                                                    }
+                                                                ],
+                               "casual_reply_patterns":  [
+                                                             {
+                                                                 "triggers":  [
+                                                                                  "Ñ„Ð°Ð»Ð°",
+                                                                                  "Ð±Ð»Ð°Ð³Ð¾Ð´Ð°Ñ€Ð°Ð¼",
+                                                                                  "fala",
+                                                                                  "blagodaram",
+                                                                                  "thanks",
+                                                                                  "thank you"
+                                                                              ],
+                                                                 "reply_key":  "thanks"
+                                                             },
+                                                             {
+                                                                 "triggers":  [
+                                                                                  "wow",
+                                                                                  "Ð²Ð°Ñƒ",
+                                                                                  "Ð»ÐµÐ»Ðµ"
+                                                                              ],
+                                                                 "reply_key":  "wow"
+                                                             },
+                                                             {
+                                                                 "triggers":  [
+                                                                                  "ÑÑƒÐ¿ÐµÑ€",
+                                                                                  "Ð¾Ð´Ð»Ð¸Ñ‡Ð½Ð¾",
+                                                                                  "super",
+                                                                                  "odlichno",
+                                                                                  "odlicno",
+                                                                                  "great"
+                                                                              ],
+                                                                 "reply_key":  "positive"
+                                                             }
+                                                         ]
+                           },
+    "reply_texts":  {
+                        "greeting_short":  "Hello, how can I help you?",
+                        "service_clarification":  "Tell me briefly what is bothering you or what you would like to improve, and I will guide you to the most suitable service or consultation.",
+                        "service_clarification_specific":  {
+                                                               "koja_usluga_mi_treba":  "To guide you better, tell me whether you have pain, want an aesthetic correction, or just want an examination."
+                                                           },
+                        "casual_replies":  {
+                                               "thanks":  "You\u0027re welcome. Feel free to tell me what you need.",
+                                               "wow":  "Glad I could help. If you want, I can guide you to the right service or consultation.",
+                                               "positive":  "Glad to hear that. Tell me if you would like to check a service or book a consultation."
+                                           },
+                        "goal_redirect_replies":  {
+                                                      "assistant_help":  "I am here to help with dental questions or booking. Briefly tell me what is bothering you or what you would like to do.",
+                                                      "narrow_need":  "Of course. Just tell me briefly whether you have pain, want an examination, or are interested in an aesthetic service, and I will guide you."
+                                                  },
+                        "price_templates":  {
+                                                "numeric":  "{service_name} costs around {price}{currency}.",
+                                                "text":  "{service_name} is {price}.",
+                                                "free":  "{service_name} is free.",
+                                                "range":  "The approximate price range for {service_name_lower} is {price_range}."
+                                            },
+                        "price_followup":  "For an exact estimate, the best next step is a short consultation.",
+                        "business_overview_summary":  "{business_name} is a dental practice where you can receive services in the area of {category_summary}. Here is a short overview of the catalog:",
+                        "service_description_template":  "{article_name} is {description}\n\n{followup}",
+                        "service_description_followup":  "If you want, we can also briefly check whether that is the right option for you.",
+                        "field_prompts":  {
+                                              "name":  "I need a few details from you so we can book. Let\u0027s start with your name.",
+                                              "phone":  "What phone number can the clinic use to contact you?",
+                                              "email":  "Which email address should we use to send confirmation for the appointment?"
+                                          },
+                        "field_error_prompts":  {
+                                                    "phone":  "It looks like there are still {missing_digits} {missing_digits_label} missing, so please send me the full phone number once more.",
+                                                    "email":  "Please enter a valid email address. That is where you will receive confirmation for the reserved appointment."
+                                                },
+                        "contact_clarification_replies":  {
+                                                              "name":  "Tell me the name we should use for the booking.",
+                                                              "phone":  "Tell me the phone number where the clinic can reach you.",
+                                                              "email":  "Tell me the email address where we should send confirmation for the booked consultation or treatment.",
+                                                              "default":  "{field_prompt}"
+                                                          },
+                        "contact_ownership_clarification_replies":  {
+                                                                        "name":  "All right, tell me the name of the patient who should come in.",
+                                                                        "phone":  "All right, leave the phone number for the person we are booking for. {field_prompt}",
+                                                                        "email":  "All right, leave the email address where you want the confirmation to arrive. {field_prompt}",
+                                                                        "default":  "{field_prompt}"
+                                                                    },
+                        "unknown_name_confirmation":  "Is “{candidate_name}” your name?",
+                        "unknown_name_retry":  "Could you please enter your name once again?",
+                        "booking_known_name_confirmation":  "Can we reserve the appointment under the name: {known_name}?",
+                        "booking_interruption_redirect":  "We will continue with the booking step by step. {field_prompt}",
+                        "booking_completed":  "Thank you. Your appointment request has been received. The clinic will contact you."
+                    },
+    "repetition_responses":  {
+                                 "broad_pricing":  "Prices depend on the specific service. If you want, tell me exactly what interests you, for example whitening, fillings, or consultation, and I can give you an estimate.",
+                                 "service_list":  "I already listed the services, but if you want I can guide you more specifically. Tell me whether you are interested in aesthetics, pain, cleaning, or consultation.",
+                                 "consultation_explanation":  "It is an initial examination and conversation to see what is most suitable for you. If you want, we can continue with booking right away."
+                             },
+    "conversation_behavior":  {
+                                  "language":  {
+                                                   "style":  "simple_spoken_english",
+                                                   "avoid_phrases":  [
+                                                                         "complaint"
+                                                                     ],
+                                                   "sentence_style":  "short_direct",
+                                                   "default_response_length":  "1-2_sentences"
+                                               },
+                                  "greeting":  {
+                                                   "allow_only_at_conversation_start":  true,
+                                                   "forbidden_mid_conversation":  [
+                                                                                      "Hello"
+                                                                                  ]
+                                               },
+                                  "continuity":  {
+                                                     "do_not_reintroduce_assistant":  true,
+                                                     "do_not_restart_flow":  true,
+                                                     "continue_from_current_step":  true,
+                                                     "use_already_provided_information":  true
+                                                 },
+                                  "intent_flow":  {
+                                                      "continue_booking_if_started":  true,
+                                                      "do_not_return_to_discovery_after_booking_start":  true
+                                                  },
+                                  "booking_style":  {
+                                                        "prefer_conversational_collection":  true,
+                                                        "examples":  {
+                                                                         "tell me your name":  "What name should I put down for you?",
+                                                                         "tell me your phone number":  "What number can the clinic call you on?"
+                                                                     }
+                                                    },
+                                  "noise_handling":  {
+                                                         "do_not_reset_on_irrelevant_input":  true,
+                                                         "gently_redirect_to_current_step":  true
+                                                     },
+                                  "context_carry":  {
+                                                        "stage_context_template":  "The current session is in stage: {stage}. Continue from this stage and do not restart the flow."
+                                                    },
+                                  "tone":  {
+                                               "target_persona":  "real_receptionist",
+                                               "qualities":  [
+                                                                 "warm",
+                                                                 "calm",
+                                                                 "practical"
+                                                             ]
+                                           }
+                              },
+    "ÐºÐ¾Ð¼ÑƒÐ½Ð¸ÐºÐ°Ñ†Ð¸ÑÐºÐ¸_Ð¿Ñ€Ð°Ð²Ð¸Ð»Ð°":  [
+                                                      "AI Ð½Ðµ Ð¿Ð¾ÑÑ‚Ð°Ð²ÑƒÐ²Ð° Ð´Ð¸Ñ˜Ð°Ð³Ð½Ð¾Ð·Ð°.",
+                                                      "AI Ð¿Ñ€ÐµÐ´Ð»Ð°Ð³Ð° ÐºÐ¾Ð½ÑÑƒÐ»Ñ‚Ð°Ñ†Ð¸Ñ˜Ð° ÐºÐ¾Ð³Ð° ÑÐ¾ÑÑ‚Ð¾Ñ˜Ð±Ð°Ñ‚Ð° Ð½Ðµ Ðµ ÑÐ¸Ð³ÑƒÑ€Ð½Ð°.",
+                                                      "AI Ð½Ðµ Ð´Ð°Ð²Ð° Ñ†ÐµÐ½Ð° Ð°ÐºÐ¾ Ð½Ðµ Ðµ ÑÐ¸Ð³ÑƒÑ€Ð½Ð°.",
+                                                      "AI Ð·Ð±Ð¾Ñ€ÑƒÐ²Ð° ÐºÐ°ÐºÐ¾ Ð°ÑÐ¸ÑÑ‚ÐµÐ½Ñ‚, Ð½Ðµ ÐºÐ°ÐºÐ¾ ÑÑ‚Ð¾Ð¼Ð°Ñ‚Ð¾Ð»Ð¾Ð³.",
+                                                      "ÐžÐ´Ð³Ð¾Ð²Ð¾Ñ€Ð¸Ñ‚Ðµ Ð¼Ð¾Ñ€Ð° Ð´Ð° Ð·Ð²ÑƒÑ‡Ð°Ñ‚ Ð¿Ñ€Ð¸Ñ€Ð¾Ð´Ð½Ð¾, ÐºÐ°ÐºÐ¾ Ñ‡Ð¾Ð²ÐµÑ‡ÐºÐ° ÐºÐ¾Ð¼ÑƒÐ½Ð¸ÐºÐ°Ñ†Ð¸Ñ˜Ð°.",
+                                                      "ÐœÐ¾Ð¶Ðµ Ð´Ð° ÐºÐ°Ð¶Ðµ: â€žÐ¼Ð¾Ð¶ÐµÐ±Ð¸ Ð¸Ð¼Ð° Ð¿Ñ€Ð¾Ñ†ÐµÑ, Ð½Ð°Ñ˜Ð´Ð¾Ð±Ñ€Ð¾ Ðµ Ð´Ð° ÑÐµ Ð¿Ñ€Ð¾Ð²ÐµÑ€Ð¸ Ð½Ð° ÐºÐ¾Ð½ÑÑƒÐ»Ñ‚Ð°Ñ†Ð¸Ñ˜Ð°â€œ."
+                                                  ],
+    "ÐºÐ¾Ð½ÑÑƒÐ»Ñ‚Ð°Ñ†Ð¸Ñ˜Ð°":  {
+                                     "Ñ‚Ð¸Ð¿":  "Ð´Ð¸Ñ˜Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸Ñ‡ÐºÐ° ÐºÐ¾Ð½ÑÑƒÐ»Ñ‚Ð°Ñ†Ð¸Ñ˜Ð°",
+                                     "Ñ‚Ñ€Ð°ÐµÑšÐµ":  "20 Ð¼Ð¸Ð½ÑƒÑ‚Ð¸",
+                                     "Ñ†ÐµÐ½Ð°":  "Ð±ÐµÑÐ¿Ð»Ð°Ñ‚Ð½Ð¾",
+                                     "Ð´ÐµÐ½Ð¾Ð²Ð¸":  [
+                                                          "ÐŸÐµÑ‚Ð¾Ðº"
+                                                      ],
+                                     "Ð¾Ð¿Ð¸Ñ":  "ÐŸÑ€ÐµÐ³Ð»ÐµÐ´ Ð¸ Ñ€Ð°Ð·Ð³Ð¾Ð²Ð¾Ñ€ Ð·Ð° Ð¼Ð¾Ð¶Ð½Ð¸ Ñ€ÐµÑˆÐµÐ½Ð¸Ñ˜Ð° Ð¸ Ð¿Ð»Ð°Ð½ Ð·Ð° Ñ‚Ñ€ÐµÑ‚Ð¼Ð°Ð½."
+                                 },
+    "ÐºÐ°Ñ‚ÐµÐ³Ð¾Ñ€Ð¸Ð¸":  [
+                               {
+                                   "Ð¸Ð¼Ðµ":  "ÐŸÑ€ÐµÐ²ÐµÐ½Ñ‚Ð¸Ð²Ð½Ð° ÑÑ‚Ð¾Ð¼Ð°Ñ‚Ð¾Ð»Ð¾Ð³Ð¸Ñ˜Ð°",
+                                   "Ð¾Ð¿Ð¸Ñ":  "Ð£ÑÐ»ÑƒÐ³Ð¸ Ð·Ð° Ð¾Ð´Ñ€Ð¶ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð¾Ñ€Ð°Ð»Ð½Ð° Ñ…Ð¸Ð³Ð¸ÐµÐ½Ð° Ð¸ Ð¿Ñ€ÐµÐ²ÐµÐ½Ñ†Ð¸Ñ˜Ð° Ð½Ð° Ð½Ð°Ñ‚Ð°Ð¼Ð¾ÑˆÐ½Ð¸ Ð¿Ñ€Ð¾Ð±Ð»ÐµÐ¼Ð¸.",
+                                   "ÑƒÑÐ»ÑƒÐ³Ð¸":  [
+                                                        {
+                                                            "id":  "cleaning_consult",
+                                                            "Ð¸Ð¼Ðµ":  "Ð§Ð¸ÑÑ‚ÐµÑšÐµ Ð½Ð° Ð·Ð°Ð±ÐµÐ½ ÐºÐ°Ð¼ÐµÐ½",
+                                                            "aliases":  [
+                                                                            "Ð·Ð°Ð±ÐµÐ½ ÐºÐ°Ð¼ÐµÐ½",
+                                                                            "Ñ‡Ð¸ÑÑ‚ÐµÑšÐµ",
+                                                                            "Ñ‡Ð¸ÑÑ‚ÐµÑšÐµ Ð½Ð° ÐºÐ°Ð¼ÐµÐ½ÐµÑ†",
+                                                                            "Ñ‡Ð¸ÑÑ‚ÐµÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¸"
+                                                                        ],
+                                                            "Ð¾Ð¿Ð¸Ñ":  "ÐŸÑ€Ð¾Ñ„ÐµÑÐ¸Ð¾Ð½Ð°Ð»Ð½Ð¾ Ñ‡Ð¸ÑÑ‚ÐµÑšÐµ Ð½Ð° Ð½Ð°ÑÐ»Ð°Ð³Ð¸ Ð¸ Ð·Ð°Ð±ÐµÐ½ ÐºÐ°Ð¼ÐµÐ½ Ð·Ð° Ð¿Ð¾Ð´Ð¾Ð±Ñ€Ð° Ð¾Ñ€Ð°Ð»Ð½Ð° Ñ…Ð¸Ð³Ð¸ÐµÐ½Ð° Ð¸ Ð¿Ñ€ÐµÐ²ÐµÐ½Ñ†Ð¸Ñ˜Ð°.",
+                                                            "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                                                                "Ð½Ð°ÑÐ»Ð°Ð³Ð¸ Ð½Ð° Ð·Ð°Ð±Ð¸",
+                                                                                                "Ð¾Ð´Ñ€Ð¶ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ñ…Ð¸Ð³Ð¸ÐµÐ½Ð°",
+                                                                                                "Ð¿Ñ€ÐµÐ²ÐµÐ½Ñ‚Ð¸Ð²ÐµÐ½ Ñ‚Ñ€ÐµÑ‚Ð¼Ð°Ð½"
+                                                                                            ]
+                                                        }
+                                                    ]
+                               },
+                               {
+                                   "Ð¸Ð¼Ðµ":  "Ð ÐµÑÑ‚Ð°Ð²Ñ€Ð°Ñ‚Ð¸Ð²Ð½Ð° ÑÑ‚Ð¾Ð¼Ð°Ñ‚Ð¾Ð»Ð¾Ð³Ð¸Ñ˜Ð°",
+                                   "Ð¾Ð¿Ð¸Ñ":  "Ð¢Ñ€ÐµÑ‚Ð¼Ð°Ð½Ð¸ Ð·Ð° ÑÐ°Ð½Ð°Ñ†Ð¸Ñ˜Ð° Ð¸ Ð¾Ð±Ð½Ð¾Ð²Ð° Ð½Ð° Ð¾ÑˆÑ‚ÐµÑ‚ÐµÐ½ Ð·Ð°Ð±.",
+                                   "ÑƒÑÐ»ÑƒÐ³Ð¸":  [
+                                                        {
+                                                            "id":  "filling",
+                                                            "Ð¸Ð¼Ðµ":  "ÐŸÐ»Ð¾Ð¼Ð±Ð¸Ñ€Ð°ÑšÐµ",
+                                                            "aliases":  [
+                                                                            "Ð¿Ð»Ð¾Ð¼Ð±Ð°",
+                                                                            "ÑÑ‚Ð°Ð²Ð°ÑšÐµ Ð¿Ð»Ð¾Ð¼Ð±Ð°",
+                                                                            "Ð¿Ð¾Ð¿Ñ€Ð°Ð²ÐºÐ° Ð½Ð° Ð·Ð°Ð±",
+                                                                            "Ð·Ð°Ñ‚Ð²Ð¾Ñ€Ð°ÑšÐµ Ð´ÑƒÐ¿ÐºÐ°"
+                                                                        ],
+                                                            "Ð¾Ð¿Ð¸Ñ":  "Ð ÐµÑÑ‚Ð°Ð²Ñ€Ð°Ñ‚Ð¸Ð²ÐµÐ½ Ñ‚Ñ€ÐµÑ‚Ð¼Ð°Ð½ Ð·Ð° ÑÐ°Ð½Ð°Ñ†Ð¸Ñ˜Ð° Ð½Ð° ÐºÐ°Ñ€Ð¸ÐµÑ Ð¸Ð»Ð¸ Ð¾ÑˆÑ‚ÐµÑ‚ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¾Ñ‚ ÑÐ¾ ÑÐ¾Ð¾Ð´Ð²ÐµÑ‚ÐµÐ½ Ð¿Ð»Ð¾Ð¼Ð±ÐµÐ½ Ð¼Ð°Ñ‚ÐµÑ€Ð¸Ñ˜Ð°Ð».",
+                                                            "Ñ†ÐµÐ½Ð¾Ð²ÐµÐ½_Ð¾Ð¿ÑÐµÐ³":  "800-2500 Ð´ÐµÐ½Ð°Ñ€Ð¸",
+                                                            "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                                                                "Ð´ÑƒÐ¿ÐºÐ° Ð²Ð¾ Ð·Ð°Ð±",
+                                                                                                "Ð¾ÑˆÑ‚ÐµÑ‚ÐµÐ½ Ð·Ð°Ð±",
+                                                                                                "ÐºÐ°Ñ€Ð¸ÐµÑ",
+                                                                                                "Ð±Ð¾Ð»ÐºÐ° Ð¿Ð¾Ð²Ñ€Ð·Ð°Ð½Ð° ÑÐ¾ Ð¾ÑˆÑ‚ÐµÑ‚ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¾Ñ‚"
+                                                                                            ]
+                                                        }
+                                                    ]
+                               },
+                               {
+                                   "Ð¸Ð¼Ðµ":  "Ð•Ð½Ð´Ð¾Ð´Ð¾Ð½Ñ†Ð¸Ñ˜Ð°",
+                                   "Ð¾Ð¿Ð¸Ñ":  "Ð¢Ñ€ÐµÑ‚Ð¼Ð°Ð½Ð¸ ÐºÐ¾Ð³Ð° Ð¿Ñ€Ð¾Ð±Ð»ÐµÐ¼Ð¾Ñ‚ Ð½Ð°Ð²Ð»ÐµÐ³ÑƒÐ²Ð° Ð²Ð¾ Ð²Ð½Ð°Ñ‚Ñ€ÐµÑˆÐ½Ð¾ÑÑ‚Ð° Ð½Ð° Ð·Ð°Ð±Ð¾Ñ‚ Ð¸ ÐºÐ¾Ñ€ÐµÐ½ÑÐºÐ¸Ð¾Ñ‚ ÐºÐ°Ð½Ð°Ð».",
+                                   "ÑƒÑÐ»ÑƒÐ³Ð¸":  [
+                                                        {
+                                                            "id":  "root_canal",
+                                                            "Ð¸Ð¼Ðµ":  "Ð›ÐµÐºÑƒÐ²Ð°ÑšÐµ Ð½Ð° ÐºÐ¾Ñ€ÐµÐ½ÑÐºÐ¸ ÐºÐ°Ð½Ð°Ð»",
+                                                            "aliases":  [
+                                                                            "ÐºÐ°Ð½Ð°Ð»",
+                                                                            "Ð»ÐµÐºÑƒÐ²Ð°ÑšÐµ ÐºÐ°Ð½Ð°Ð»",
+                                                                            "ÐºÐ¾Ñ€ÐµÐ½ÑÐºÐ¸ ÐºÐ°Ð½Ð°Ð»",
+                                                                            "ÐµÐ½Ð´Ð¾Ð´Ð¾Ð½Ñ†Ð¸Ñ˜Ð°"
+                                                                        ],
+                                                            "Ð¾Ð¿Ð¸Ñ":  "Ð¢Ñ€ÐµÑ‚Ð¼Ð°Ð½ Ð·Ð° Ñ‡Ð¸ÑÑ‚ÐµÑšÐµ Ð¸ Ð»ÐµÐºÑƒÐ²Ð°ÑšÐµ Ð½Ð° ÐºÐ¾Ñ€ÐµÐ½ÑÐºÐ¸Ð¾Ñ‚ ÐºÐ°Ð½Ð°Ð» ÐºÐ¾Ð³Ð° Ðµ Ð·Ð°Ñ„Ð°Ñ‚ÐµÐ½Ð° Ð²Ð½Ð°Ñ‚Ñ€ÐµÑˆÐ½Ð¾ÑÑ‚Ð° Ð½Ð° Ð·Ð°Ð±Ð¾Ñ‚.",
+                                                            "Ñ†ÐµÐ½Ð¾Ð²ÐµÐ½_Ð¾Ð¿ÑÐµÐ³":  "400 Ð´ÐµÐ½Ð°Ñ€Ð¸ ÑÐ¾ Ð¾ÑÐ¸Ð³ÑƒÑ€ÑƒÐ²Ð°ÑšÐµ, Ð¾ÐºÐ¾Ð»Ñƒ 1000 Ð´ÐµÐ½Ð°Ñ€Ð¸ Ð¿Ñ€Ð¸Ð²Ð°Ñ‚Ð½Ð¾",
+                                                            "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                                                                "ÑÐ¸Ð»Ð½Ð° Ð·Ð°Ð±Ð¾Ð±Ð¾Ð»ÐºÐ°",
+                                                                                                "Ð¿Ñ€Ð¾Ð±Ð»ÐµÐ¼ ÑÐ¾ Ð½ÐµÑ€Ð²",
+                                                                                                "Ð²Ð¾ÑÐ¿Ð°Ð»ÐµÐ½Ð¸Ðµ Ð²Ð¾ Ð·Ð°Ð±",
+                                                                                                "Ð¿Ð¾Ñ‚Ñ€ÐµÐ±Ð° Ð¾Ð´ Ð»ÐµÐºÑƒÐ²Ð°ÑšÐµ ÐºÐ°Ð½Ð°Ð»"
+                                                                                            ]
+                                                        }
+                                                    ]
+                               },
+                               {
+                                   "Ð¸Ð¼Ðµ":  "ÐŸÑ€Ð¾Ñ‚ÐµÑ‚Ð¸ÐºÐ°",
+                                   "Ð¾Ð¿Ð¸Ñ":  "Ð ÐµÑˆÐµÐ½Ð¸Ñ˜Ð° Ð·Ð° Ñ„ÑƒÐ½ÐºÑ†Ð¸Ð¾Ð½Ð°Ð»Ð½Ð° Ð¸ ÐµÑÑ‚ÐµÑ‚ÑÐºÐ° Ð½Ð°Ð´Ð¾ÐºÐ½Ð°Ð´Ð° Ð½Ð° Ð¾ÑˆÑ‚ÐµÑ‚ÐµÐ½Ð¸ Ð¸Ð»Ð¸ Ð¸Ð·Ð³ÑƒÐ±ÐµÐ½Ð¸ Ð·Ð°Ð±Ð¸.",
+                                   "ÑƒÑÐ»ÑƒÐ³Ð¸":  [
+                                                        {
+                                                            "id":  "crowns",
+                                                            "Ð¸Ð¼Ðµ":  "ÐšÐ¾Ñ€Ð¾Ð½ÐºÐ¸",
+                                                            "aliases":  [
+                                                                            "ÐºÐ¾Ñ€Ð¾Ð½ÐºÐ°",
+                                                                            "Ð·Ð°Ð±Ð½Ð° ÐºÐ¾Ñ€Ð¾Ð½ÐºÐ°",
+                                                                            "ÐºÑ€ÑƒÐ½Ð° Ð½Ð° Ð·Ð°Ð±"
+                                                                        ],
+                                                            "Ð¾Ð¿Ð¸Ñ":  "ÐŸÑ€Ð¾Ñ‚ÐµÑ‚ÑÐºÐ¾ Ñ€ÐµÑˆÐµÐ½Ð¸Ðµ Ð·Ð° Ð·Ð°ÑˆÑ‚Ð¸Ñ‚Ð° Ð¸ Ð¾Ð±Ð½Ð¾Ð²Ð° Ð½Ð° Ð·Ð°Ð± ÑÐ¾ Ð¿Ð¾Ð³Ð¾Ð»ÐµÐ¼Ð¾ Ð¾ÑˆÑ‚ÐµÑ‚ÑƒÐ²Ð°ÑšÐµ.",
+                                                            "Ñ†ÐµÐ½Ð¾Ð²ÐµÐ½_Ð¾Ð¿ÑÐµÐ³":  "80-300 ÐµÐ²Ñ€Ð°",
+                                                            "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                                                                "Ð·Ð½Ð°Ñ‡Ð¸Ñ‚ÐµÐ»Ð½Ð¾ Ð¾ÑˆÑ‚ÐµÑ‚ÐµÐ½ Ð·Ð°Ð±",
+                                                                                                "Ð·Ð°ÑˆÑ‚Ð¸Ñ‚Ð° Ð½Ð° Ð¾ÑÐ»Ð°Ð±ÐµÐ½ Ð·Ð°Ð±",
+                                                                                                "Ð¿Ñ€Ð¾Ñ‚ÐµÑ‚ÑÐºÐ° Ð¾Ð±Ð½Ð¾Ð²Ð°"
+                                                                                            ]
+                                                        },
+                                                        {
+                                                            "id":  "bridges",
+                                                            "Ð¸Ð¼Ðµ":  "ÐœÐ¾ÑÑ‚Ð¾Ð²Ð¸",
+                                                            "aliases":  [
+                                                                            "Ð¼Ð¾ÑÑ‚",
+                                                                            "Ð·Ð°Ð±ÐµÐ½ Ð¼Ð¾ÑÑ‚",
+                                                                            "Ð¿Ñ€Ð¾Ñ‚ÐµÑ‚ÑÐºÐ¸ Ð¼Ð¾ÑÑ‚"
+                                                                        ],
+                                                            "Ð¾Ð¿Ð¸Ñ":  "ÐŸÑ€Ð¾Ñ‚ÐµÑ‚ÑÐºÐ¾ Ñ€ÐµÑˆÐµÐ½Ð¸Ðµ Ð·Ð° Ð½Ð°Ð´Ð¾Ð¼ÐµÑÑ‚ÑƒÐ²Ð°ÑšÐµ Ð½Ð° ÐµÐ´ÐµÐ½ Ð¸Ð»Ð¸ Ð¿Ð¾Ð²ÐµÑœÐµ Ð·Ð°Ð±Ð¸ ÑÐ¾ Ñ„Ð¸ÐºÑÐ½Ð° ÐºÐ¾Ð½ÑÑ‚Ñ€ÑƒÐºÑ†Ð¸Ñ˜Ð°.",
+                                                            "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                                                                "Ð½ÐµÐ´Ð¾ÑÑ‚Ð°ÑÑƒÐ²Ð° Ð·Ð°Ð±",
+                                                                                                "Ñ„Ð¸ÐºÑÐ½Ð° Ð½Ð°Ð´Ð¾ÐºÐ½Ð°Ð´Ð°",
+                                                                                                "Ð¾Ð±Ð½Ð¾Ð²Ð° Ð½Ð° ÑŸÐ²Ð°ÐºÐ°ÑšÐµ Ð¸ Ð½Ð°ÑÐ¼ÐµÐ²ÐºÐ°"
+                                                                                            ]
+                                                        }
+                                                    ]
+                               },
+                               {
+                                   "Ð¸Ð¼Ðµ":  "Ð•ÑÑ‚ÐµÑ‚ÑÐºÐ° ÑÑ‚Ð¾Ð¼Ð°Ñ‚Ð¾Ð»Ð¾Ð³Ð¸Ñ˜Ð°",
+                                   "Ð¾Ð¿Ð¸Ñ":  "ÐŸÑ€Ð¾Ñ†ÐµÐ´ÑƒÑ€Ð¸ Ð½Ð°ÑÐ¾Ñ‡ÐµÐ½Ð¸ ÐºÐ¾Ð½ Ð¿Ð¾Ð´Ð¾Ð±Ñ€ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð¸Ð·Ð³Ð»ÐµÐ´Ð¾Ñ‚ Ð½Ð° Ð½Ð°ÑÐ¼ÐµÐ²ÐºÐ°Ñ‚Ð°.",
+                                   "ÑƒÑÐ»ÑƒÐ³Ð¸":  [
+                                                        {
+                                                            "id":  "teeth_whitening",
+                                                            "Ð¸Ð¼Ðµ":  "Ð‘ÐµÐ»ÐµÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¸",
+                                                            "aliases":  [
+                                                                            "Ð±ÐµÐ»ÐµÑšÐµ",
+                                                                            "Ð¾ÑÐ²ÐµÑ‚Ð»ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¸",
+                                                                            "belenje",
+                                                                            "beleenje",
+                                                                            "white teeth",
+                                                                            "teeth whitening"
+                                                                        ],
+                                                            "Ð¾Ð¿Ð¸Ñ":  "Ð•ÑÑ‚ÐµÑ‚ÑÐºÐ° Ð¿Ñ€Ð¾Ñ†ÐµÐ´ÑƒÑ€Ð° Ð·Ð° Ð¾ÑÐ²ÐµÑ‚Ð»ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¸Ñ‚Ðµ. ÐŸÐ¾Ñ‚Ñ€ÐµÐ±Ð½Ð¸ ÑÐµ 1 Ð´Ð¾ 3 ÑÐµÑÐ¸Ð¸ Ð²Ð¾ Ð·Ð°Ð²Ð¸ÑÐ½Ð¾ÑÑ‚ Ð¾Ð´ ÑÐ¾ÑÑ‚Ð¾Ñ˜Ð±Ð°Ñ‚Ð°.",
+                                                            "Ñ†ÐµÐ½Ð°":  5000,
+                                                            "Ð²Ð°Ð»ÑƒÑ‚Ð°":  "Ð´ÐµÐ½Ð°Ñ€Ð¸",
+                                                            "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                                                                "ÐµÑÑ‚ÐµÑ‚ÑÐºÐ¸ Ð¿Ð¾Ð´Ð¾Ð±Ñ€ÑƒÐ²Ð°ÑšÐ°",
+                                                                                                "Ð¾ÑÐ²ÐµÑ‚Ð»ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð½Ð°ÑÐ¼ÐµÐ²ÐºÐ°"
+                                                                                            ]
+                                                        },
+                                                        {
+                                                            "id":  "composite_veneers",
+                                                            "Ð¸Ð¼Ðµ":  "ÐšÐ¾Ð¼Ð¿Ð¾Ð·Ð¸Ñ‚Ð½Ð¸ Ð²Ð¸Ð½Ð¸Ñ€Ð¸",
+                                                            "aliases":  [
+                                                                            "ÐºÐ¾Ð¼Ð¿Ð¾Ð·Ð¸Ñ‚Ð½Ð¸ Ñ„Ð°ÑÐµÑ‚Ð¸",
+                                                                            "ÐºÐ¾Ð¼Ð¿Ð¾Ð·Ð¸Ñ‚Ð½Ð¸ Ð²Ð¸Ð½Ð¸Ñ€Ð¸",
+                                                                            "ÐµÑÑ‚ÐµÑ‚ÑÐºÐ° ÐºÐ¾Ñ€ÐµÐºÑ†Ð¸Ñ˜Ð°"
+                                                                        ],
+                                                            "Ð¾Ð¿Ð¸Ñ":  "Ð•ÑÑ‚ÐµÑ‚ÑÐºÐ° ÐºÐ¾Ñ€ÐµÐºÑ†Ð¸Ñ˜Ð° Ð½Ð° Ñ„Ð¾Ñ€Ð¼Ð°, Ð±Ð¾Ñ˜Ð° Ð¸Ð»Ð¸ Ð¼Ð°Ð»Ð¸ Ð½ÐµÐ¿Ñ€Ð°Ð²Ð¸Ð»Ð½Ð¾ÑÑ‚Ð¸ ÑÐ¾ ÐºÐ¾Ð¼Ð¿Ð¾Ð·Ð¸Ñ‚ÐµÐ½ Ð¼Ð°Ñ‚ÐµÑ€Ð¸Ñ˜Ð°Ð».",
+                                                            "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                                                                "ÐµÑÑ‚ÐµÑ‚ÑÐºÐ° ÐºÐ¾Ñ€ÐµÐºÑ†Ð¸Ñ˜Ð°",
+                                                                                                "ÐºÐ¾Ñ€ÐµÐºÑ†Ð¸Ñ˜Ð° Ð½Ð° Ñ„Ð¾Ñ€Ð¼Ð° Ð½Ð° Ð·Ð°Ð±",
+                                                                                                "Ð¿Ð¾Ð´Ð¾Ð±Ñ€ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð½Ð°ÑÐ¼ÐµÐ²ÐºÐ°"
+                                                                                            ]
+                                                        },
+                                                        {
+                                                            "id":  "ceramic_veneers",
+                                                            "Ð¸Ð¼Ðµ":  "ÐšÐµÑ€Ð°Ð¼Ð¸Ñ‡ÐºÐ¸ Ð²Ð¸Ð½Ð¸Ñ€Ð¸",
+                                                            "aliases":  [
+                                                                            "ÐºÐµÑ€Ð°Ð¼Ð¸Ñ‡ÐºÐ¸ Ñ„Ð°ÑÐµÑ‚Ð¸",
+                                                                            "ÐºÐµÑ€Ð°Ð¼Ð¸Ñ‡ÐºÐ¸ Ð²Ð¸Ð½Ð¸Ñ€Ð¸",
+                                                                            "Ð¿Ð¾Ñ€Ñ†ÐµÐ»Ð°Ð½ÑÐºÐ¸ Ð²Ð¸Ð½Ð¸Ñ€Ð¸"
+                                                                        ],
+                                                            "Ð¾Ð¿Ð¸Ñ":  "Ð•ÑÑ‚ÐµÑ‚ÑÐºÐ¾ Ñ€ÐµÑˆÐµÐ½Ð¸Ðµ Ð·Ð° Ð´Ð¾Ð»Ð³Ð¾Ñ‚Ñ€Ð°Ñ˜Ð½Ð¾ Ð¿Ð¾Ð´Ð¾Ð±Ñ€ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð¸Ð·Ð³Ð»ÐµÐ´Ð¾Ñ‚ Ð½Ð° Ð¿Ñ€ÐµÐ´Ð½Ð¸Ñ‚Ðµ Ð·Ð°Ð±Ð¸ ÑÐ¾ ÐºÐµÑ€Ð°Ð¼Ð¸Ñ‡ÐºÐ¸ Ð¸Ð·Ñ€Ð°Ð±Ð¾Ñ‚ÐºÐ¸.",
+                                                            "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                                                                "ÐµÑÑ‚ÐµÑ‚ÑÐºÐ° Ñ‚Ñ€Ð°Ð½ÑÑ„Ð¾Ñ€Ð¼Ð°Ñ†Ð¸Ñ˜Ð°",
+                                                                                                "Ð¿Ð¾Ð´Ð¾Ð±Ñ€ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð±Ð¾Ñ˜Ð° Ð¸ Ñ„Ð¾Ñ€Ð¼Ð°",
+                                                                                                "Ð¿Ð¾Ð¿Ñ€Ð°Ð²ÐºÐ° Ð½Ð° Ð¸Ð·Ð³Ð»ÐµÐ´ Ð½Ð° Ð¿Ñ€ÐµÐ´Ð½Ð¸ Ð·Ð°Ð±Ð¸"
+                                                                                            ]
+                                                        }
+                                                    ]
+                               },
+                               {
+                                   "Ð¸Ð¼Ðµ":  "ÐšÐ¾Ð½ÑÑƒÐ»Ñ‚Ð°Ñ†Ð¸Ñ˜Ð°",
+                                   "Ð¾Ð¿Ð¸Ñ":  "ÐŸÑ€Ð² ÐºÐ¾Ð½Ñ‚Ð°ÐºÑ‚ Ð·Ð° Ð¿Ñ€Ð¾Ñ†ÐµÐ½ÐºÐ°, ÑÐ¾Ð²ÐµÑ‚ÑƒÐ²Ð°ÑšÐµ Ð¸ Ð½Ð°ÑÐ¾Ñ‡ÑƒÐ²Ð°ÑšÐµ ÐºÐ¾Ð½ Ð½Ð°Ñ˜ÑÐ¾Ð¾Ð´Ð²ÐµÑ‚ÐµÐ½ Ñ‚Ñ€ÐµÑ‚Ð¼Ð°Ð½.",
+                                   "ÑƒÑÐ»ÑƒÐ³Ð¸":  [
+                                                        {
+                                                            "id":  "consultation",
+                                                            "Ð¸Ð¼Ðµ":  "Ð¡Ñ‚Ð¾Ð¼Ð°Ñ‚Ð¾Ð»Ð¾ÑˆÐºÐ° ÐºÐ¾Ð½ÑÑƒÐ»Ñ‚Ð°Ñ†Ð¸Ñ˜Ð°",
+                                                            "aliases":  [
+                                                                            "ÐºÐ¾Ð½ÑÑƒÐ»Ñ‚Ð°Ñ†Ð¸Ñ˜Ð°",
+                                                                            "konsultacija",
+                                                                            "Ð¿Ñ€ÐµÐ³Ð»ÐµÐ´",
+                                                                            "ÑÐ¾Ð²ÐµÑ‚ÑƒÐ²Ð°ÑšÐµ",
+                                                                            "Ð¼Ð¸ÑÐ»ÐµÑšÐµ",
+                                                                            "Ð¿Ñ€Ð² Ð¿Ñ€ÐµÐ³Ð»ÐµÐ´",
+                                                                            "Ð·Ð°ÐºÐ°Ð¶ÑƒÐ²Ð°ÑšÐµ Ñ‚ÐµÑ€Ð¼Ð¸Ð½"
+                                                                        ],
+                                                            "Ð¾Ð¿Ð¸Ñ":  "Ð Ð°Ð·Ð³Ð¾Ð²Ð¾Ñ€ Ð¸ Ð¿Ð¾Ñ‡ÐµÑ‚ÐµÐ½ Ð¿Ñ€ÐµÐ³Ð»ÐµÐ´ Ð·Ð° Ð´Ð° ÑÐµ Ð¿Ñ€Ð¾Ñ†ÐµÐ½Ð¸ ÑˆÑ‚Ð¾ Ðµ Ð½Ð°Ñ˜ÑÐ¾Ð¾Ð´Ð²ÐµÑ‚Ð½Ð¾ Ð¸ Ð´Ð° ÑÐµ Ð½Ð°Ð¿Ñ€Ð°Ð²Ð¸ Ð¿Ð»Ð°Ð½ Ð·Ð° ÑÐ»ÐµÐ´Ð½Ð¸ Ñ‡ÐµÐºÐ¾Ñ€Ð¸.",
+                                                            "Ñ†ÐµÐ½Ð°":  "Ð±ÐµÑÐ¿Ð»Ð°Ñ‚Ð½Ð¾",
+                                                            "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                                                                "Ð½ÐµÑ˜Ð°ÑÐ½Ð¸ ÑÐ¸Ð¼Ð¿Ñ‚Ð¾Ð¼Ð¸",
+                                                                                                "Ð¿Ð¾Ñ‚Ñ€ÐµÐ±Ð° Ð¾Ð´ Ð¼Ð¸ÑÐ»ÐµÑšÐµ",
+                                                                                                "Ð¿Ð»Ð°Ð½ Ð·Ð° Ñ‚Ñ€ÐµÑ‚Ð¼Ð°Ð½",
+                                                                                                "Ð·Ð°ÐºÐ°Ð¶ÑƒÐ²Ð°ÑšÐµ Ñ‚ÐµÑ€Ð¼Ð¸Ð½"
+                                                                                            ]
+                                                        }
+                                                    ]
+                               }
+                           ],
+    "services":  [
+                     {
+                         "id":  "consultation",
+                         "name":  "Ð¡Ñ‚Ð¾Ð¼Ð°Ñ‚Ð¾Ð»Ð¾ÑˆÐºÐ° ÐºÐ¾Ð½ÑÑƒÐ»Ñ‚Ð°Ñ†Ð¸Ñ˜Ð°",
+                         "article_name":  "Ð¡Ñ‚Ð¾Ð¼Ð°Ñ‚Ð¾Ð»Ð¾ÑˆÐºÐ°Ñ‚Ð° ÐºÐ¾Ð½ÑÑƒÐ»Ñ‚Ð°Ñ†Ð¸Ñ˜Ð°",
+                         "description":  "Ð Ð°Ð·Ð³Ð¾Ð²Ð¾Ñ€ Ð¸ Ð¿Ð¾Ñ‡ÐµÑ‚ÐµÐ½ Ð¿Ñ€ÐµÐ³Ð»ÐµÐ´ Ð·Ð° Ð´Ð° ÑÐµ Ð¿Ñ€Ð¾Ñ†ÐµÐ½Ð¸ ÑˆÑ‚Ð¾ Ðµ Ð½Ð°Ñ˜ÑÐ¾Ð¾Ð´Ð²ÐµÑ‚Ð½Ð¾ Ð¸ Ð´Ð° ÑÐµ Ð½Ð°Ð¿Ñ€Ð°Ð²Ð¸ Ð¿Ð»Ð°Ð½ Ð·Ð° ÑÐ»ÐµÐ´Ð½Ð¸ Ñ‡ÐµÐºÐ¾Ñ€Ð¸.",
+                         "keywords":  [
+                                          "ÐºÐ¾Ð½ÑÑƒÐ»Ñ‚Ð°Ñ†Ð¸Ñ˜Ð°",
+                                          "konsultacija",
+                                          "Ð¿Ñ€ÐµÐ³Ð»ÐµÐ´",
+                                          "ÑÐ¾Ð²ÐµÑ‚ÑƒÐ²Ð°ÑšÐµ",
+                                          "Ð¼Ð¸ÑÐ»ÐµÑšÐµ",
+                                          "Ð¿Ñ€Ð² Ð¿Ñ€ÐµÐ³Ð»ÐµÐ´",
+                                          "Ð·Ð°ÐºÐ°Ð¶ÑƒÐ²Ð°ÑšÐµ Ñ‚ÐµÑ€Ð¼Ð¸Ð½"
+                                      ],
+                         "symptoms":  [
+                                          "Ð½ÐµÑ˜Ð°ÑÐ½Ð¸ ÑÐ¸Ð¼Ð¿Ñ‚Ð¾Ð¼Ð¸",
+                                          "Ð¿Ð¾Ñ‚Ñ€ÐµÐ±Ð° Ð¾Ð´ Ð¼Ð¸ÑÐ»ÐµÑšÐµ",
+                                          "Ð¿Ð»Ð°Ð½ Ð·Ð° Ñ‚Ñ€ÐµÑ‚Ð¼Ð°Ð½",
+                                          "Ð¿Ð¾Ñ‚Ñ€ÐµÐ±ÐµÐ½ Ð¿Ñ€ÐµÐ³Ð»ÐµÐ´"
+                                      ],
+                         "price":  "Ð±ÐµÑÐ¿Ð»Ð°Ñ‚Ð½Ð¾",
+                         "image":  "/services/consultation.jpg",
+                         "bookable":  true,
+                         "priority":  1,
+                         "category":  "ÐšÐ¾Ð½ÑÑƒÐ»Ñ‚Ð°Ñ†Ð¸Ñ˜Ð°",
+                         "aliases":  [
+                                         "ÐºÐ¾Ð½ÑÑƒÐ»Ñ‚Ð°Ñ†Ð¸Ñ˜Ð°",
+                                         "konsultacija",
+                                         "Ð¿Ñ€ÐµÐ³Ð»ÐµÐ´",
+                                         "ÑÐ¾Ð²ÐµÑ‚ÑƒÐ²Ð°ÑšÐµ",
+                                         "Ð¼Ð¸ÑÐ»ÐµÑšÐµ",
+                                         "Ð¿Ñ€Ð² Ð¿Ñ€ÐµÐ³Ð»ÐµÐ´",
+                                         "Ð·Ð°ÐºÐ°Ð¶ÑƒÐ²Ð°ÑšÐµ Ñ‚ÐµÑ€Ð¼Ð¸Ð½"
+                                     ],
+                         "Ð¸Ð¼Ðµ":  "Ð¡Ñ‚Ð¾Ð¼Ð°Ñ‚Ð¾Ð»Ð¾ÑˆÐºÐ° ÐºÐ¾Ð½ÑÑƒÐ»Ñ‚Ð°Ñ†Ð¸Ñ˜Ð°",
+                         "Ð¾Ð¿Ð¸Ñ":  "Ð Ð°Ð·Ð³Ð¾Ð²Ð¾Ñ€ Ð¸ Ð¿Ð¾Ñ‡ÐµÑ‚ÐµÐ½ Ð¿Ñ€ÐµÐ³Ð»ÐµÐ´ Ð·Ð° Ð´Ð° ÑÐµ Ð¿Ñ€Ð¾Ñ†ÐµÐ½Ð¸ ÑˆÑ‚Ð¾ Ðµ Ð½Ð°Ñ˜ÑÐ¾Ð¾Ð´Ð²ÐµÑ‚Ð½Ð¾ Ð¸ Ð´Ð° ÑÐµ Ð½Ð°Ð¿Ñ€Ð°Ð²Ð¸ Ð¿Ð»Ð°Ð½ Ð·Ð° ÑÐ»ÐµÐ´Ð½Ð¸ Ñ‡ÐµÐºÐ¾Ñ€Ð¸.",
+                         "Ñ†ÐµÐ½Ð°":  "Ð±ÐµÑÐ¿Ð»Ð°Ñ‚Ð½Ð¾",
+                         "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                             "Ð½ÐµÑ˜Ð°ÑÐ½Ð¸ ÑÐ¸Ð¼Ð¿Ñ‚Ð¾Ð¼Ð¸",
+                                                             "Ð¿Ð¾Ñ‚Ñ€ÐµÐ±Ð° Ð¾Ð´ Ð¼Ð¸ÑÐ»ÐµÑšÐµ",
+                                                             "Ð¿Ð»Ð°Ð½ Ð·Ð° Ñ‚Ñ€ÐµÑ‚Ð¼Ð°Ð½",
+                                                             "Ð·Ð°ÐºÐ°Ð¶ÑƒÐ²Ð°ÑšÐµ Ñ‚ÐµÑ€Ð¼Ð¸Ð½"
+                                                         ]
+                     },
+                     {
+                         "id":  "cleaning_consult",
+                         "name":  "Ð§Ð¸ÑÑ‚ÐµÑšÐµ Ð½Ð° Ð·Ð°Ð±ÐµÐ½ ÐºÐ°Ð¼ÐµÐ½",
+                         "description":  "ÐŸÑ€Ð¾Ñ„ÐµÑÐ¸Ð¾Ð½Ð°Ð»Ð½Ð¾ Ñ‡Ð¸ÑÑ‚ÐµÑšÐµ Ð½Ð° Ð½Ð°ÑÐ»Ð°Ð³Ð¸ Ð¸ Ð·Ð°Ð±ÐµÐ½ ÐºÐ°Ð¼ÐµÐ½ Ð·Ð° Ð¿Ð¾Ð´Ð¾Ð±Ñ€Ð° Ð¾Ñ€Ð°Ð»Ð½Ð° Ñ…Ð¸Ð³Ð¸ÐµÐ½Ð° Ð¸ Ð¿Ñ€ÐµÐ²ÐµÐ½Ñ†Ð¸Ñ˜Ð°.",
+                         "keywords":  [
+                                          "Ð·Ð°Ð±ÐµÐ½ ÐºÐ°Ð¼ÐµÐ½",
+                                          "Ñ‡Ð¸ÑÑ‚ÐµÑšÐµ",
+                                          "Ñ‡Ð¸ÑÑ‚ÐµÑšÐµ Ð½Ð° ÐºÐ°Ð¼ÐµÐ½ÐµÑ†",
+                                          "Ñ‡Ð¸ÑÑ‚ÐµÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¸"
+                                      ],
+                         "symptoms":  [
+                                          "Ð½Ð°ÑÐ»Ð°Ð³Ð¸ Ð½Ð° Ð·Ð°Ð±Ð¸",
+                                          "Ð¿Ð¾Ñ‚Ñ€ÐµÐ±Ð° Ð¾Ð´ Ñ‡Ð¸ÑÑ‚ÐµÑšÐµ",
+                                          "Ð¾Ð´Ñ€Ð¶ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ñ…Ð¸Ð³Ð¸ÐµÐ½Ð°"
+                                      ],
+                         "image":  "/services/cleaning.jpg",
+                         "bookable":  false,
+                         "priority":  2,
+                         "category":  "ÐŸÑ€ÐµÐ²ÐµÐ½Ñ‚Ð¸Ð²Ð½Ð° ÑÑ‚Ð¾Ð¼Ð°Ñ‚Ð¾Ð»Ð¾Ð³Ð¸Ñ˜Ð°",
+                         "aliases":  [
+                                         "Ð·Ð°Ð±ÐµÐ½ ÐºÐ°Ð¼ÐµÐ½",
+                                         "Ñ‡Ð¸ÑÑ‚ÐµÑšÐµ",
+                                         "Ñ‡Ð¸ÑÑ‚ÐµÑšÐµ Ð½Ð° ÐºÐ°Ð¼ÐµÐ½ÐµÑ†",
+                                         "Ñ‡Ð¸ÑÑ‚ÐµÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¸"
+                                     ],
+                         "Ð¸Ð¼Ðµ":  "Ð§Ð¸ÑÑ‚ÐµÑšÐµ Ð½Ð° Ð·Ð°Ð±ÐµÐ½ ÐºÐ°Ð¼ÐµÐ½",
+                         "Ð¾Ð¿Ð¸Ñ":  "ÐŸÑ€Ð¾Ñ„ÐµÑÐ¸Ð¾Ð½Ð°Ð»Ð½Ð¾ Ñ‡Ð¸ÑÑ‚ÐµÑšÐµ Ð½Ð° Ð½Ð°ÑÐ»Ð°Ð³Ð¸ Ð¸ Ð·Ð°Ð±ÐµÐ½ ÐºÐ°Ð¼ÐµÐ½ Ð·Ð° Ð¿Ð¾Ð´Ð¾Ð±Ñ€Ð° Ð¾Ñ€Ð°Ð»Ð½Ð° Ñ…Ð¸Ð³Ð¸ÐµÐ½Ð° Ð¸ Ð¿Ñ€ÐµÐ²ÐµÐ½Ñ†Ð¸Ñ˜Ð°.",
+                         "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                             "Ð½Ð°ÑÐ»Ð°Ð³Ð¸ Ð½Ð° Ð·Ð°Ð±Ð¸",
+                                                             "Ð¾Ð´Ñ€Ð¶ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ñ…Ð¸Ð³Ð¸ÐµÐ½Ð°",
+                                                             "Ð¿Ñ€ÐµÐ²ÐµÐ½Ñ‚Ð¸Ð²ÐµÐ½ Ñ‚Ñ€ÐµÑ‚Ð¼Ð°Ð½"
+                                                         ]
+                     },
+                     {
+                         "id":  "filling",
+                         "name":  "ÐŸÐ»Ð¾Ð¼Ð±Ð¸Ñ€Ð°ÑšÐµ",
+                         "description":  "Ð ÐµÑÑ‚Ð°Ð²Ñ€Ð°Ñ‚Ð¸Ð²ÐµÐ½ Ñ‚Ñ€ÐµÑ‚Ð¼Ð°Ð½ Ð·Ð° ÑÐ°Ð½Ð°Ñ†Ð¸Ñ˜Ð° Ð½Ð° ÐºÐ°Ñ€Ð¸ÐµÑ Ð¸Ð»Ð¸ Ð¾ÑˆÑ‚ÐµÑ‚ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¾Ñ‚ ÑÐ¾ ÑÐ¾Ð¾Ð´Ð²ÐµÑ‚ÐµÐ½ Ð¿Ð»Ð¾Ð¼Ð±ÐµÐ½ Ð¼Ð°Ñ‚ÐµÑ€Ð¸Ñ˜Ð°Ð».",
+                         "keywords":  [
+                                          "Ð¿Ð»Ð¾Ð¼Ð±Ð°",
+                                          "ÑÑ‚Ð°Ð²Ð°ÑšÐµ Ð¿Ð»Ð¾Ð¼Ð±Ð°",
+                                          "Ð¿Ð¾Ð¿Ñ€Ð°Ð²ÐºÐ° Ð½Ð° Ð·Ð°Ð±",
+                                          "Ð·Ð°Ñ‚Ð²Ð¾Ñ€Ð°ÑšÐµ Ð´ÑƒÐ¿ÐºÐ°"
+                                      ],
+                         "symptoms":  [
+                                          "Ð´ÑƒÐ¿ÐºÐ° Ð²Ð¾ Ð·Ð°Ð±",
+                                          "Ð¾ÑˆÑ‚ÐµÑ‚ÐµÐ½ Ð·Ð°Ð±",
+                                          "ÐºÐ°Ñ€Ð¸ÐµÑ",
+                                          "Ð±Ð¾Ð»ÐºÐ° Ð¿Ð¾Ð²Ñ€Ð·Ð°Ð½Ð° ÑÐ¾ Ð¾ÑˆÑ‚ÐµÑ‚ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¾Ñ‚"
+                                      ],
+                         "price_range":  "800-2500 Ð´ÐµÐ½Ð°Ñ€Ð¸",
+                         "image":  "/services/filling.jpg",
+                         "bookable":  false,
+                         "priority":  3,
+                         "category":  "Ð ÐµÑÑ‚Ð°Ð²Ñ€Ð°Ñ‚Ð¸Ð²Ð½Ð° ÑÑ‚Ð¾Ð¼Ð°Ñ‚Ð¾Ð»Ð¾Ð³Ð¸Ñ˜Ð°",
+                         "aliases":  [
+                                         "Ð¿Ð»Ð¾Ð¼Ð±Ð°",
+                                         "ÑÑ‚Ð°Ð²Ð°ÑšÐµ Ð¿Ð»Ð¾Ð¼Ð±Ð°",
+                                         "Ð¿Ð¾Ð¿Ñ€Ð°Ð²ÐºÐ° Ð½Ð° Ð·Ð°Ð±",
+                                         "Ð·Ð°Ñ‚Ð²Ð¾Ñ€Ð°ÑšÐµ Ð´ÑƒÐ¿ÐºÐ°"
+                                     ],
+                         "Ð¸Ð¼Ðµ":  "ÐŸÐ»Ð¾Ð¼Ð±Ð¸Ñ€Ð°ÑšÐµ",
+                         "Ð¾Ð¿Ð¸Ñ":  "Ð ÐµÑÑ‚Ð°Ð²Ñ€Ð°Ñ‚Ð¸Ð²ÐµÐ½ Ñ‚Ñ€ÐµÑ‚Ð¼Ð°Ð½ Ð·Ð° ÑÐ°Ð½Ð°Ñ†Ð¸Ñ˜Ð° Ð½Ð° ÐºÐ°Ñ€Ð¸ÐµÑ Ð¸Ð»Ð¸ Ð¾ÑˆÑ‚ÐµÑ‚ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¾Ñ‚ ÑÐ¾ ÑÐ¾Ð¾Ð´Ð²ÐµÑ‚ÐµÐ½ Ð¿Ð»Ð¾Ð¼Ð±ÐµÐ½ Ð¼Ð°Ñ‚ÐµÑ€Ð¸Ñ˜Ð°Ð».",
+                         "Ñ†ÐµÐ½Ð¾Ð²ÐµÐ½_Ð¾Ð¿ÑÐµÐ³":  "800-2500 Ð´ÐµÐ½Ð°Ñ€Ð¸",
+                         "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                             "Ð´ÑƒÐ¿ÐºÐ° Ð²Ð¾ Ð·Ð°Ð±",
+                                                             "Ð¾ÑˆÑ‚ÐµÑ‚ÐµÐ½ Ð·Ð°Ð±",
+                                                             "ÐºÐ°Ñ€Ð¸ÐµÑ",
+                                                             "Ð±Ð¾Ð»ÐºÐ° Ð¿Ð¾Ð²Ñ€Ð·Ð°Ð½Ð° ÑÐ¾ Ð¾ÑˆÑ‚ÐµÑ‚ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¾Ñ‚"
+                                                         ]
+                     },
+                     {
+                         "id":  "root_canal",
+                         "name":  "Ð›ÐµÐºÑƒÐ²Ð°ÑšÐµ Ð½Ð° ÐºÐ¾Ñ€ÐµÐ½ÑÐºÐ¸ ÐºÐ°Ð½Ð°Ð»",
+                         "description":  "Ð¢Ñ€ÐµÑ‚Ð¼Ð°Ð½ Ð·Ð° Ñ‡Ð¸ÑÑ‚ÐµÑšÐµ Ð¸ Ð»ÐµÐºÑƒÐ²Ð°ÑšÐµ Ð½Ð° ÐºÐ¾Ñ€ÐµÐ½ÑÐºÐ¸Ð¾Ñ‚ ÐºÐ°Ð½Ð°Ð» ÐºÐ¾Ð³Ð° Ðµ Ð·Ð°Ñ„Ð°Ñ‚ÐµÐ½Ð° Ð²Ð½Ð°Ñ‚Ñ€ÐµÑˆÐ½Ð¾ÑÑ‚Ð° Ð½Ð° Ð·Ð°Ð±Ð¾Ñ‚.",
+                         "keywords":  [
+                                          "ÐºÐ°Ð½Ð°Ð»",
+                                          "Ð»ÐµÐºÑƒÐ²Ð°ÑšÐµ ÐºÐ°Ð½Ð°Ð»",
+                                          "ÐºÐ¾Ñ€ÐµÐ½ÑÐºÐ¸ ÐºÐ°Ð½Ð°Ð»",
+                                          "ÐµÐ½Ð´Ð¾Ð´Ð¾Ð½Ñ†Ð¸Ñ˜Ð°"
+                                      ],
+                         "symptoms":  [
+                                          "ÑÐ¸Ð»Ð½Ð° Ð·Ð°Ð±Ð¾Ð±Ð¾Ð»ÐºÐ°",
+                                          "Ð¿Ñ€Ð¾Ð±Ð»ÐµÐ¼ ÑÐ¾ Ð½ÐµÑ€Ð²",
+                                          "Ð²Ð¾ÑÐ¿Ð°Ð»ÐµÐ½Ð¸Ðµ Ð²Ð¾ Ð·Ð°Ð±",
+                                          "Ð¿Ð¾Ñ‚Ñ€ÐµÐ±Ð° Ð¾Ð´ Ð»ÐµÐºÑƒÐ²Ð°ÑšÐµ ÐºÐ°Ð½Ð°Ð»"
+                                      ],
+                         "price_range":  "400 Ð´ÐµÐ½Ð°Ñ€Ð¸ ÑÐ¾ Ð¾ÑÐ¸Ð³ÑƒÑ€ÑƒÐ²Ð°ÑšÐµ, Ð¾ÐºÐ¾Ð»Ñƒ 1000 Ð´ÐµÐ½Ð°Ñ€Ð¸ Ð¿Ñ€Ð¸Ð²Ð°Ñ‚Ð½Ð¾",
+                         "image":  "/services/root-canal.jpg",
+                         "bookable":  false,
+                         "priority":  4,
+                         "category":  "Ð•Ð½Ð´Ð¾Ð´Ð¾Ð½Ñ†Ð¸Ñ˜Ð°",
+                         "aliases":  [
+                                         "ÐºÐ°Ð½Ð°Ð»",
+                                         "Ð»ÐµÐºÑƒÐ²Ð°ÑšÐµ ÐºÐ°Ð½Ð°Ð»",
+                                         "ÐºÐ¾Ñ€ÐµÐ½ÑÐºÐ¸ ÐºÐ°Ð½Ð°Ð»",
+                                         "ÐµÐ½Ð´Ð¾Ð´Ð¾Ð½Ñ†Ð¸Ñ˜Ð°"
+                                     ],
+                         "Ð¸Ð¼Ðµ":  "Ð›ÐµÐºÑƒÐ²Ð°ÑšÐµ Ð½Ð° ÐºÐ¾Ñ€ÐµÐ½ÑÐºÐ¸ ÐºÐ°Ð½Ð°Ð»",
+                         "Ð¾Ð¿Ð¸Ñ":  "Ð¢Ñ€ÐµÑ‚Ð¼Ð°Ð½ Ð·Ð° Ñ‡Ð¸ÑÑ‚ÐµÑšÐµ Ð¸ Ð»ÐµÐºÑƒÐ²Ð°ÑšÐµ Ð½Ð° ÐºÐ¾Ñ€ÐµÐ½ÑÐºÐ¸Ð¾Ñ‚ ÐºÐ°Ð½Ð°Ð» ÐºÐ¾Ð³Ð° Ðµ Ð·Ð°Ñ„Ð°Ñ‚ÐµÐ½Ð° Ð²Ð½Ð°Ñ‚Ñ€ÐµÑˆÐ½Ð¾ÑÑ‚Ð° Ð½Ð° Ð·Ð°Ð±Ð¾Ñ‚.",
+                         "Ñ†ÐµÐ½Ð¾Ð²ÐµÐ½_Ð¾Ð¿ÑÐµÐ³":  "400 Ð´ÐµÐ½Ð°Ñ€Ð¸ ÑÐ¾ Ð¾ÑÐ¸Ð³ÑƒÑ€ÑƒÐ²Ð°ÑšÐµ, Ð¾ÐºÐ¾Ð»Ñƒ 1000 Ð´ÐµÐ½Ð°Ñ€Ð¸ Ð¿Ñ€Ð¸Ð²Ð°Ñ‚Ð½Ð¾",
+                         "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                             "ÑÐ¸Ð»Ð½Ð° Ð·Ð°Ð±Ð¾Ð±Ð¾Ð»ÐºÐ°",
+                                                             "Ð¿Ñ€Ð¾Ð±Ð»ÐµÐ¼ ÑÐ¾ Ð½ÐµÑ€Ð²",
+                                                             "Ð²Ð¾ÑÐ¿Ð°Ð»ÐµÐ½Ð¸Ðµ Ð²Ð¾ Ð·Ð°Ð±",
+                                                             "Ð¿Ð¾Ñ‚Ñ€ÐµÐ±Ð° Ð¾Ð´ Ð»ÐµÐºÑƒÐ²Ð°ÑšÐµ ÐºÐ°Ð½Ð°Ð»"
+                                                         ]
+                     },
+                     {
+                         "id":  "crowns",
+                         "name":  "ÐšÐ¾Ñ€Ð¾Ð½ÐºÐ¸",
+                         "description":  "ÐŸÑ€Ð¾Ñ‚ÐµÑ‚ÑÐºÐ¾ Ñ€ÐµÑˆÐµÐ½Ð¸Ðµ Ð·Ð° Ð·Ð°ÑˆÑ‚Ð¸Ñ‚Ð° Ð¸ Ð¾Ð±Ð½Ð¾Ð²Ð° Ð½Ð° Ð·Ð°Ð± ÑÐ¾ Ð¿Ð¾Ð³Ð¾Ð»ÐµÐ¼Ð¾ Ð¾ÑˆÑ‚ÐµÑ‚ÑƒÐ²Ð°ÑšÐµ.",
+                         "keywords":  [
+                                          "ÐºÐ¾Ñ€Ð¾Ð½ÐºÐ°",
+                                          "Ð·Ð°Ð±Ð½Ð° ÐºÐ¾Ñ€Ð¾Ð½ÐºÐ°",
+                                          "ÐºÑ€ÑƒÐ½Ð° Ð½Ð° Ð·Ð°Ð±"
+                                      ],
+                         "symptoms":  [
+                                          "Ð·Ð½Ð°Ñ‡Ð¸Ñ‚ÐµÐ»Ð½Ð¾ Ð¾ÑˆÑ‚ÐµÑ‚ÐµÐ½ Ð·Ð°Ð±",
+                                          "Ð·Ð°ÑˆÑ‚Ð¸Ñ‚Ð° Ð½Ð° Ð¾ÑÐ»Ð°Ð±ÐµÐ½ Ð·Ð°Ð±",
+                                          "Ð¿Ñ€Ð¾Ñ‚ÐµÑ‚ÑÐºÐ° Ð¾Ð±Ð½Ð¾Ð²Ð°"
+                                      ],
+                         "price_range":  "80-300 ÐµÐ²Ñ€Ð°",
+                         "image":  "/services/crowns.jpg",
+                         "bookable":  false,
+                         "priority":  5,
+                         "category":  "ÐŸÑ€Ð¾Ñ‚ÐµÑ‚Ð¸ÐºÐ°",
+                         "aliases":  [
+                                         "ÐºÐ¾Ñ€Ð¾Ð½ÐºÐ°",
+                                         "Ð·Ð°Ð±Ð½Ð° ÐºÐ¾Ñ€Ð¾Ð½ÐºÐ°",
+                                         "ÐºÑ€ÑƒÐ½Ð° Ð½Ð° Ð·Ð°Ð±"
+                                     ],
+                         "Ð¸Ð¼Ðµ":  "ÐšÐ¾Ñ€Ð¾Ð½ÐºÐ¸",
+                         "Ð¾Ð¿Ð¸Ñ":  "ÐŸÑ€Ð¾Ñ‚ÐµÑ‚ÑÐºÐ¾ Ñ€ÐµÑˆÐµÐ½Ð¸Ðµ Ð·Ð° Ð·Ð°ÑˆÑ‚Ð¸Ñ‚Ð° Ð¸ Ð¾Ð±Ð½Ð¾Ð²Ð° Ð½Ð° Ð·Ð°Ð± ÑÐ¾ Ð¿Ð¾Ð³Ð¾Ð»ÐµÐ¼Ð¾ Ð¾ÑˆÑ‚ÐµÑ‚ÑƒÐ²Ð°ÑšÐµ.",
+                         "Ñ†ÐµÐ½Ð¾Ð²ÐµÐ½_Ð¾Ð¿ÑÐµÐ³":  "80-300 ÐµÐ²Ñ€Ð°",
+                         "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                             "Ð·Ð½Ð°Ñ‡Ð¸Ñ‚ÐµÐ»Ð½Ð¾ Ð¾ÑˆÑ‚ÐµÑ‚ÐµÐ½ Ð·Ð°Ð±",
+                                                             "Ð·Ð°ÑˆÑ‚Ð¸Ñ‚Ð° Ð½Ð° Ð¾ÑÐ»Ð°Ð±ÐµÐ½ Ð·Ð°Ð±",
+                                                             "Ð¿Ñ€Ð¾Ñ‚ÐµÑ‚ÑÐºÐ° Ð¾Ð±Ð½Ð¾Ð²Ð°"
+                                                         ]
+                     },
+                     {
+                         "id":  "bridges",
+                         "name":  "ÐœÐ¾ÑÑ‚Ð¾Ð²Ð¸",
+                         "description":  "ÐŸÑ€Ð¾Ñ‚ÐµÑ‚ÑÐºÐ¾ Ñ€ÐµÑˆÐµÐ½Ð¸Ðµ Ð·Ð° Ð½Ð°Ð´Ð¾Ð¼ÐµÑÑ‚ÑƒÐ²Ð°ÑšÐµ Ð½Ð° ÐµÐ´ÐµÐ½ Ð¸Ð»Ð¸ Ð¿Ð¾Ð²ÐµÑœÐµ Ð·Ð°Ð±Ð¸ ÑÐ¾ Ñ„Ð¸ÐºÑÐ½Ð° ÐºÐ¾Ð½ÑÑ‚Ñ€ÑƒÐºÑ†Ð¸Ñ˜Ð°.",
+                         "keywords":  [
+                                          "Ð¼Ð¾ÑÑ‚",
+                                          "Ð·Ð°Ð±ÐµÐ½ Ð¼Ð¾ÑÑ‚",
+                                          "Ð¿Ñ€Ð¾Ñ‚ÐµÑ‚ÑÐºÐ¸ Ð¼Ð¾ÑÑ‚"
+                                      ],
+                         "symptoms":  [
+                                          "Ð½ÐµÐ´Ð¾ÑÑ‚Ð°ÑÑƒÐ²Ð° Ð·Ð°Ð±",
+                                          "Ñ„Ð¸ÐºÑÐ½Ð° Ð½Ð°Ð´Ð¾ÐºÐ½Ð°Ð´Ð°",
+                                          "Ð¾Ð±Ð½Ð¾Ð²Ð° Ð½Ð° ÑŸÐ²Ð°ÐºÐ°ÑšÐµ Ð¸ Ð½Ð°ÑÐ¼ÐµÐ²ÐºÐ°"
+                                      ],
+                         "image":  "/services/bridges.jpg",
+                         "bookable":  false,
+                         "priority":  6,
+                         "category":  "ÐŸÑ€Ð¾Ñ‚ÐµÑ‚Ð¸ÐºÐ°",
+                         "aliases":  [
+                                         "Ð¼Ð¾ÑÑ‚",
+                                         "Ð·Ð°Ð±ÐµÐ½ Ð¼Ð¾ÑÑ‚",
+                                         "Ð¿Ñ€Ð¾Ñ‚ÐµÑ‚ÑÐºÐ¸ Ð¼Ð¾ÑÑ‚"
+                                     ],
+                         "Ð¸Ð¼Ðµ":  "ÐœÐ¾ÑÑ‚Ð¾Ð²Ð¸",
+                         "Ð¾Ð¿Ð¸Ñ":  "ÐŸÑ€Ð¾Ñ‚ÐµÑ‚ÑÐºÐ¾ Ñ€ÐµÑˆÐµÐ½Ð¸Ðµ Ð·Ð° Ð½Ð°Ð´Ð¾Ð¼ÐµÑÑ‚ÑƒÐ²Ð°ÑšÐµ Ð½Ð° ÐµÐ´ÐµÐ½ Ð¸Ð»Ð¸ Ð¿Ð¾Ð²ÐµÑœÐµ Ð·Ð°Ð±Ð¸ ÑÐ¾ Ñ„Ð¸ÐºÑÐ½Ð° ÐºÐ¾Ð½ÑÑ‚Ñ€ÑƒÐºÑ†Ð¸Ñ˜Ð°.",
+                         "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                             "Ð½ÐµÐ´Ð¾ÑÑ‚Ð°ÑÑƒÐ²Ð° Ð·Ð°Ð±",
+                                                             "Ñ„Ð¸ÐºÑÐ½Ð° Ð½Ð°Ð´Ð¾ÐºÐ½Ð°Ð´Ð°",
+                                                             "Ð¾Ð±Ð½Ð¾Ð²Ð° Ð½Ð° ÑŸÐ²Ð°ÐºÐ°ÑšÐµ Ð¸ Ð½Ð°ÑÐ¼ÐµÐ²ÐºÐ°"
+                                                         ]
+                     },
+                     {
+                         "id":  "teeth_whitening",
+                         "name":  "Ð‘ÐµÐ»ÐµÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¸",
+                         "article_name":  "Ð‘ÐµÐ»ÐµÑšÐµÑ‚Ð¾ Ð½Ð° Ð·Ð°Ð±Ð¸",
+                         "description":  "Ð•ÑÑ‚ÐµÑ‚ÑÐºÐ° Ð¿Ñ€Ð¾Ñ†ÐµÐ´ÑƒÑ€Ð° Ð·Ð° Ð¾ÑÐ²ÐµÑ‚Ð»ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¸Ñ‚Ðµ. ÐŸÐ¾Ñ‚Ñ€ÐµÐ±Ð½Ð¸ ÑÐµ 1 Ð´Ð¾ 3 ÑÐµÑÐ¸Ð¸ Ð²Ð¾ Ð·Ð°Ð²Ð¸ÑÐ½Ð¾ÑÑ‚ Ð¾Ð´ ÑÐ¾ÑÑ‚Ð¾Ñ˜Ð±Ð°Ñ‚Ð°.",
+                         "keywords":  [
+                                          "Ð±ÐµÐ»ÐµÑšÐµ",
+                                          "Ð¾ÑÐ²ÐµÑ‚Ð»ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¸",
+                                          "belenje",
+                                          "beleenje",
+                                          "white teeth",
+                                          "teeth whitening"
+                                      ],
+                         "symptoms":  [
+                                          "ÐµÑÑ‚ÐµÑ‚ÑÐºÐ¸ Ð¿Ð¾Ð´Ð¾Ð±Ñ€ÑƒÐ²Ð°ÑšÐ°",
+                                          "Ð¾ÑÐ²ÐµÑ‚Ð»ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð½Ð°ÑÐ¼ÐµÐ²ÐºÐ°"
+                                      ],
+                         "price":  5000,
+                         "image":  "/services/whitening.jpg",
+                         "bookable":  false,
+                         "priority":  7,
+                         "category":  "Ð•ÑÑ‚ÐµÑ‚ÑÐºÐ° ÑÑ‚Ð¾Ð¼Ð°Ñ‚Ð¾Ð»Ð¾Ð³Ð¸Ñ˜Ð°",
+                         "aliases":  [
+                                         "Ð±ÐµÐ»ÐµÑšÐµ",
+                                         "Ð¾ÑÐ²ÐµÑ‚Ð»ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¸",
+                                         "belenje",
+                                         "beleenje",
+                                         "white teeth",
+                                         "teeth whitening"
+                                     ],
+                         "Ð¸Ð¼Ðµ":  "Ð‘ÐµÐ»ÐµÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¸",
+                         "Ð¾Ð¿Ð¸Ñ":  "Ð•ÑÑ‚ÐµÑ‚ÑÐºÐ° Ð¿Ñ€Ð¾Ñ†ÐµÐ´ÑƒÑ€Ð° Ð·Ð° Ð¾ÑÐ²ÐµÑ‚Ð»ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð·Ð°Ð±Ð¸Ñ‚Ðµ. ÐŸÐ¾Ñ‚Ñ€ÐµÐ±Ð½Ð¸ ÑÐµ 1 Ð´Ð¾ 3 ÑÐµÑÐ¸Ð¸ Ð²Ð¾ Ð·Ð°Ð²Ð¸ÑÐ½Ð¾ÑÑ‚ Ð¾Ð´ ÑÐ¾ÑÑ‚Ð¾Ñ˜Ð±Ð°Ñ‚Ð°.",
+                         "Ñ†ÐµÐ½Ð°":  5000,
+                         "Ð²Ð°Ð»ÑƒÑ‚Ð°":  "Ð´ÐµÐ½Ð°Ñ€Ð¸",
+                         "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                             "ÐµÑÑ‚ÐµÑ‚ÑÐºÐ¸ Ð¿Ð¾Ð´Ð¾Ð±Ñ€ÑƒÐ²Ð°ÑšÐ°",
+                                                             "Ð¾ÑÐ²ÐµÑ‚Ð»ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð½Ð°ÑÐ¼ÐµÐ²ÐºÐ°"
+                                                         ]
+                     },
+                     {
+                         "id":  "composite_veneers",
+                         "name":  "ÐšÐ¾Ð¼Ð¿Ð¾Ð·Ð¸Ñ‚Ð½Ð¸ Ð²Ð¸Ð½Ð¸Ñ€Ð¸",
+                         "description":  "Ð•ÑÑ‚ÐµÑ‚ÑÐºÐ° ÐºÐ¾Ñ€ÐµÐºÑ†Ð¸Ñ˜Ð° Ð½Ð° Ñ„Ð¾Ñ€Ð¼Ð°, Ð±Ð¾Ñ˜Ð° Ð¸Ð»Ð¸ Ð¼Ð°Ð»Ð¸ Ð½ÐµÐ¿Ñ€Ð°Ð²Ð¸Ð»Ð½Ð¾ÑÑ‚Ð¸ ÑÐ¾ ÐºÐ¾Ð¼Ð¿Ð¾Ð·Ð¸Ñ‚ÐµÐ½ Ð¼Ð°Ñ‚ÐµÑ€Ð¸Ñ˜Ð°Ð».",
+                         "keywords":  [
+                                          "ÐºÐ¾Ð¼Ð¿Ð¾Ð·Ð¸Ñ‚Ð½Ð¸ Ñ„Ð°ÑÐµÑ‚Ð¸",
+                                          "ÐºÐ¾Ð¼Ð¿Ð¾Ð·Ð¸Ñ‚Ð½Ð¸ Ð²Ð¸Ð½Ð¸Ñ€Ð¸",
+                                          "ÐµÑÑ‚ÐµÑ‚ÑÐºÐ° ÐºÐ¾Ñ€ÐµÐºÑ†Ð¸Ñ˜Ð°"
+                                      ],
+                         "symptoms":  [
+                                          "ÐµÑÑ‚ÐµÑ‚ÑÐºÐ° ÐºÐ¾Ñ€ÐµÐºÑ†Ð¸Ñ˜Ð°",
+                                          "ÐºÐ¾Ñ€ÐµÐºÑ†Ð¸Ñ˜Ð° Ð½Ð° Ñ„Ð¾Ñ€Ð¼Ð° Ð½Ð° Ð·Ð°Ð±",
+                                          "Ð¿Ð¾Ð´Ð¾Ð±Ñ€ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð½Ð°ÑÐ¼ÐµÐ²ÐºÐ°"
+                                      ],
+                         "image":  "/services/composite-veneers.jpg",
+                         "bookable":  false,
+                         "priority":  8,
+                         "category":  "Ð•ÑÑ‚ÐµÑ‚ÑÐºÐ° ÑÑ‚Ð¾Ð¼Ð°Ñ‚Ð¾Ð»Ð¾Ð³Ð¸Ñ˜Ð°",
+                         "aliases":  [
+                                         "ÐºÐ¾Ð¼Ð¿Ð¾Ð·Ð¸Ñ‚Ð½Ð¸ Ñ„Ð°ÑÐµÑ‚Ð¸",
+                                         "ÐºÐ¾Ð¼Ð¿Ð¾Ð·Ð¸Ñ‚Ð½Ð¸ Ð²Ð¸Ð½Ð¸Ñ€Ð¸",
+                                         "ÐµÑÑ‚ÐµÑ‚ÑÐºÐ° ÐºÐ¾Ñ€ÐµÐºÑ†Ð¸Ñ˜Ð°"
+                                     ],
+                         "Ð¸Ð¼Ðµ":  "ÐšÐ¾Ð¼Ð¿Ð¾Ð·Ð¸Ñ‚Ð½Ð¸ Ð²Ð¸Ð½Ð¸Ñ€Ð¸",
+                         "Ð¾Ð¿Ð¸Ñ":  "Ð•ÑÑ‚ÐµÑ‚ÑÐºÐ° ÐºÐ¾Ñ€ÐµÐºÑ†Ð¸Ñ˜Ð° Ð½Ð° Ñ„Ð¾Ñ€Ð¼Ð°, Ð±Ð¾Ñ˜Ð° Ð¸Ð»Ð¸ Ð¼Ð°Ð»Ð¸ Ð½ÐµÐ¿Ñ€Ð°Ð²Ð¸Ð»Ð½Ð¾ÑÑ‚Ð¸ ÑÐ¾ ÐºÐ¾Ð¼Ð¿Ð¾Ð·Ð¸Ñ‚ÐµÐ½ Ð¼Ð°Ñ‚ÐµÑ€Ð¸Ñ˜Ð°Ð».",
+                         "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                             "ÐµÑÑ‚ÐµÑ‚ÑÐºÐ° ÐºÐ¾Ñ€ÐµÐºÑ†Ð¸Ñ˜Ð°",
+                                                             "ÐºÐ¾Ñ€ÐµÐºÑ†Ð¸Ñ˜Ð° Ð½Ð° Ñ„Ð¾Ñ€Ð¼Ð° Ð½Ð° Ð·Ð°Ð±",
+                                                             "Ð¿Ð¾Ð´Ð¾Ð±Ñ€ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð½Ð°ÑÐ¼ÐµÐ²ÐºÐ°"
+                                                         ]
+                     },
+                     {
+                         "id":  "ceramic_veneers",
+                         "name":  "ÐšÐµÑ€Ð°Ð¼Ð¸Ñ‡ÐºÐ¸ Ð²Ð¸Ð½Ð¸Ñ€Ð¸",
+                         "description":  "Ð•ÑÑ‚ÐµÑ‚ÑÐºÐ¾ Ñ€ÐµÑˆÐµÐ½Ð¸Ðµ Ð·Ð° Ð´Ð¾Ð»Ð³Ð¾Ñ‚Ñ€Ð°Ñ˜Ð½Ð¾ Ð¿Ð¾Ð´Ð¾Ð±Ñ€ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð¸Ð·Ð³Ð»ÐµÐ´Ð¾Ñ‚ Ð½Ð° Ð¿Ñ€ÐµÐ´Ð½Ð¸Ñ‚Ðµ Ð·Ð°Ð±Ð¸ ÑÐ¾ ÐºÐµÑ€Ð°Ð¼Ð¸Ñ‡ÐºÐ¸ Ð¸Ð·Ñ€Ð°Ð±Ð¾Ñ‚ÐºÐ¸.",
+                         "keywords":  [
+                                          "ÐºÐµÑ€Ð°Ð¼Ð¸Ñ‡ÐºÐ¸ Ñ„Ð°ÑÐµÑ‚Ð¸",
+                                          "ÐºÐµÑ€Ð°Ð¼Ð¸Ñ‡ÐºÐ¸ Ð²Ð¸Ð½Ð¸Ñ€Ð¸",
+                                          "Ð¿Ð¾Ñ€Ñ†ÐµÐ»Ð°Ð½ÑÐºÐ¸ Ð²Ð¸Ð½Ð¸Ñ€Ð¸"
+                                      ],
+                         "symptoms":  [
+                                          "ÐµÑÑ‚ÐµÑ‚ÑÐºÐ° Ñ‚Ñ€Ð°Ð½ÑÑ„Ð¾Ñ€Ð¼Ð°Ñ†Ð¸Ñ˜Ð°",
+                                          "Ð¿Ð¾Ð´Ð¾Ð±Ñ€ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð±Ð¾Ñ˜Ð° Ð¸ Ñ„Ð¾Ñ€Ð¼Ð°",
+                                          "Ð¿Ð¾Ð¿Ñ€Ð°Ð²ÐºÐ° Ð½Ð° Ð¸Ð·Ð³Ð»ÐµÐ´ Ð½Ð° Ð¿Ñ€ÐµÐ´Ð½Ð¸ Ð·Ð°Ð±Ð¸"
+                                      ],
+                         "image":  "/services/ceramic-veneers.jpg",
+                         "bookable":  false,
+                         "priority":  9,
+                         "category":  "Ð•ÑÑ‚ÐµÑ‚ÑÐºÐ° ÑÑ‚Ð¾Ð¼Ð°Ñ‚Ð¾Ð»Ð¾Ð³Ð¸Ñ˜Ð°",
+                         "aliases":  [
+                                         "ÐºÐµÑ€Ð°Ð¼Ð¸Ñ‡ÐºÐ¸ Ñ„Ð°ÑÐµÑ‚Ð¸",
+                                         "ÐºÐµÑ€Ð°Ð¼Ð¸Ñ‡ÐºÐ¸ Ð²Ð¸Ð½Ð¸Ñ€Ð¸",
+                                         "Ð¿Ð¾Ñ€Ñ†ÐµÐ»Ð°Ð½ÑÐºÐ¸ Ð²Ð¸Ð½Ð¸Ñ€Ð¸"
+                                     ],
+                         "Ð¸Ð¼Ðµ":  "ÐšÐµÑ€Ð°Ð¼Ð¸Ñ‡ÐºÐ¸ Ð²Ð¸Ð½Ð¸Ñ€Ð¸",
+                         "Ð¾Ð¿Ð¸Ñ":  "Ð•ÑÑ‚ÐµÑ‚ÑÐºÐ¾ Ñ€ÐµÑˆÐµÐ½Ð¸Ðµ Ð·Ð° Ð´Ð¾Ð»Ð³Ð¾Ñ‚Ñ€Ð°Ñ˜Ð½Ð¾ Ð¿Ð¾Ð´Ð¾Ð±Ñ€ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð¸Ð·Ð³Ð»ÐµÐ´Ð¾Ñ‚ Ð½Ð° Ð¿Ñ€ÐµÐ´Ð½Ð¸Ñ‚Ðµ Ð·Ð°Ð±Ð¸ ÑÐ¾ ÐºÐµÑ€Ð°Ð¼Ð¸Ñ‡ÐºÐ¸ Ð¸Ð·Ñ€Ð°Ð±Ð¾Ñ‚ÐºÐ¸.",
+                         "Ð¿Ñ€ÐµÐ¿Ð¾Ñ€Ð°Ñ‡Ð°Ð½Ð¾_Ð·Ð°":  [
+                                                             "ÐµÑÑ‚ÐµÑ‚ÑÐºÐ° Ñ‚Ñ€Ð°Ð½ÑÑ„Ð¾Ñ€Ð¼Ð°Ñ†Ð¸Ñ˜Ð°",
+                                                             "Ð¿Ð¾Ð´Ð¾Ð±Ñ€ÑƒÐ²Ð°ÑšÐµ Ð½Ð° Ð±Ð¾Ñ˜Ð° Ð¸ Ñ„Ð¾Ñ€Ð¼Ð°",
+                                                             "Ð¿Ð¾Ð¿Ñ€Ð°Ð²ÐºÐ° Ð½Ð° Ð¸Ð·Ð³Ð»ÐµÐ´ Ð½Ð° Ð¿Ñ€ÐµÐ´Ð½Ð¸ Ð·Ð°Ð±Ð¸"
+                                                         ]
+                     }
+                 ],
+    "actions":  {
+                    "allow_booking":  true,
+                    "allow_scheduling_first":  true,
+                    "require_credentials_before_confirm":  true,
+                    "collect_contact_fields":  [
+                                                   "name",
+                                                   "phone",
+                                                   "email"
+                                               ]
+                },
+    "scheduling":  {
+                       "enabled":  true,
+                       "provider":  "google_calendar",
+                       "timezone":  "Europe/Skopje",
+                       "slot_duration_minutes":  30,
+                       "slot_interval_minutes":  30,
+                       "minimum_notice_minutes":  120,
+                       "default_availability_reach_days":  3,
+                       "lookahead_days":  14,
+                       "business_hours":  {
+                                              "monday":  [
+                                                             [
+                                                                 "09:00",
+                                                                 "17:00"
+                                                             ]
+                                                         ],
+                                              "tuesday":  [
+                                                              [
+                                                                  "09:00",
+                                                                  "17:00"
+                                                              ]
+                                                          ],
+                                              "wednesday":  [
+                                                                [
+                                                                    "09:00",
+                                                                    "17:00"
+                                                                ]
+                                                            ],
+                                              "thursday":  [
+                                                               [
+                                                                   "09:00",
+                                                                   "17:00"
+                                                               ]
+                                                           ],
+                                              "friday":  [
+                                                             [
+                                                                 "09:00",
+                                                                 "17:00"
+                                                             ]
+                                                         ]
+                                          },
+                       "language_support":  {
+                                                "weekday_terms":  {
+                                                                      "monday":  [
+                                                                                     "monday"
+                                                                                 ],
+                                                                      "tuesday":  [
+                                                                                      "tuesday"
+                                                                                  ],
+                                                                      "wednesday":  [
+                                                                                        "wednesday"
+                                                                                    ],
+                                                                      "thursday":  [
+                                                                                       "thursday"
+                                                                                   ],
+                                                                      "friday":  [
+                                                                                     "friday"
+                                                                                 ],
+                                                                      "saturday":  [
+                                                                                       "saturday"
+                                                                                   ],
+                                                                      "sunday":  [
+                                                                                     "sunday"
+                                                                                 ]
+                                                                  },
+                                                "relative_date_terms":  {
+                                                                            "today":  [
+                                                                                          "today"
+                                                                                      ],
+                                                                            "tomorrow":  [
+                                                                                             "tomorrow"
+                                                                                         ],
+                                                                            "in_two_weeks":  [
+                                                                                                   "in two weeks",
+                                                                                                   "two weeks from now"
+                                                                                         ]
+                                                                        },
+                                                "relative_range_terms":  {
+                                                                             "next_week":  [
+                                                                                               "next week"
+                                                                                           ]
+                                                                         },
+                                                "time_window_terms":  {
+                                                                          "morning":  [
+                                                                                          "morning"
+                                                                                      ],
+                                                                          "afternoon":  [
+                                                                                            "afternoon"
+                                                                                        ]
+                                                                      }
+                                            },
+                       "contract_texts":  {
+                                              "broad_range_narrowing":  "There are available appointments in that period. Tell me which day works for you and I will show the exact slots."
+                                          },
+                       "providers":  {
+                                         "mock":  {
+                                                      "seed":  "milena-dental-mock"
+                                                  },
+                                         "google_calendar":  {
+                                                                 "calendar_id":  "assitantseen@gmail.com",
+                                                                 "credentials":  {
+                                                                                     "auth_type":  "service_account",
+                                                                                     "service_account_file":  "backend/app/config/secrets/google-service-account.json"
+                                                                                 }
+                                                             },
+                                         "calendly":  {
+                                                          "organization_uri":  "",
+                                                          "event_type_uri":  "",
+                                                          "credentials":  {
+                                                                              "access_token_env":  "CALENDLY_ACCESS_TOKEN"
+                                                                          }
+                                                      }
+                                     }
+                   },
+    "output_contract":  {
+                            "unknown_service_id":  "unknown",
+                            "response_format":  {
+                                                    "intent":  "string",
+                                                    "service_id":  "string",
+                                                    "message":  "string"
+                                                }
+                        },
+    "knowledge":  {
+                      "faq":  [
+
+                              ],
+                      "catalog_model":  "clinical_categories_with_consultation_primary",
+                      "notes":  "ÐšÐ°Ñ‚ÐµÐ³Ð¾Ñ€Ð¸Ð¸Ñ‚Ðµ ÑÐµ Ð³Ð»Ð°Ð²Ð½Ð¸Ð¾Ñ‚ Ñ‡Ð¾Ð²ÐµÑ‡ÐºÐ¸ Ð¿Ñ€ÐµÐ³Ð»ÐµÐ´ Ð½Ð° ÐºÐ°Ñ‚Ð°Ð»Ð¾Ð³Ð¾Ñ‚. ÐŸÐ¾Ð»ÐµÑ‚Ð¾ services Ð¾ÑÑ‚Ð°Ð½ÑƒÐ²Ð° ÐºÐ°ÐºÐ¾ ÐºÐ¾Ð¼Ð¿Ð°Ñ‚Ð¸Ð±Ð¸Ð»ÐµÐ½ Ñ€Ð°Ð¼ÐµÐ½ Ð¸Ð½Ð´ÐµÐºÑ Ð·Ð° Ñ‚ÐµÐºÐ¾Ð²Ð½Ð¸Ð¾Ñ‚ backend."
+                  }
+}

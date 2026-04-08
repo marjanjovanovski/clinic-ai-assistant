@@ -10,4 +10,7 @@ Recommended usage:
 - `Core_Rules.md` for execution rules that apply across all work
 - `Task_Workflow_Guide.md` for task-file structure, folder conventions, prompt design, and manual-testing workflow
 
+Manual-testing note:
+- the current JSON convention requires each manual-testing row to carry a stable unique positive integer `row_id`; see `Core_Rules.md` and `Task_Workflow_Guide.md`
+
 For new task files, reference the two guide files above instead of this redirect file.

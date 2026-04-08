@@ -2,6 +2,7 @@
 import importlib
 
 from fastapi.testclient import TestClient
+from app.services import scheduling_capability
 
 
 def _mock_profile_loader(real_loader):
@@ -78,7 +79,7 @@ def test_availability_intent_triggers_scheduling_without_starting_booking(monkey
     assert payload["session_status"] == "active"
     assert payload["booking_progress"] is None
     assert "слободни термини" in payload["reply"]
-    assert "09:00" in payload["reply"]
+    assert "09:00" not in payload["reply"]
     assert payload["widget_payload"]["type"] == "slot-list"
     assert payload["widget_payload"]["service_id"] == "consultation"
     assert payload["widget_payload"]["title"] == payload["reply"].split("\n\n", 1)[0]
@@ -97,7 +98,7 @@ def test_availability_intent_triggers_scheduling_without_starting_booking(monkey
 
     session_key = ai_agent._session_key("milena_dental", payload["session_id"])
     scheduling_state = ai_agent.SESSION_STATE[session_key]["scheduling"]
-    assert ai_agent.AVAILABILITY_INTENT_MARKER_KEY not in ai_agent.SESSION_STATE[session_key]
+    assert scheduling_capability.AVAILABILITY_INTENT_MARKER_KEY not in ai_agent.SESSION_STATE[session_key]
     assert scheduling_state["operation"] == "availability_lookup"
     assert scheduling_state["status"] == "completed"
     assert scheduling_state["output_payload"]["result"]["provider"] == "mock"
@@ -156,6 +157,9 @@ def test_selected_slot_endpoint_hands_off_chat_session_into_contact_collection(m
     assert selection_payload["session_status"] == "collecting_contact"
     assert selection_payload["booking_progress"]["next_field"] == "name"
     assert selection_payload["selected_slot"]["slot_id"] == first_payload["widget_payload"]["slots"][0]["slot_id"]
+    assert selection_payload["selected_slot"]["display_label"] == first_payload["widget_payload"]["slots"][0]["display_label"]
+    assert first_payload["widget_payload"]["slots"][0]["display_label"] in selection_payload["reply"]
+    assert "слободни термини" in selection_payload["reply"]
     assert selection_payload["inspector_payload"]["routing"]["last_response_type"] == "collecting_contact"
     assert selection_payload["inspector_payload"]["selected_slot"]["slot_id"] == first_payload["widget_payload"]["slots"][0]["slot_id"]
     assert selection_payload["inspector_payload"]["scheduling_criteria"]["service_id"] == "consultation"
@@ -165,6 +169,41 @@ def test_selected_slot_endpoint_hands_off_chat_session_into_contact_collection(m
     assert state["stage"] == "collecting_contact"
     assert state["scheduling_handoff"]["reason"] == "selected_slot_from_main_chat"
     assert state["scheduling_handoff"]["selected_slot"]["slot_id"] == first_payload["widget_payload"]["slots"][0]["slot_id"]
+
+
+def test_collecting_contact_change_slot_phrase_reuses_scheduling_and_preserves_booking_state(monkeypatch, tmp_path):
+    client, ai_agent = _build_client(monkeypatch, tmp_path)
+
+    first = client.post("/chat?tenant=milena_dental", json={"message": "check availability"})
+    assert first.status_code == 200
+    first_payload = first.json()
+
+    selection = client.post(
+        "/scheduling/select-slot?tenant=milena_dental",
+        json={
+            "session_id": first_payload["session_id"],
+            "service_id": "consultation",
+            "slot_id": first_payload["widget_payload"]["slots"][0]["slot_id"],
+        },
+    )
+    assert selection.status_code == 200
+
+    response = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "sakham drug termin", "session_id": first_payload["session_id"]},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["session_status"] == "collecting_contact"
+    assert payload["booking_progress"]["next_field"] == "name"
+    assert payload["widget_payload"]["type"] == "slot-list"
+    assert payload["inspector_payload"]["routing"]["last_response_type"] == "slot-list"
+
+    session_key = ai_agent._session_key("milena_dental", first_payload["session_id"])
+    state = ai_agent.SESSION_STATE[session_key]
+    assert state["stage"] == "collecting_contact"
+    assert state["data"] == {}
 
 
 def test_selected_slot_flow_uses_real_slot_label_in_completed_booking_summary(monkeypatch, tmp_path):
@@ -355,8 +394,235 @@ def test_collecting_contact_availability_request_reuses_scheduling_instead_of_sa
     assert state["next_field"] == "name"
     assert state["data"] == {}
     assert state["scheduling"]["operation"] == "availability_lookup"
-    assert ai_agent.AVAILABILITY_INTENT_MARKER_KEY not in state
-    return
-    assert replacement_payload["reply"] == "Терминот е резервиран во mock режим."
-    assert replacement_payload["booking_progress"]["summary"]["appointment_display"] == fallback_slot["display_label"]
-    assert replacement_payload["booking_progress"]["summary"]["appointment_source"] == "calendar_booking"
+    assert scheduling_capability.AVAILABILITY_INTENT_MARKER_KEY not in state
+
+
+def test_typed_date_availability_returns_slot_widget_without_inline_time_list(monkeypatch, tmp_path):
+    client, ai_agent = _build_client(monkeypatch, tmp_path)
+
+    class SpecificDateOpenAI:
+        def __init__(self, api_key=None):
+            self.responses = self
+
+        def create(self, *args, **kwargs):
+            return FakeResponse(
+                '{"intent":"availability_lookup","service_id":"consultation","message":"inline-availability"}'
+            )
+
+    monkeypatch.setattr(ai_agent, "OpenAI", SpecificDateOpenAI)
+
+    response = client.post("/chat?tenant=milena_dental", json={"message": "check availability on 31.03.2026"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["session_status"] == "active"
+    assert payload["widget_payload"]["type"] == "slot-list"
+    assert "09:00" not in payload["reply"]
+    assert payload["inspector_payload"]["routing"]["last_response_type"] == "slot-list"
+
+    session_key = ai_agent._session_key("milena_dental", payload["session_id"])
+    scheduling_state = ai_agent.SESSION_STATE[session_key]["scheduling"]
+    assert scheduling_state["output_payload"]["presentation"]["request_kind"] == "specific_day"
+    assert scheduling_state["output_payload"]["presentation"]["widget_mode"] == "default"
+    assert scheduling_state["booking_handoff_ready"] is True
+
+
+def test_broad_range_availability_returns_short_reply_and_slot_widget(monkeypatch, tmp_path):
+    client, ai_agent = _build_client(monkeypatch, tmp_path)
+
+    class BroadRangeOpenAI:
+        def __init__(self, api_key=None):
+            self.responses = self
+
+        def create(self, *args, **kwargs):
+            return FakeResponse(
+                '{"intent":"availability_lookup","service_id":"consultation","message":"range-availability"}'
+            )
+
+    monkeypatch.setattr(ai_agent, "OpenAI", BroadRangeOpenAI)
+
+    response = client.post("/chat?tenant=milena_dental", json={"message": "check availability sledna nedela"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["session_status"] == "active"
+    assert payload["widget_payload"]["type"] == "slot-list"
+    assert "09:00" not in payload["reply"]
+    assert payload["inspector_payload"]["routing"]["last_response_type"] == "slot-list"
+
+    session_key = ai_agent._session_key("milena_dental", payload["session_id"])
+    scheduling_state = ai_agent.SESSION_STATE[session_key]["scheduling"]
+    assert scheduling_state["output_payload"]["presentation"]["request_kind"] == "broad_range"
+    assert scheduling_state["output_payload"]["presentation"]["widget_mode"] == "default"
+    assert scheduling_state["booking_handoff_ready"] is True
+
+
+def test_relative_requests_resolve_truthful_date_window_and_time_filter(monkeypatch, tmp_path):
+    class _FakeDate(scheduling_capability.date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 3, 30)
+
+    monkeypatch.setattr(scheduling_capability, "date", _FakeDate)
+    client, ai_agent = _build_client(monkeypatch, tmp_path)
+
+    class RelativeRequestOpenAI:
+        def __init__(self, api_key=None):
+            self.responses = self
+
+        def create(self, *args, **kwargs):
+            return FakeResponse(
+                '{"intent":"availability_lookup","service_id":"consultation","message":"relative-availability"}'
+            )
+
+    monkeypatch.setattr(ai_agent, "OpenAI", RelativeRequestOpenAI)
+
+    broad_response = client.post("/chat?tenant=milena_dental", json={"message": "sloboden termin slednata nedela"})
+    assert broad_response.status_code == 200
+    broad_payload = broad_response.json()
+
+    broad_session_key = ai_agent._session_key("milena_dental", broad_payload["session_id"])
+    broad_state = ai_agent.SESSION_STATE[broad_session_key]["scheduling"]
+    broad_request = broad_state["output_payload"]["request"]
+
+    assert broad_request["date_from"] == "2026-04-06"
+    assert broad_request["date_to"] == "2026-04-12"
+
+    relative_response = client.post("/chat?tenant=milena_dental", json={"message": "termin utre popladne"})
+    assert relative_response.status_code == 200
+    relative_payload = relative_response.json()
+
+    assert relative_payload["widget_payload"]["type"] == "slot-list"
+    assert "14:00" not in relative_payload["reply"]
+    assert "09:00" not in relative_payload["reply"]
+    assert "11:00" not in relative_payload["reply"]
+
+    relative_session_key = ai_agent._session_key("milena_dental", relative_payload["session_id"])
+    relative_state = ai_agent.SESSION_STATE[relative_session_key]["scheduling"]
+    relative_request = relative_state["output_payload"]["request"]
+
+    assert relative_request["date_from"] == "2026-03-31"
+    assert relative_request["date_to"] == "2026-03-31"
+    assert relative_request["preferred_time_range"] == "afternoon"
+    assert [slot["display_label"] for slot in relative_state["output_payload"]["result"]["slots"]] == [
+        "31 Mar 2026 во 14:00"
+    ]
+
+
+def test_no_availability_followup_reenters_scheduling_instead_of_starting_booking(monkeypatch, tmp_path):
+    class _FakeDate(scheduling_capability.date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 3, 30)
+
+    monkeypatch.setattr(scheduling_capability, "date", _FakeDate)
+    client, ai_agent = _build_client(monkeypatch, tmp_path)
+
+    class NoAvailabilityFollowupOpenAI:
+        def __init__(self, api_key=None):
+            self.responses = self
+
+        def create(self, *args, **kwargs):
+            message = kwargs["input"][-1]["content"]
+            if message == "check availability on 31.03.2026":
+                return FakeResponse(
+                    '{"intent":"availability_lookup","service_id":"consultation","message":"no-availability"}'
+                )
+            if message == "koga ima sloboden termin":
+                return FakeResponse(
+                    '{"intent":"confirm_booking","service_id":"consultation","message":"booking-confirmed"}'
+                )
+            return FakeResponse(
+                '{"intent":"fallback","service_id":"unknown","message":"fallback"}'
+            )
+
+    def fake_lookup_availability(**kwargs):
+        from app.services.scheduling.models import AvailabilityResult, AvailableSlot
+
+        if kwargs["date_from"] == "2026-03-31" and kwargs["date_to"] == "2026-03-31":
+            return AvailabilityResult(provider="mock", slots=[])
+        return AvailabilityResult(
+            provider="mock",
+            slots=[
+                AvailableSlot(
+                    provider="mock",
+                    slot_id="mock|2026-03-30T09:00:00|consultation|milena-dental-mock",
+                    start_at="2026-03-30T09:00:00+01:00",
+                    end_at="2026-03-30T09:30:00+01:00",
+                    timezone="Europe/Skopje",
+                    display_label="30 Mar 2026 во 09:00",
+                )
+            ],
+        )
+
+    monkeypatch.setattr(ai_agent, "OpenAI", NoAvailabilityFollowupOpenAI)
+    monkeypatch.setattr(scheduling_capability, "lookup_availability", fake_lookup_availability)
+
+    first = client.post("/chat?tenant=milena_dental", json={"message": "check availability on 31.03.2026"})
+    assert first.status_code == 200
+    first_payload = first.json()
+    assert first_payload["widget_payload"] is None
+    assert "2026-03-31" in first_payload["reply"]
+
+    second = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "koga ima sloboden termin", "session_id": first_payload["session_id"]},
+    )
+
+    assert second.status_code == 200
+    second_payload = second.json()
+    assert second_payload["session_status"] == "active"
+    assert second_payload["booking_progress"] is None
+    assert second_payload["widget_payload"]["type"] == "slot-list"
+    assert second_payload["inspector_payload"]["routing"]["last_response_type"] == "slot-list"
+
+    session_key = ai_agent._session_key("milena_dental", first_payload["session_id"])
+    state = ai_agent.SESSION_STATE[session_key]
+    assert state.get("stage") != "collecting_contact"
+    assert state["scheduling"]["booking_handoff_ready"] is True
+
+
+def test_booking_confirmation_after_widget_backed_specific_day_availability_can_start_booking(monkeypatch, tmp_path):
+    client, ai_agent = _build_client(monkeypatch, tmp_path)
+
+    class InlineSpecificDateOpenAI:
+        def __init__(self, api_key=None):
+            self.responses = self
+
+        def create(self, *args, **kwargs):
+            message = kwargs["input"][-1]["content"]
+            if message == "check availability on 31.03.2026":
+                return FakeResponse(
+                    '{"intent":"availability_lookup","service_id":"consultation","message":"inline-availability"}'
+                )
+            if message == "da":
+                return FakeResponse(
+                    '{"intent":"confirm_booking","service_id":"consultation","message":"booking-confirmed"}'
+                )
+            return FakeResponse(
+                '{"intent":"fallback","service_id":"unknown","message":"fallback"}'
+            )
+
+    monkeypatch.setattr(ai_agent, "OpenAI", InlineSpecificDateOpenAI)
+
+    first = client.post("/chat?tenant=milena_dental", json={"message": "check availability on 31.03.2026"})
+    assert first.status_code == 200
+    first_payload = first.json()
+    assert first_payload["widget_payload"]["type"] == "slot-list"
+
+    second = client.post(
+        "/chat?tenant=milena_dental",
+        json={"message": "da", "session_id": first_payload["session_id"]},
+    )
+
+    assert second.status_code == 200
+    second_payload = second.json()
+    assert second_payload["session_status"] == "collecting_contact"
+    assert second_payload["booking_progress"] is not None
+    assert second_payload["widget_payload"] is None
+    assert second_payload["inspector_payload"]["routing"]["last_response_type"] == "collecting_contact"
+
+    session_key = ai_agent._session_key("milena_dental", first_payload["session_id"])
+    state = ai_agent.SESSION_STATE[session_key]
+    assert state["scheduling_handoff"]["source"] == "scheduling_availability"
+    assert state.get("stage") == "collecting_contact"

@@ -1,3 +1,4 @@
+import pytest
 # TEST EXECUTION MANIFESTO: Before running tests, follow clinic-ai-assistant-src/backend/pytest.ini and never create repo-local pytest temp folders; use external TMP/TEMP plus --basetemp.
 from app.services.scheduling.factory import build_provider
 from app.services.scheduling.models import AvailabilityRequest, BookingRequest
@@ -169,3 +170,7 @@ def test_google_provider_resolves_backend_prefixed_relative_credentials_path():
     )
 
     assert resolved.as_posix().endswith("backend/app/config/secrets/google-service-account.json")
+
+def test_google_provider_rejects_unknown_timezone_without_local_fallback():
+    with pytest.raises(ValueError, match="Unsupported timezone without local tzdata: Mars/Olympus"):
+        GoogleCalendarSchedulingProvider._timezone_for_name("Mars/Olympus")

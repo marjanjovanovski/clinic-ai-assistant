@@ -9,6 +9,10 @@ The purpose of this template is to:
 - separate understanding, implementation, regression protection, and manual verification into clean checkpoints
 - make fix tasks easy to resume across sessions
 
+Naming rule for new fix tasks:
+- prefix the folder name and the main markdown filename with the creation timestamp in `YYYYMMDD_HHmm_` format
+- example: `20260329_1542_UI - Slot Conflict Follow-Through FIX`
+
 ## Execution Tracking Instructions
 
 Before executing any prompt in a fix task file, the implementing AI agent must first read the file and understand the current status.
@@ -44,11 +48,12 @@ Status values allowed in fix task files:
 
 ## Global Status Summary
 
-- Prompt 1 - Pending
-- Prompt 2 - Pending
-- Prompt 3 - Pending
-- Prompt 4 - Pending
-- Prompt 5 - Pending
+- Prompt 1 - Preparation - Pending
+- Prompt 2 - Targeted Fix - Pending
+- Prompt 3 - Regression Coverage - Pending
+- Prompt 4 - Technical Verification - Pending
+- Prompt 5 - Manual Testing - Pending
+- Prompt 6 - Merge To Main - Pending
 
 ## Working Rules For The Implementing AI Agent
 
@@ -73,7 +78,7 @@ Status values allowed in fix task files:
 
 Use this prompt order unless the fix is truly trivial:
 
-## Prompt 1 - Pending
+## Prompt 1 - Preparation - Pending
 
 ### Goal
 
@@ -93,7 +98,7 @@ Requirements:
 
 The bug is precisely located and the implementation boundary is clear before code changes begin.
 
-## Prompt 2 - Pending
+## Prompt 2 - Targeted Fix - Pending
 
 ### Goal
 
@@ -113,7 +118,7 @@ Requirements:
 
 The broken behavior is corrected without broadening scope unnecessarily.
 
-## Prompt 3 - Pending
+## Prompt 3 - Regression Coverage - Pending
 
 ### Goal
 
@@ -132,7 +137,7 @@ Requirements:
 
 The bug is protected against silent regression.
 
-## Prompt 4 - Pending
+## Prompt 4 - Technical Verification - Pending
 
 ### Goal
 
@@ -152,7 +157,7 @@ Requirements:
 
 The fix is technically verified and documented clearly.
 
-## Prompt 5 - Pending
+## Prompt 5 - Manual Testing - Pending
 
 ### Goal
 
@@ -170,6 +175,25 @@ Requirements:
 ### Required Outcome
 
 Manual verification and merge readiness are tracked explicitly before merge.
+
+## Prompt 6 - Merge To Main - Pending
+
+### Goal
+
+Keep the task visible and tracked until the branch is actually merged.
+
+### Instructions
+
+This prompt stays pending after manual verification is complete and only closes once the merge has actually happened.
+
+Requirements:
+- keep this prompt `Pending` while the branch is approved but not yet merged
+- mark `Merge To Main` as `Completed` only after merge is confirmed
+- archive or move the task out of `ProjectTasks_Pending` only after merge is completed
+
+### Required Outcome
+
+The task cannot silently disappear into a pending-but-unmerged state.
 
 ---
 
