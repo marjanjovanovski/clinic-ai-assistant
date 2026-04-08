@@ -46,11 +46,11 @@ The purpose of this fix follow-up is to:
 
 ## Merge To Main
 
-- `Pending`
+- `Completed`
 
 ## Current Active Prompt
 
-- `Prompt 9`
+- `Completed`
 
 ## Global Status Summary
 
@@ -62,7 +62,7 @@ The purpose of this fix follow-up is to:
 - Prompt 6 - Regression Coverage - Completed
 - Prompt 7 - Technical Verification - Completed
 - Prompt 8 - Manual Testing - Completed
-- Prompt 9 - Merge To Main - Pending
+- Prompt 9 - Merge To Main - Completed
 
 ## Source Of Follow-Up Truth
 
@@ -480,7 +480,7 @@ Retest every failed row from the parent task through the companion fix JSON and 
 - Blocked
   - none
 
-## Prompt 9 - Merge To Main - Pending
+## Prompt 9 - Merge To Main - Completed
 
 ### Goal
 
@@ -490,3 +490,13 @@ Keep merge tracking explicit and separate from implementation completion.
 
 - mark this prompt completed only after the fix work is merged
 - keep the parent task and this fix follow-up aligned on final merge state
+
+### Completion Notes
+
+- Changed
+  - updated merge tracking in [20260330_1223_AGENT - Scheduling Contract and Flow Extraction FIX 01.md](/f:/IT%20Projects/clinic-ai-assistant/clinic-ai-assistant%20docs/ProjectTasks_Pending/20260330_1223_AGENT%20-%20Scheduling%20Contract%20and%20Flow%20Extraction/20260330_1223_AGENT%20-%20Scheduling%20Contract%20and%20Flow%20Extraction%20FIX%2001.md) after merging the branch into `main`
+- Verified
+  - `agent/scheduling-contract-extraction-mvp-2026-03-30` was merged into `main`
+  - merge completed with a clean worktree on `main`
+- Blocked
+  - none
