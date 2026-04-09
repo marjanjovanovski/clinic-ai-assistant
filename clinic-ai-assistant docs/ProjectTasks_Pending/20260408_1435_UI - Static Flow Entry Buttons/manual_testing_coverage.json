@@ -1,0 +1,157 @@
+{
+  "task_name": "20260408_1435_UI - Static Flow Entry Buttons",
+  "task_file": "20260408_1435_UI - Static Flow Entry Buttons.md",
+  "status": "pending_manual_verification",
+  "manual_verification": {
+    "branch_merge_ready": false,
+    "general_comment": ""
+  },
+  "categories": [
+    {
+      "name": "Category 1 - Shell Placement And Visibility",
+      "tests": [
+        {
+          "name": "Test 1.1 - Buttons appear in a clear shell location",
+          "purpose": "Confirm the static flow-entry buttons are visible in the intended shell area and read as primary shortcuts rather than transcript content.",
+          "rows": [
+            {
+              "row_id": 1,
+              "step": 1,
+              "action": "Open the main chat page on a desktop-width viewport.",
+              "what_is_tested": "The button group is visible without needing to interact first.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "row_id": 2,
+              "step": 2,
+              "action": "Inspect the visual placement relative to the header, transcript, and input area.",
+              "what_is_tested": "The buttons feel like shell-level navigation and not like a bot message.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 2 - Direct Flow Entry Behavior",
+      "tests": [
+        {
+          "name": "Test 2.1 - `Каталог` enters catalog flow",
+          "purpose": "Confirm the catalog button immediately engages the catalog/service-list path.",
+          "rows": [
+            {
+              "row_id": 3,
+              "step": 1,
+              "action": "Load a fresh main chat session and click `Каталог`.",
+              "what_is_tested": "The click triggers the catalog-oriented flow immediately without requiring typed input first.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "row_id": 4,
+              "step": 2,
+              "action": "Inspect the immediate assistant response after clicking `Каталог`.",
+              "what_is_tested": "The response reflects catalog or service-list behavior rather than a generic fallback.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 2.2 - `Слободни термин` enters scheduling flow",
+          "purpose": "Confirm the free-slots button immediately engages availability discovery.",
+          "rows": [
+            {
+              "row_id": 5,
+              "step": 1,
+              "action": "Load a fresh main chat session and click `Слободни термин`.",
+              "what_is_tested": "The click triggers scheduling or availability behavior immediately.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "row_id": 6,
+              "step": 2,
+              "action": "Inspect the immediate assistant response and any attached widget behavior.",
+              "what_is_tested": "The result reflects availability discovery rather than catalog or generic chat.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 2.3 - `Закажи` enters booking-oriented flow",
+          "purpose": "Confirm the booking button immediately engages the safest existing booking-entry path.",
+          "rows": [
+            {
+              "row_id": 7,
+              "step": 1,
+              "action": "Load a fresh main chat session and click `Закажи`.",
+              "what_is_tested": "The click triggers booking-oriented guidance or booking entry without requiring the user to type first.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            },
+            {
+              "row_id": 8,
+              "step": 2,
+              "action": "Inspect the immediate assistant response after clicking `Закажи`.",
+              "what_is_tested": "The result matches the intended booking-entry contract and does not fall back to an unrelated flow.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Category 3 - Regression And Responsiveness",
+      "tests": [
+        {
+          "name": "Test 3.1 - Typed chat still works after using buttons",
+          "purpose": "Confirm the new shell buttons do not break the normal typed-input chat path.",
+          "rows": [
+            {
+              "row_id": 9,
+              "step": 1,
+              "action": "After using one of the static buttons, type and send a normal user message.",
+              "what_is_tested": "The existing text-input path still submits and receives a reply correctly.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        },
+        {
+          "name": "Test 3.2 - Layout remains usable on narrow width",
+          "purpose": "Confirm the shell-level buttons remain usable on a smaller viewport.",
+          "rows": [
+            {
+              "row_id": 10,
+              "step": 1,
+              "action": "Open the main chat page at a narrow mobile-like width.",
+              "what_is_tested": "The buttons remain visible, tappable, and do not break the shell layout.",
+              "status": "Not Run",
+              "comment": "",
+              "reference_files": ""
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "not_run": 10,
+    "pass": 0,
+    "fail": 0
+  }
+}
