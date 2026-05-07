@@ -8,644 +8,87 @@
   <link rel="stylesheet" href="/frontend/widgets/booking-progress/booking-progress.css" />
   <link rel="stylesheet" href="/frontend/widgets/booking-summary/booking-summary.css" />
   <link rel="stylesheet" href="/frontend/widgets/slot-list/slot-list.css" />
+  <link rel="stylesheet" href="/frontend/index-shell-variants.css" />
   <title id="pageTitle">Се вчитува...</title>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f4f4f4;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      padding: 20px;
-    }
-
-    .chat-app {
-      width: 100%;
-      max-width: 720px;
-      height: 80vh;
-      background: #ffffff;
-      border: 1px solid #dcdcdc;
-      border-radius: 12px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-    }
-
-    .chat-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid #e5e5e5;
-      font-size: 18px;
-      font-weight: 700;
-      background: #fafafa;
-    }
-
-    .chat-messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .chat-input-area {
-      display: flex;
-      gap: 10px;
-      padding: 16px;
-      border-top: 1px solid #e5e5e5;
-      background: #ffffff;
-    }
-
-    .chat-input {
-      flex: 1;
-      padding: 12px;
-      border: 1px solid #cfcfcf;
-      border-radius: 10px;
-      font-size: 16px;
-      outline: none;
-    }
-
-    .chat-input:focus {
-      border-color: #888;
-    }
-
-    .send-button {
-      padding: 12px 18px;
-      border: none;
-      border-radius: 10px;
-      background: #111827;
-      color: #ffffff;
-      font-size: 15px;
-      cursor: pointer;
-    }
-
-    .send-button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .status {
-      padding: 0 16px 12px 16px;
-      font-size: 13px;
-      color: #666666;
-    }
-  </style>
 </head>
-<body>
-  <div class="chat-app">
-    <div class="chat-header" id="chatHeader">Се вчитува...</div>
-    <div class="flow-entry-strip" aria-label="Брзи акции">
-      <button type="button" class="flow-entry-button" data-flow-entry="catalog">Каталог</button>
-      <button type="button" class="flow-entry-button" data-flow-entry="availability">Слободни термини</button>
-      <button type="button" class="flow-entry-button" data-flow-entry="booking">Закажи</button>
-    </div>
-    <div class="booking-progress" id="bookingProgress">
-      <div class="booking-progress-header">
-        <div class="booking-progress-title" id="bookingProgressTitle">Закажување во тек</div>
-        <div class="booking-progress-controls">
-          <div class="booking-progress-status" id="bookingProgressStatus">0 / 3</div>
-          <button
-            type="button"
-            class="booking-reset-button"
-            id="bookingResetButton"
-            data-tooltip="Почни од почеток"
-            aria-label="Почни од почеток"
-            hidden
-          >
-            <span class="booking-reset-icon" aria-hidden="true">&#8634;</span>
-          </button>
-        </div>
-      </div>
-      <div class="booking-progress-steps" id="bookingProgressSteps"></div>
-    </div>
+<body class="shell-variant variant-grid">
+  <div class="shell-page">
+    <div class="shell-stage">
+      <div class="shell-ambient shell-ambient-a" aria-hidden="true"></div>
+      <div class="shell-ambient shell-ambient-b" aria-hidden="true"></div>
 
-    <div class="booking-summary" id="bookingSummary">
-      <div class="booking-summary-header">
-        <div>
-          <div class="booking-summary-title" id="bookingSummaryTitle">Резиме на барањето</div>
-          <div class="booking-summary-subtitle" id="bookingSummarySubtitle"></div>
+      <div class="chat-app">
+        <div class="chat-header-row">
+          <div class="chat-header" id="chatHeader">Се вчитува...</div>
+          <div class="shell-brand-mark shell-brand-mark-header" aria-hidden="true"></div>
         </div>
-        <div class="booking-summary-badge" id="bookingSummaryBadge">Привремен термин</div>
-      </div>
-      <div class="booking-summary-grid">
-        <div class="booking-summary-card">
-          <div class="booking-summary-label">Услуга</div>
-          <div class="booking-summary-value" id="bookingSummaryService"></div>
+        <div class="flow-entry-strip" aria-label="Брзи акции">
+          <button type="button" class="flow-entry-button" data-flow-entry="catalog">Каталог</button>
+          <button type="button" class="flow-entry-button" data-flow-entry="availability">Слободни термини</button>
+          <button type="button" class="flow-entry-button" data-flow-entry="booking">Закажи</button>
         </div>
-        <div class="booking-summary-card">
-          <div class="booking-summary-label">Термин</div>
-          <div class="booking-summary-value" id="bookingSummaryAppointment"></div>
+        <div class="booking-progress" id="bookingProgress">
+          <div class="booking-progress-header">
+            <div class="booking-progress-title" id="bookingProgressTitle">Закажување во тек</div>
+            <div class="booking-progress-controls">
+              <div class="booking-progress-status" id="bookingProgressStatus">0 / 3</div>
+              <button
+                type="button"
+                class="booking-reset-button"
+                id="bookingResetButton"
+                data-tooltip="Почни од почеток"
+                aria-label="Почни од почеток"
+                hidden
+              >
+                <span class="booking-reset-icon" aria-hidden="true">&#8634;</span>
+              </button>
+            </div>
+          </div>
+          <div class="booking-progress-steps" id="bookingProgressSteps"></div>
         </div>
-      </div>
-      <div class="booking-summary-fields" id="bookingSummaryFields"></div>
-      <div class="booking-summary-note" id="bookingSummaryNote" hidden>
-        <div class="booking-summary-note-label" id="bookingSummaryNoteLabel">Забелешка од пациентот</div>
-        <div class="booking-summary-note-value" id="bookingSummaryNoteValue"></div>
+
+        <div class="booking-summary" id="bookingSummary">
+          <div class="booking-summary-header">
+            <div>
+              <div class="booking-summary-title" id="bookingSummaryTitle">Резиме на барањето</div>
+              <div class="booking-summary-subtitle" id="bookingSummarySubtitle"></div>
+            </div>
+            <div class="booking-summary-badge" id="bookingSummaryBadge">Привремен термин</div>
+          </div>
+          <div class="booking-summary-grid">
+            <div class="booking-summary-card">
+              <div class="booking-summary-label">Услуга</div>
+              <div class="booking-summary-value" id="bookingSummaryService"></div>
+            </div>
+            <div class="booking-summary-card">
+              <div class="booking-summary-label">Термин</div>
+              <div class="booking-summary-value" id="bookingSummaryAppointment"></div>
+            </div>
+          </div>
+          <div class="booking-summary-fields" id="bookingSummaryFields"></div>
+          <div class="booking-summary-note" id="bookingSummaryNote" hidden>
+            <div class="booking-summary-note-label" id="bookingSummaryNoteLabel">Забелешка од пациентот</div>
+            <div class="booking-summary-note-value" id="bookingSummaryNoteValue"></div>
+          </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages"></div>
+
+        <div class="chat-input-area">
+          <input
+            type="text"
+            id="messageInput"
+            class="chat-input"
+            placeholder="Напишете порака..."
+          />
+          <button id="sendButton" class="send-button">Испрати</button>
+        </div>
+
+        <div class="status" id="statusText">Подготвено</div>
       </div>
     </div>
-
-    <div class="chat-messages" id="chatMessages"></div>
-
-    <div class="chat-input-area">
-      <input
-        type="text"
-        id="messageInput"
-        class="chat-input"
-        placeholder="Напишете порака..."
-      />
-      <button id="sendButton" class="send-button">Испрати</button>
-    </div>
-
-    <div class="status" id="statusText">Подготвено</div>
   </div>
 
-  <script type="module">
-    import { resolveTenantFromPath } from "/frontend/chat/chat-shell.js";
-    import { bindTextInputSubmission, setInputBusyState } from "/frontend/chat/chat-input.js";
-    import { createBookingSummaryHistory } from "/frontend/widgets/booking-summary/booking-summary.js";
-    import {
-      addSlotListConversationWidget,
-      createConversationWidgetDispatcher,
-      createConversationWidgetRegistry,
-      registerDefaultConversationWidgets,
-    } from "/frontend/widgets/widget-registry.js";
-
-    const chatMessages = document.getElementById("chatMessages");
-    const messageInput = document.getElementById("messageInput");
-    const sendButton = document.getElementById("sendButton");
-    const statusText = document.getElementById("statusText");
-    const chatHeader = document.getElementById("chatHeader");
-    const flowEntryButtons = Array.from(document.querySelectorAll("[data-flow-entry]"));
-    const bookingProgress = document.getElementById("bookingProgress");
-    const bookingProgressTitle = document.getElementById("bookingProgressTitle");
-    const bookingProgressStatus = document.getElementById("bookingProgressStatus");
-    const bookingProgressSteps = document.getElementById("bookingProgressSteps");
-    const bookingResetButton = document.getElementById("bookingResetButton");
-    const bookingSummary = document.getElementById("bookingSummary");
-    const bookingSummaryTemplate = bookingSummary.cloneNode(true);
-    bookingSummary.remove();
-
-    const tenant = resolveTenantFromPath(window.location.pathname, "generic");
-    const sessionStorageKey = `clinic-ai-session:${tenant}`;
-    let sessionId = window.localStorage.getItem(sessionStorageKey) || null;
-    let isSending = false;
-    let tenantConfig = null;
-
-    const API_URL = `/chat?tenant=${encodeURIComponent(tenant)}`;
-    const FLOW_ACTION_URL = `/chat/action?tenant=${encodeURIComponent(tenant)}`;
-    const CONFIG_URL = `/config/${encodeURIComponent(tenant)}`;
-    const SELECT_SLOT_URL = `/scheduling/select-slot?tenant=${encodeURIComponent(tenant)}`;
-    const FLOW_ENTRY_COPY = {
-      mk: {
-        catalog: {
-          label: "Каталог",
-        },
-        availability: {
-          label: "Слободни термини",
-        },
-        booking: {
-          label: "Закажи",
-        },
-      },
-      en: {
-        catalog: {
-          label: "Catalog",
-        },
-        availability: {
-          label: "Available slots",
-        },
-        booking: {
-          label: "Book now",
-        },
-      },
-    };
-
-    const widgetRegistry = registerDefaultConversationWidgets(
-      createConversationWidgetRegistry(),
-      {
-        bookingSummaryTemplate,
-        labelForField,
-      }
-    );
-
-    const conversationDispatcher = createConversationWidgetDispatcher({
-      container: chatMessages,
-      registry: widgetRegistry,
-      afterAppend({ kind, sender }) {
-        if (kind === "message" && sender === "bot") {
-          bookingSummaryHistory.flushPending();
-        }
-      }
-    });
-
-    const bookingSummaryHistory = createBookingSummaryHistory({
-      template: bookingSummaryTemplate,
-      labelForField,
-      appendSummary(summary) {
-        return conversationDispatcher.addWidget(
-          "booking-summary",
-          { summary },
-          {
-            template: bookingSummaryTemplate,
-            labelForField,
-          }
-        ).element;
-      },
-    });
-
-    const bookingProgressWidget = widgetRegistry.mount("booking-progress", {
-      root: bookingProgress,
-      titleElement: bookingProgressTitle,
-      statusElement: bookingProgressStatus,
-      stepsElement: bookingProgressSteps,
-      resetButton: bookingResetButton,
-      onEditField: beginBookingFieldEdit,
-      labelForField,
-      summaryHistory: bookingSummaryHistory,
-    }).widget;
-
-    function addMessage(text, sender) {
-      return conversationDispatcher.addTextMessage(text, sender);
-    }
-
-    function isSlotListWidgetPayload(widgetPayload) {
-      return Boolean(
-        widgetPayload &&
-        widgetPayload.type === "slot-list" &&
-        Array.isArray(widgetPayload.slots) &&
-        widgetPayload.slots.length
-      );
-    }
-
-    function getPrimaryReplyText(replyText, widgetPayload) {
-      if (typeof replyText !== "string" || !replyText.trim()) {
-        return "";
-      }
-
-      if (!isSlotListWidgetPayload(widgetPayload)) {
-        return replyText.trim();
-      }
-
-      const [primaryReply] = replyText.split(/\n\s*\n/, 1);
-      return String(primaryReply || "").trim();
-    }
-
-    function syncSessionId(nextSessionId) {
-      if (!nextSessionId) {
-        return;
-      }
-
-      sessionId = nextSessionId;
-      window.localStorage.setItem(sessionStorageKey, sessionId);
-    }
-
-    function updateStatusFromSessionStatus(nextSessionStatus, fallbackText = "Подготвено") {
-      statusText.textContent = nextSessionStatus === "completed"
-        ? "Барањето е завршено."
-        : nextSessionStatus === "collecting_contact"
-          ? "Се собираат контакт податоци."
-          : fallbackText;
-    }
-
-    function flowEntryLanguage(config = null) {
-      const language = String(config?.business?.language || "").trim().toLowerCase();
-      return language.startsWith("mk") ? "mk" : "en";
-    }
-
-    function flowEntryConfig(entryKey, config = null) {
-      const language = flowEntryLanguage(config);
-      const localizedConfig = FLOW_ENTRY_COPY[language] || FLOW_ENTRY_COPY.en;
-      return localizedConfig[entryKey] || null;
-    }
-
-    function syncFlowEntryButtonCopy(config = null) {
-      for (const button of flowEntryButtons) {
-        const entryConfig = flowEntryConfig(button.dataset.flowEntry, config);
-        if (!entryConfig) {
-          continue;
-        }
-        button.textContent = entryConfig.label;
-        button.setAttribute("aria-label", entryConfig.label);
-      }
-    }
-
-    function setActiveFlowEntryButton(activeKey = "") {
-      for (const button of flowEntryButtons) {
-        button.classList.toggle("is-active", Boolean(activeKey) && button.dataset.flowEntry === activeKey);
-      }
-    }
-
-    function applyBackendConversationUpdate(data, options = {}) {
-      const {
-        fallbackReply = "Нема одговор од серверот.",
-        fallbackStatus = "Подготвено",
-        includeWidget = false,
-        includeSelectedSlot = false,
-      } = options;
-
-      syncSessionId(data.session_id);
-      updateBookingProgress(data.booking_progress);
-
-      const primaryReplyText = getPrimaryReplyText(data.reply, includeWidget ? data.widget_payload : null);
-      addMessage(primaryReplyText || fallbackReply, "bot");
-
-      if (includeWidget) {
-        addResponseWidget(data.widget_payload, { hideTitle: Boolean(primaryReplyText) });
-      }
-      if (includeSelectedSlot) {
-        addSelectedSlotWidget(data.selected_slot);
-      }
-
-      updateStatusFromSessionStatus(data.session_status, fallbackStatus);
-    }
-
-    async function handleSlotSelection(slot, widgetPayload, slotListWidget) {
-      if (!sessionId) {
-        addMessage("Нема активна chat сесија за избор на термин.", "bot");
-        statusText.textContent = "Недостасува chat сесија.";
-        slotListWidget.enableAll();
-        return;
-      }
-
-      slotListWidget.disableAll();
-      addMessage(`Го избирам овој термин: ${slot.display_label}`, "user");
-      statusText.textContent = "Се испраќа изборот на термин...";
-
-      try {
-        const response = await fetch(SELECT_SLOT_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            session_id: sessionId,
-            service_id: widgetPayload.service_id,
-            slot_id: slot.slot_id
-          })
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.detail || `HTTP error: ${response.status}`);
-        }
-
-        applyBackendConversationUpdate(data, {
-          fallbackReply: "Изборот на термин е примен.",
-          fallbackStatus: "Терминот е избран.",
-          includeWidget: true,
-          includeSelectedSlot: true,
-        });
-      } catch (error) {
-        addMessage(`Неуспешен избор на термин. ${error.message}`, "bot");
-        statusText.textContent = `Грешка: ${error.message}`;
-        slotListWidget.enableAll();
-      }
-    }
-
-    function addResponseWidget(widgetPayload, options = {}) {
-      if (!widgetPayload || widgetPayload.type !== "slot-list") {
-        return null;
-      }
-
-      const slots = Array.isArray(widgetPayload.slots) ? widgetPayload.slots : [];
-      if (!slots.length) {
-        return null;
-      }
-
-      const { hideTitle = false, readOnly = false } = options;
-
-      return addSlotListConversationWidget(conversationDispatcher, {
-        title: hideTitle ? null : (widgetPayload.title || "Изберете термин:"),
-        slots,
-        onSelect: (slot, slotListWidget) => handleSlotSelection(slot, widgetPayload, slotListWidget),
-        readOnly,
-      }, { sender: "bot" });
-    }
-
-    function buildSelectedSlotWidgetPayload(selectedSlot) {
-      if (!selectedSlot || typeof selectedSlot !== "object") {
-        return null;
-      }
-
-      return {
-        type: "slot-list",
-        title: null,
-        slots: [selectedSlot],
-      };
-    }
-
-    function addSelectedSlotWidget(selectedSlot) {
-      const widgetPayload = buildSelectedSlotWidgetPayload(selectedSlot);
-      if (!widgetPayload) {
-        return null;
-      }
-
-      return addResponseWidget(widgetPayload, {
-        hideTitle: true,
-        readOnly: true,
-      });
-    }
-
-    async function performSend(userMessage, options = {}) {
-      const { showUserMessage = true, activeFlowEntry = "" } = options;
-
-      if (isSending) {
-        return;
-      }
-
-      const trimmedMessage = String(userMessage || "").trim();
-      if (!trimmedMessage) {
-        return;
-      }
-
-      isSending = true;
-      setActiveFlowEntryButton(activeFlowEntry);
-      if (showUserMessage) {
-        addMessage(trimmedMessage, "user");
-      }
-      messageInput.value = "";
-      setInputBusyState({ input: messageInput, button: sendButton, isBusy: true });
-      statusText.textContent = "Се испраќа...";
-
-      try {
-        const response = await fetch(API_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            message: trimmedMessage,
-            session_id: sessionId
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        applyBackendConversationUpdate(data, {
-          fallbackReply: "Нема одговор од серверот.",
-          fallbackStatus: "Подготвено",
-          includeWidget: true,
-        });
-      } catch (error) {
-        addMessage("Настана грешка при поврзување со системот.", "bot");
-        statusText.textContent = `Грешка: ${error.message}`;
-      } finally {
-        isSending = false;
-        setActiveFlowEntryButton("");
-        setInputBusyState({ input: messageInput, button: sendButton, isBusy: false });
-        messageInput.focus();
-      }
-    }
-
-    function handleFlowEntryClick(entryKey) {
-      if (isSending) {
-        return;
-      }
-
-      const entryConfig = flowEntryConfig(entryKey, tenantConfig);
-      if (!entryConfig) {
-        return;
-      }
-
-      performFlowEntryAction(entryKey);
-    }
-
-    async function performFlowEntryAction(action) {
-      if (isSending) {
-        return;
-      }
-
-      isSending = true;
-      setActiveFlowEntryButton(action);
-      setInputBusyState({ input: messageInput, button: sendButton, isBusy: true });
-      statusText.textContent = "Се отвора избраниот тек...";
-
-      try {
-        const response = await fetch(FLOW_ACTION_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            action,
-            session_id: sessionId,
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        applyBackendConversationUpdate(data, {
-          fallbackReply: "Нема одговор од серверот.",
-          fallbackStatus: "Подготвено",
-          includeWidget: true,
-        });
-      } catch (error) {
-        addMessage("Настана грешка при отворање на избраниот тек.", "bot");
-        statusText.textContent = `Грешка: ${error.message}`;
-      } finally {
-        isSending = false;
-        setActiveFlowEntryButton("");
-        setInputBusyState({ input: messageInput, button: sendButton, isBusy: false });
-        messageInput.focus();
-      }
-    }
-
-    function beginBookingFieldEdit(fieldName) {
-      if (!sessionId || !fieldName) {
-        return;
-      }
-      performSend(`__booking_edit__:${fieldName}`, { showUserMessage: false });
-    }
-
-    async function resetConversation() {
-      if (isSending) {
-        return;
-      }
-
-      sessionId = null;
-      window.localStorage.removeItem(sessionStorageKey);
-      bookingSummaryHistory.reset();
-      bookingProgressWidget.reset();
-      statusText.textContent = "Подготвено";
-      messageInput.value = "";
-      await loadTenantConfig();
-      messageInput.focus();
-    }
-
-    function labelForField(fieldName) {
-      if (fieldName === "name") return "Име";
-      if (fieldName === "phone") return "Телефон";
-      if (fieldName === "email") return "Е-пошта";
-      return fieldName;
-    }
-
-    function updateBookingProgress(progress) {
-      bookingProgressWidget.update(progress);
-    }
-
-    async function loadTenantConfig() {
-      try {
-        const response = await fetch(CONFIG_URL);
-
-        if (!response.ok) {
-          throw new Error(`HTTP error: ${response.status}`);
-        }
-
-        const config = await response.json();
-        tenantConfig = config;
-        const businessName = config.business?.name || config.assistant?.name || "Асистент";
-        const greeting = config.conversation?.greeting || "Здраво! Како можам да ви помогнам денес?";
-        syncFlowEntryButtonCopy(config);
-
-        chatHeader.textContent = businessName;
-        document.title = businessName;
-
-        conversationDispatcher.clear();
-        bookingSummaryHistory.reset();
-        bookingProgressWidget.reset();
-        addMessage(greeting, "bot");
-      } catch (error) {
-        tenantConfig = null;
-        syncFlowEntryButtonCopy();
-        chatHeader.textContent = "Асистент";
-        document.title = "Асистент";
-        conversationDispatcher.clear();
-        bookingSummaryHistory.reset();
-        bookingProgressWidget.reset();
-        addMessage("Здраво! Како можам да ви помогнам денес?", "bot");
-        console.error("Failed to load tenant config:", error);
-      }
-    }
-
-    async function sendMessage() {
-      const userMessage = messageInput.value.trim();
-      await performSend(userMessage, { showUserMessage: true });
-    }
-
-    bindTextInputSubmission({
-      input: messageInput,
-      button: sendButton,
-      onSubmit: sendMessage,
-    });
-    bookingResetButton.addEventListener("click", resetConversation);
-    for (const button of flowEntryButtons) {
-      button.addEventListener("click", () => handleFlowEntryClick(button.dataset.flowEntry));
-    }
-
-    loadTenantConfig();
-  </script>
+  <script type="module" src="/frontend/index-shell-app.js"></script>
 </body>
 </html>

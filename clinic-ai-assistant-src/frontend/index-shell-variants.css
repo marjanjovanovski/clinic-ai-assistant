@@ -9,8 +9,9 @@
 }
 
 body.shell-variant {
-  min-height: 100vh;
+  height: 100vh;
   margin: 0;
+  overflow: hidden;
   font-family: var(--shell-font-body);
   color: var(--shell-text, #172033);
   background:
@@ -20,16 +21,18 @@ body.shell-variant {
 }
 
 .shell-page {
-  min-height: 100vh;
+  height: 100vh;
   padding: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 .shell-stage {
   position: relative;
   width: min(1180px, 100%);
+  height: 100%;
   padding: clamp(18px, 3vw, 40px);
   border: 1px solid var(--shell-stage-border, rgba(23, 32, 51, 0.08));
   border-radius: var(--shell-stage-radius, 28px);
@@ -37,32 +40,6 @@ body.shell-variant {
   box-shadow: var(--shell-stage-shadow, 0 24px 70px rgba(15, 23, 42, 0.12));
   overflow: hidden;
   isolation: isolate;
-}
-
-.shell-variant-label {
-  position: relative;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 18px;
-  padding: 10px 14px;
-  border: 1px solid var(--shell-chip-border, rgba(23, 32, 51, 0.1));
-  border-radius: var(--shell-chip-radius, 999px);
-  background: var(--shell-chip-bg, rgba(255, 255, 255, 0.72));
-  color: var(--shell-chip-text, inherit);
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.shell-variant-label::before {
-  content: "";
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
-  background: var(--shell-chip-dot, currentColor);
-  opacity: 0.7;
 }
 
 .shell-ambient {
@@ -95,7 +72,8 @@ body.shell-variant {
   position: relative;
   z-index: 1;
   width: min(720px, 100%);
-  min-height: 80vh;
+  height: 100%;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -104,16 +82,6 @@ body.shell-variant {
   background: var(--shell-card-bg, rgba(255, 255, 255, 0.94));
   box-shadow: var(--shell-card-shadow, 0 18px 42px rgba(15, 23, 42, 0.18));
   backdrop-filter: blur(var(--shell-card-blur, 0));
-}
-
-.shell-brand-row {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 20px 0 20px;
-  color: var(--shell-brand-text, var(--shell-text, #172033));
 }
 
 .shell-brand-mark {
@@ -128,19 +96,34 @@ body.shell-variant {
   box-shadow: var(--shell-brand-shadow, none);
 }
 
-.shell-brand-caption {
-  font-size: 12px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  opacity: 0.72;
+.shell-brand-mark-header {
+  width: 86px;
+  height: 86px;
+  border-left: 2px solid rgba(29, 81, 107, 0.18);
+  border-bottom: 2px solid rgba(29, 81, 107, 0.18);
+  border-top: 0;
+  border-right: 0;
+  border-radius: 0;
+  background:
+    center / 56% no-repeat var(--shell-symbol-url),
+    rgba(228, 238, 244, 0.9);
+  box-shadow: none;
+}
+
+.chat-header-row {
+  position: relative;
+  z-index: 1;
+  border-bottom: 1px solid var(--shell-divider, rgba(23, 32, 51, 0.12));
+  background: var(--shell-header-bg, transparent);
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
 }
 
 .chat-header {
-  position: relative;
-  z-index: 1;
+  flex: 1;
+  min-width: 0;
   padding: 18px 20px 16px 20px;
-  border-bottom: 1px solid var(--shell-divider, rgba(23, 32, 51, 0.12));
-  background: var(--shell-header-bg, transparent);
   color: var(--shell-header-text, inherit);
   font-family: var(--shell-header-font, var(--shell-font-body));
   font-size: clamp(20px, 2.4vw, 28px);
@@ -392,17 +375,7 @@ body.shell-variant {
 }
 
 .variant-grid .chat-app::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 84px;
-  height: 84px;
-  border-left: 2px solid rgba(29, 81, 107, 0.18);
-  border-bottom: 2px solid rgba(29, 81, 107, 0.18);
-  background:
-    center / 56% no-repeat var(--shell-symbol-url),
-    rgba(228, 238, 244, 0.9);
+  content: none;
 }
 
 .variant-botanical .status::after {
@@ -429,18 +402,18 @@ body.shell-variant {
     padding: 14px;
   }
 
-  .shell-variant-label {
-    margin-bottom: 12px;
-    font-size: 11px;
-    letter-spacing: 0.14em;
-  }
-
   .chat-app {
-    min-height: calc(100vh - 56px);
+    height: 100%;
+    max-height: 100%;
   }
 
-  .shell-brand-row {
-    padding-top: 14px;
+  .chat-header-row {
+    align-items: flex-start;
+  }
+
+  .shell-brand-mark-header {
+    width: 72px;
+    height: 72px;
   }
 
   .chat-input-area {
