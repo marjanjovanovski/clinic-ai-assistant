@@ -1,102 +1,110 @@
 # Clinic AI Assistant
 
+This repository is a pre-production work environment for a clinic-focused AI assistant, not just a product snapshot. It contains the application itself, the supporting architecture around booking and scheduling, and the AI-assisted delivery workflow I used to move requirements from idea to verified code on `main`.
+
+The project is being developed toward MVP release, so the repo intentionally shows both product implementation and the working environment used to shape, test, and stabilize that implementation.
+
+## What This Repo Contains
+
+1. Product code for a FastAPI-based clinic assistant with chat, booking, and scheduling capabilities.
+2. A lightweight frontend used to exercise patient-facing flows and interaction patterns.
+3. Tenant-driven configuration that keeps business wording and conversation rules outside Python code.
+4. Scheduling infrastructure with provider abstraction, mock scheduling support, and Google Calendar integration.
+5. Automated tests covering key backend and frontend integration paths.
+6. Task and verification artifacts that document how requirements were approved, implemented, reviewed, and prepared for merge.
+7. An AI collaboration workflow that I used as a practical developer tool rather than just a code generator.
+
+## Why This Repo Exists
+
+I built this project as both a product and a working engineering system.
+
+The product goal is to support clinic-facing conversational flows such as:
+- service discovery
+- appointment intent capture
+- booking confirmation
+- scheduling availability lookup
+- contact collection continuity across sessions
+
+The engineering goal is to make delivery structured and repeatable. During MVP development I allowed the repository to grow naturally so I could learn what needed to exist around the product itself: architecture rules, scoped task files, verification checkpoints, testing discipline, and a stable AI-assisted workflow for shipping changes safely.
+
+## How AI Was Used
+
+AI was part of the development workflow throughout this repo.
+
+I used AI to:
+- break larger work into smaller prompt-sized implementation units
+- compare implementation approaches before coding
+- accelerate boilerplate and integration work
+- propose and refine regression tests
+- help document verification steps and prompt boundaries
+- keep changes small enough to review and commit cleanly
+
+The important part is that AI was not used as an autopilot. The repo reflects an increasingly stable process where a requirement is scoped, implemented, technically verified, manually checked when needed, and only then proposed for commit to `main`.
+
 ## Implemented
 
 - FastAPI backend with `/chat`, `/config/{tenant}`, `/agent/{tenant}`, and `/health`
-- Isolated scheduling backend with `/scheduling/config/{tenant}`, `/scheduling/availability`, and `/scheduling/book`
-- OpenAI-powered response generation through `client.responses.create(...)`
-- JSON tenant profiles loaded from `clinic-ai-assistant-src/backend/app/config/profiles/`
-- Lightweight HTML/JS frontend served by the backend
-- Isolated scheduling sandbox served from `clinic-ai-assistant-src/frontend/cal.html`
+- scheduling endpoints for configuration, availability lookup, and booking
+- OpenAI-powered response generation through the Responses API
+- JSON tenant profiles for conversation rules and business-specific configuration
+- lightweight HTML/JS frontend served by the backend
 - SQLite-based lead checkpoint persistence
-- Booking state machine with these backend states:
-  - `awaiting_booking_confirmation`
-  - `collecting_contact`
-  - `completed`
-- Session-based booking continuity with completed-session rollover
-- Scheduling-capability orchestration inside `ai_agent.py` for availability-first requests
-- Scheduling-first coexistence flags in tenant profiles, including `allow_scheduling_first` for `milena_dental`
-- Scheduling service layer with normalized models, provider factory wiring, and tenant-driven scheduling config validation
-- Deterministic mock scheduling provider for isolated slot and booking testing
-- Google Calendar scheduling provider with live-validated availability lookup and booking event creation
-- Scheduling-capability tests that verify orchestrator-safe availability and booking request handoff
+- booking state machine for confirmation, contact collection, and completion
+- session-based booking continuity with completed-session rollover
+- scheduling orchestration for availability-first requests
+- mock scheduling provider for deterministic testing
+- Google Calendar scheduling provider for live availability lookup and booking
+- integration and regression coverage around booking and scheduling behavior
 
-## Prototype / In Progress
+## Pre-Production Characteristics
 
-- Booking flow hardening through canonical intent normalization
-- Multi-tenant support beyond the sample tenants
-- Frontend session-status awareness
-- Localized Macedonian shell text for the default frontend
-- Safe end-to-end completion of scheduling-selected slots through the main chat flow
-- Patient-facing confirmation delivery beyond direct Google Calendar event creation
+This repo is useful to review as a case study because it shows work before final production cleanup.
 
-## Planned
+That means it still includes evidence of:
+- evolving repo structure during MVP development
+- active task-management and verification documents
+- decisions about what belongs in product code versus configuration
+- experimentation around frontend shells and scheduling flow handling
+- a growing but already stabilized AI-assisted delivery process
 
-- Broader tenant-specific service catalogs and richer profile validation
-- Additional observability and debug tooling
-- More complete automated regression coverage
-- Stronger deployment and environment hardening
-- Future provider expansion beyond Google Calendar, such as Calendly
+If I were preparing the long-term production repo today, I would further separate public product code, internal workflow artifacts, and archived implementation history. I left those layers together during MVP so I could optimize for learning speed and safe iteration first.
 
-## Scheduling Notes
+## Architecture Principles
 
-- The scheduling subsystem is no longer only an isolated backend sandbox.
-- `ai_agent.py` now recognizes availability-first intent when tenant config enables scheduling-first coexistence.
-- The current bridge is partial by design: availability assessment and slot surfacing can begin from chat, while final booking still stays behind the existing credential-collection safeguards.
-- `clinic-ai-assistant-src/frontend/cal.html` is now both a sandbox and a scheduling-chat surface for exercising the live scheduling endpoints alongside chat UI state.
-- `clinic-ai-assistant-src/backend/app/config/profiles/milena_dental.json` currently uses `google_calendar` as the active scheduling provider.
-- `clinic-ai-assistant-src/backend/app/config/profiles/milena_dental.json` currently enables both `allow_booking` and `allow_scheduling_first`, so booking-first and availability-first paths can coexist for the main tenant.
-- The Google provider currently uses service-account authentication.
-- In this service-account mode, booking creates a Google Calendar event without attendee invites or Google email updates.
-- That behavior is intentional because Google blocks attendee invites for service accounts without Domain-Wide Delegation.
+- Configuration separation: Python contains logic and orchestration, while wording, triggers, and business-specific content live in tenant JSON.
+- Verification before merge: tracked prompts are expected to stop at real execution boundaries so changes can be checked before they move forward.
+- Scheduling isolation with integration paths: scheduling can be developed and tested in a controlled way while still connecting back into the main chat flow.
+- Multi-tenant direction: the structure is designed so onboarding a new business should be driven primarily by configuration rather than backend rewrites.
 
-## Test Execution Hygiene
+## Current State
 
-- Do not use repo-local pytest temp folders such as `.pytest_*`, `_codex_pytest_tmp`, ad hoc `pytest_*` folders, or similar writable fallbacks under `clinic-ai-assistant-src/backend/`.
-- Do not rely on Python bytecode caches inside the repo as a normal test side effect. Prefer running test commands with `PYTHONDONTWRITEBYTECODE=1` so repeated test runs do not keep generating `__pycache__/` trees in project folders.
-- For backend pytest runs, always prefer an external temp root outside the repo and pin all temp behavior there with `TMP`, `TEMP`, and `--basetemp`.
-- Known-good temp root for this workspace: `F:\temp\clinic-ai-assistant`
-- Known-good backend integration command pattern:
+The system is functional as an MVP-stage clinic assistant, with working chat, booking-state handling, and scheduling support. It is not yet a polished production repository, and that is part of why I use it as a useful engineering case study: it shows how the product and the workflow around it matured together.
 
-```powershell
-$env:TMP='F:\temp\clinic-ai-assistant'
-$env:TEMP='F:\temp\clinic-ai-assistant'
-$env:PYTHONDONTWRITEBYTECODE='1'
-.\.venv\Scripts\python.exe -m pytest .\tests\integration\test_req_booking_flow.py .\tests\integration\test_frontend_booking_ui.py -vv --basetemp="F:\temp\clinic-ai-assistant\pytest-integration-codex"
-```
+Current areas still being improved include:
+- broader regression coverage
+- stronger repo separation and cleanup ahead of release
+- more complete multi-tenant hardening
+- frontend/session-state polish
+- production-oriented deployment and observability hardening
 
-- If an external temp path fails, do not fall back to creating new temp folders inside the repo. Stop, report the temp-path failure, and reuse or repair the external temp location instead.
+## Repository Layout
 
-## Architecture Rule
+- `clinic-ai-assistant-src/backend/` - backend services, routing, orchestration, config loading, and tests
+- `clinic-ai-assistant-src/frontend/` - lightweight frontend and scheduling/chat interaction surfaces
+- `clinic-ai-assistant-src/configs/` - supporting configuration assets
+- `clinic-ai-assistant-src/AI_sync/` - repository-level coordination and architecture context used during active development
+- `clinic-ai-assistant docs/` - task files, planning material, architecture notes, and verification artifacts
+- `clinic-ai-assistant-src/lessons_learned_repo/` - separate learning/history support layer outside the live runtime path
 
-### ARCHITECTURE RULE - CONFIGURATION SEPARATION
+## What I Would Improve Next
 
-1. Python files must never contain:
-   - trigger phrases
-   - language patterns
-   - business wording
-   - booking confirmation words
-   - fallback texts
-2. All such content must exist only inside tenant profile JSON.
-3. Onboarding a new business must require only creating a new JSON configuration file.
+The next major improvement would be repo structure cleanup for post-MVP life. Right now the repository intentionally acts as both product container and AI-collaboration work environment. After MVP, I would split those responsibilities more clearly so outside contributors could understand the codebase faster without losing the process discipline that helped the project move reliably.
 
-The backend Python layer is reserved for:
-- logic
-- routing
-- state machine behavior
-- orchestration
+## Why This Is A Good Case Study
 
-The tenant profile layer is reserved for:
-- reply wording
-- trigger lists
-- conversation rules
-- catalog content
-- booking/contact prompts
-
-## Day 4.4
-
-### DAY 4.4 ARCHITECTURE RULE CONFIRMATION
-
-- Configuration has been extracted from `ai_agent.py` into tenant profile JSON.
-- Python now loads conversation rules dynamically from profile JSON.
-- The rule `NO CONFIGURATION IN PYTHON` is active and should be reviewed before any future backend change.
+This repo shows more than feature implementation. It shows how I think about:
+- translating requirements into scoped execution steps
+- keeping business wording out of backend logic
+- validating higher-risk flows with tests and verification checkpoints
+- using AI to improve delivery quality, not only coding speed
+- evolving a codebase responsibly while still shipping toward an MVP deadline
