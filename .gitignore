@@ -1,17 +1,53 @@
+# Virtual environments
 .venv/
+venv/
+
+# Python cache / build artifacts
 __pycache__/
-*.pyc
-.env
-.vscode/
-*.db
-clinic-ai-assistant-src/backend/db/assistant_velika.db
+*.py[cod]
+*.pyo
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Environment files
+.env
+.env.*
+**/.env
+**/.env.*
+*.env
+
+# Secrets / credentials
+google-service-account.json
+**/google-service-account.json
+*.pem
+*.key
+secrets/
+**/secrets/
+
+# Local databases and runtime state
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs and traces
+*.log
+**/runtime_traces/
+
+# Temp / test scratch
 _pytest_tmp_backend/
 **/.pytest_tmp/
 **/.pytest_runtime_tmp/
-**/runtime_traces/
+tmp/
+temp/
+static-code-analysis/
+
+# IDE / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local notes / prompt scratch
 FollowUpWithAris.txt
-google-service-account.json
 .codex-task*-prompt.txt
-static-code-analysis
-ruff.toml
