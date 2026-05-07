@@ -4,6 +4,8 @@ This repository is a pre-production work environment for a clinic-focused AI ass
 
 The project is being developed toward MVP release, so the repo intentionally shows both product implementation and the working environment used to shape, test, and stabilize that implementation.
 
+Before post-MVP cleanup, this repository is optimized for solo development and CLI-based AI collaboration, not yet for extended team usage. After MVP, the structure should be streamlined to separate product code, workflow artifacts, and supporting development utilities more clearly.
+
 ## What This Repo Contains
 
 1. Product code for a FastAPI-based clinic assistant with chat, booking, and scheduling capabilities.
