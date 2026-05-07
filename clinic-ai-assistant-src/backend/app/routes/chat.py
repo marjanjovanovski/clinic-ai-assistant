@@ -1,6 +1,7 @@
 from app.services.ai_agent import (
     AIInferenceError,
     build_runtime_inspector_payload,
+    execute_flow_entry_action,
     generate_reply,
     get_booking_progress,
     get_session_status,
@@ -27,6 +28,28 @@ class ChatRequest(BaseModel):
     @field_validator("session_id")
     @classmethod
     def validate_session_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+
+        trimmed = value.strip()
+        return trimmed or None
+
+
+class ChatActionRequest(BaseModel):
+    action: str = Field(..., max_length=64)
+    session_id: str | None = Field(default=None, max_length=128)
+
+    @field_validator("action")
+    @classmethod
+    def validate_action(cls, value: str) -> str:
+        trimmed = value.strip().casefold()
+        if trimmed not in {"catalog", "availability", "booking"}:
+            raise ValueError("action must be one of: catalog, availability, booking")
+        return trimmed
+
+    @field_validator("session_id")
+    @classmethod
+    def validate_action_session_id(cls, value: str | None) -> str | None:
         if value is None:
             return None
 
@@ -63,4 +86,24 @@ def chat(payload: ChatRequest, tenant: str = Query(...)):
             booking_progress=booking_progress,
             last_user_message=payload.message,
         ),
+    }
+
+
+@router.post("/chat/action")
+def chat_action(payload: ChatActionRequest, tenant: str = Query(...)):
+    try:
+        result = execute_flow_entry_action(tenant, payload.action, payload.session_id)
+    except TenantNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"Tenant '{tenant}' not found") from exc
+    except TenantConfigError as exc:
+        raise HTTPException(status_code=500, detail=f"Tenant '{tenant}' configuration is invalid") from exc
+    except AIInferenceError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "received_action": payload.action,
+        "tenant": tenant,
+        **result,
     }

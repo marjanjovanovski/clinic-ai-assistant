@@ -10,15 +10,15 @@ Execution must follow [../Task_Workflow_Guide.md](../Task_Workflow_Guide.md) and
 
 ## Prompt Status Summary
 
-- Prompt 1 - Proposal And Scope Lock - Pending
-- Prompt 2 - Implement Static Flow Entry Buttons - Pending
-- Prompt 3 - Lightweight Technical Verification - Pending
+- Prompt 1 - Proposal And Scope Lock - Completed
+- Prompt 2 - Implement Static Flow Entry Buttons - Completed
+- Prompt 3 - Lightweight Technical Verification - Completed
 - Prompt 4 - Manual Verification And Notes - Pending
 - Prompt 5 - Merge To Main - Pending
 
 ## Current Active Prompt
 
-- `Prompt 1`
+- `Prompt 4`
 
 ## Last Updated By
 
@@ -26,7 +26,7 @@ Execution must follow [../Task_Workflow_Guide.md](../Task_Workflow_Guide.md) and
 
 ## Last Updated On
 
-- `2026-04-08`
+- `2026-04-16`
 
 ## Purpose
 
@@ -78,7 +78,7 @@ Execution must follow [../Task_Workflow_Guide.md](../Task_Workflow_Guide.md) and
 - prefer explicit low-risk trigger messages or a small action map over spreading special cases across unrelated files
 - keep future extensibility in mind so more static entry buttons can be added later without rewriting the interaction model
 
-## Prompt 1 - Proposal And Scope Lock - Pending
+## Prompt 1 - Proposal And Scope Lock - Completed
 
 ### Goal
 
@@ -109,7 +109,18 @@ A concrete proposal exists for:
 - keep the proposal compact and implementation-oriented
 - do not edit code in this prompt
 
-## Prompt 2 - Implement Static Flow Entry Buttons - Pending
+### Prompt 1 Outcome
+
+- recommended placement: shell-level strip directly below the header so the controls stay distinct from the transcript
+- rejected placement: inside the transcript, because it would mix navigation chrome with conversation history and widget rendering
+- click behavior: reuse the existing `performSend(...)` path with centralized explicit trigger messages instead of introducing a separate backend contract
+- mapping:
+  - catalog button -> service-list trigger
+  - availability button -> availability trigger
+  - booking button -> booking-start trigger using the safest existing booking entry phrasing
+- safest implementation path: lightweight shell markup plus a small frontend trigger map with no duplicate backend flow logic
+
+## Prompt 2 - Implement Static Flow Entry Buttons - Completed
 
 ### Goal
 
@@ -140,7 +151,14 @@ The main chat shell exposes clear static flow-entry buttons and clicking each on
 - if text triggers are used under the hood, keep them explicit and centralized so the mapping is easy to audit later
 - preserve accessibility basics such as button semantics and visible focus
 
-## Prompt 3 - Lightweight Technical Verification - Pending
+### Prompt 2 Outcome
+
+- added a responsive shell-level button strip to the main chat shell and shared shell variants
+- centralized localized labels and trigger text in the frontend so tenant language can swap the button copy
+- routed button clicks through the existing `performSend(...)` helper with active-state affordance and no new backend path
+- preserved typed input, slot widgets, booking progress, summary rendering, and reset behavior
+
+## Prompt 3 - Lightweight Technical Verification - Completed
 
 ### Goal
 
@@ -156,6 +174,12 @@ Obvious structural issues are checked and any technical risks are summarized pla
 - prefer static review or focused checks before heavier verification
 - confirm that the integration preserves existing core shell behavior and does not obviously break IDs, event wiring, or fetch entry points
 - if a browser/manual-only point remains, note it clearly and leave it for Prompt 4
+
+### Prompt 3 Outcome
+
+- updated focused frontend integration coverage for shell-level entry buttons, trigger mapping, and event wiring
+- verification stayed lightweight and targeted to touched shell behavior and fetch entry points
+- remaining manual-only checks: real-browser placement on narrow viewports and live confirmation that each button enters the intended flow
 
 ## Prompt 4 - Manual Verification And Notes - Pending
 

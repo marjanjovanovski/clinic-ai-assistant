@@ -19,7 +19,7 @@
               "step": 1,
               "action": "Open the main chat page on a desktop-width viewport.",
               "what_is_tested": "The button group is visible without needing to interact first.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
               "reference_files": ""
             },
@@ -28,7 +28,7 @@
               "step": 2,
               "action": "Inspect the visual placement relative to the header, transcript, and input area.",
               "what_is_tested": "The buttons feel like shell-level navigation and not like a bot message.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
               "reference_files": ""
             }
@@ -48,7 +48,7 @@
               "step": 1,
               "action": "Load a fresh main chat session and click `Каталог`.",
               "what_is_tested": "The click triggers the catalog-oriented flow immediately without requiring typed input first.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
               "reference_files": ""
             },
@@ -57,7 +57,7 @@
               "step": 2,
               "action": "Inspect the immediate assistant response after clicking `Каталог`.",
               "what_is_tested": "The response reflects catalog or service-list behavior rather than a generic fallback.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
               "reference_files": ""
             }
@@ -72,7 +72,7 @@
               "step": 1,
               "action": "Load a fresh main chat session and click `Слободни термин`.",
               "what_is_tested": "The click triggers scheduling or availability behavior immediately.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
               "reference_files": ""
             },
@@ -81,7 +81,7 @@
               "step": 2,
               "action": "Inspect the immediate assistant response and any attached widget behavior.",
               "what_is_tested": "The result reflects availability discovery rather than catalog or generic chat.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
               "reference_files": ""
             }
@@ -96,7 +96,7 @@
               "step": 1,
               "action": "Load a fresh main chat session and click `Закажи`.",
               "what_is_tested": "The click triggers booking-oriented guidance or booking entry without requiring the user to type first.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
               "reference_files": ""
             },
@@ -105,7 +105,7 @@
               "step": 2,
               "action": "Inspect the immediate assistant response after clicking `Закажи`.",
               "what_is_tested": "The result matches the intended booking-entry contract and does not fall back to an unrelated flow.",
-              "status": "Not Run",
+              "status": "Pass",
               "comment": "",
               "reference_files": ""
             }
@@ -150,8 +150,8 @@
     }
   ],
   "summary": {
-    "not_run": 10,
-    "pass": 0,
+    "not_run": 2,
+    "pass": 8,
     "fail": 0
   }
 }

@@ -101,6 +101,11 @@
 <body>
   <div class="chat-app">
     <div class="chat-header" id="chatHeader">Се вчитува...</div>
+    <div class="flow-entry-strip" aria-label="Брзи акции">
+      <button type="button" class="flow-entry-button" data-flow-entry="catalog">Каталог</button>
+      <button type="button" class="flow-entry-button" data-flow-entry="availability">Слободни термини</button>
+      <button type="button" class="flow-entry-button" data-flow-entry="booking">Закажи</button>
+    </div>
     <div class="booking-progress" id="bookingProgress">
       <div class="booking-progress-header">
         <div class="booking-progress-title" id="bookingProgressTitle">Закажување во тек</div>
@@ -177,6 +182,7 @@
     const sendButton = document.getElementById("sendButton");
     const statusText = document.getElementById("statusText");
     const chatHeader = document.getElementById("chatHeader");
+    const flowEntryButtons = Array.from(document.querySelectorAll("[data-flow-entry]"));
     const bookingProgress = document.getElementById("bookingProgress");
     const bookingProgressTitle = document.getElementById("bookingProgressTitle");
     const bookingProgressStatus = document.getElementById("bookingProgressStatus");
@@ -190,10 +196,36 @@
     const sessionStorageKey = `clinic-ai-session:${tenant}`;
     let sessionId = window.localStorage.getItem(sessionStorageKey) || null;
     let isSending = false;
+    let tenantConfig = null;
 
     const API_URL = `/chat?tenant=${encodeURIComponent(tenant)}`;
+    const FLOW_ACTION_URL = `/chat/action?tenant=${encodeURIComponent(tenant)}`;
     const CONFIG_URL = `/config/${encodeURIComponent(tenant)}`;
     const SELECT_SLOT_URL = `/scheduling/select-slot?tenant=${encodeURIComponent(tenant)}`;
+    const FLOW_ENTRY_COPY = {
+      mk: {
+        catalog: {
+          label: "Каталог",
+        },
+        availability: {
+          label: "Слободни термини",
+        },
+        booking: {
+          label: "Закажи",
+        },
+      },
+      en: {
+        catalog: {
+          label: "Catalog",
+        },
+        availability: {
+          label: "Available slots",
+        },
+        booking: {
+          label: "Book now",
+        },
+      },
+    };
 
     const widgetRegistry = registerDefaultConversationWidgets(
       createConversationWidgetRegistry(),
@@ -280,6 +312,34 @@
         : nextSessionStatus === "collecting_contact"
           ? "Се собираат контакт податоци."
           : fallbackText;
+    }
+
+    function flowEntryLanguage(config = null) {
+      const language = String(config?.business?.language || "").trim().toLowerCase();
+      return language.startsWith("mk") ? "mk" : "en";
+    }
+
+    function flowEntryConfig(entryKey, config = null) {
+      const language = flowEntryLanguage(config);
+      const localizedConfig = FLOW_ENTRY_COPY[language] || FLOW_ENTRY_COPY.en;
+      return localizedConfig[entryKey] || null;
+    }
+
+    function syncFlowEntryButtonCopy(config = null) {
+      for (const button of flowEntryButtons) {
+        const entryConfig = flowEntryConfig(button.dataset.flowEntry, config);
+        if (!entryConfig) {
+          continue;
+        }
+        button.textContent = entryConfig.label;
+        button.setAttribute("aria-label", entryConfig.label);
+      }
+    }
+
+    function setActiveFlowEntryButton(activeKey = "") {
+      for (const button of flowEntryButtons) {
+        button.classList.toggle("is-active", Boolean(activeKey) && button.dataset.flowEntry === activeKey);
+      }
     }
 
     function applyBackendConversationUpdate(data, options = {}) {
@@ -394,7 +454,7 @@
     }
 
     async function performSend(userMessage, options = {}) {
-      const { showUserMessage = true } = options;
+      const { showUserMessage = true, activeFlowEntry = "" } = options;
 
       if (isSending) {
         return;
@@ -406,6 +466,7 @@
       }
 
       isSending = true;
+      setActiveFlowEntryButton(activeFlowEntry);
       if (showUserMessage) {
         addMessage(trimmedMessage, "user");
       }
@@ -440,6 +501,63 @@
         statusText.textContent = `Грешка: ${error.message}`;
       } finally {
         isSending = false;
+        setActiveFlowEntryButton("");
+        setInputBusyState({ input: messageInput, button: sendButton, isBusy: false });
+        messageInput.focus();
+      }
+    }
+
+    function handleFlowEntryClick(entryKey) {
+      if (isSending) {
+        return;
+      }
+
+      const entryConfig = flowEntryConfig(entryKey, tenantConfig);
+      if (!entryConfig) {
+        return;
+      }
+
+      performFlowEntryAction(entryKey);
+    }
+
+    async function performFlowEntryAction(action) {
+      if (isSending) {
+        return;
+      }
+
+      isSending = true;
+      setActiveFlowEntryButton(action);
+      setInputBusyState({ input: messageInput, button: sendButton, isBusy: true });
+      statusText.textContent = "Се отвора избраниот тек...";
+
+      try {
+        const response = await fetch(FLOW_ACTION_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            action,
+            session_id: sessionId,
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        applyBackendConversationUpdate(data, {
+          fallbackReply: "Нема одговор од серверот.",
+          fallbackStatus: "Подготвено",
+          includeWidget: true,
+        });
+      } catch (error) {
+        addMessage("Настана грешка при отворање на избраниот тек.", "bot");
+        statusText.textContent = `Грешка: ${error.message}`;
+      } finally {
+        isSending = false;
+        setActiveFlowEntryButton("");
         setInputBusyState({ input: messageInput, button: sendButton, isBusy: false });
         messageInput.focus();
       }
@@ -487,8 +605,10 @@
         }
 
         const config = await response.json();
+        tenantConfig = config;
         const businessName = config.business?.name || config.assistant?.name || "Асистент";
         const greeting = config.conversation?.greeting || "Здраво! Како можам да ви помогнам денес?";
+        syncFlowEntryButtonCopy(config);
 
         chatHeader.textContent = businessName;
         document.title = businessName;
@@ -498,6 +618,8 @@
         bookingProgressWidget.reset();
         addMessage(greeting, "bot");
       } catch (error) {
+        tenantConfig = null;
+        syncFlowEntryButtonCopy();
         chatHeader.textContent = "Асистент";
         document.title = "Асистент";
         conversationDispatcher.clear();
@@ -519,6 +641,9 @@
       onSubmit: sendMessage,
     });
     bookingResetButton.addEventListener("click", resetConversation);
+    for (const button of flowEntryButtons) {
+      button.addEventListener("click", () => handleFlowEntryClick(button.dataset.flowEntry));
+    }
 
     loadTenantConfig();
   </script>

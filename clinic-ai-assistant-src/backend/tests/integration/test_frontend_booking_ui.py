@@ -28,6 +28,10 @@ def test_agent_page_includes_booking_progress_shell(monkeypatch, tmp_path):
 
     assert response.status_code == 200
     assert 'href="/frontend/chat/chat-shell.css"' in response.text
+    assert 'class="flow-entry-strip"' in response.text
+    assert 'data-flow-entry="catalog"' in response.text
+    assert 'data-flow-entry="availability"' in response.text
+    assert 'data-flow-entry="booking"' in response.text
     assert 'id="bookingProgress"' in response.text
     assert 'id="bookingResetButton"' in response.text
     assert 'id="bookingProgressSteps"' in response.text
@@ -117,10 +121,16 @@ def test_agent_page_mounts_slot_list_widget_from_chat_response(monkeypatch, tmp_
 
     assert response.status_code == 200
     assert 'href="/frontend/widgets/slot-list/slot-list.css"' in response.text
+    assert 'const FLOW_ACTION_URL = `/chat/action?tenant=${encodeURIComponent(tenant)}`;' in response.text
     assert 'const SELECT_SLOT_URL = `/scheduling/select-slot?tenant=${encodeURIComponent(tenant)}`;' in response.text
     assert 'function isSlotListWidgetPayload(widgetPayload)' in response.text
     assert 'function getPrimaryReplyText(replyText, widgetPayload)' in response.text
     assert 'function syncSessionId(nextSessionId)' in response.text
+    assert 'const FLOW_ENTRY_COPY = {' in response.text
+    assert 'function flowEntryLanguage(config = null)' in response.text
+    assert 'function flowEntryConfig(entryKey, config = null)' in response.text
+    assert 'function syncFlowEntryButtonCopy(config = null)' in response.text
+    assert 'function setActiveFlowEntryButton(activeKey = "")' in response.text
     assert 'function updateStatusFromSessionStatus(nextSessionStatus, fallbackText = "Подготвено")' in response.text
     assert 'function applyBackendConversationUpdate(data, options = {})' in response.text
     assert 'async function handleSlotSelection(slot, widgetPayload, slotListWidget)' in response.text
@@ -147,6 +157,17 @@ def test_agent_page_mounts_slot_list_widget_from_chat_response(monkeypatch, tmp_
     assert 'addSelectedSlotWidget(data.selected_slot);' in response.text
     assert 'function buildSelectedSlotWidgetPayload(selectedSlot)' in response.text
     assert 'function addSelectedSlotWidget(selectedSlot)' in response.text
+    assert 'setActiveFlowEntryButton(activeFlowEntry);' in response.text
+    assert 'setActiveFlowEntryButton("");' in response.text
+    assert 'function handleFlowEntryClick(entryKey)' in response.text
+    assert 'const entryConfig = flowEntryConfig(entryKey, tenantConfig);' in response.text
+    assert 'performFlowEntryAction(entryKey);' in response.text
+    assert 'async function performFlowEntryAction(action)' in response.text
+    assert 'const response = await fetch(FLOW_ACTION_URL, {' in response.text
+    assert "action," in response.text
+    assert 'session_id: sessionId,' in response.text
+    assert "tenantConfig = config;" in response.text
+    assert "tenantConfig = null;" in response.text
     assert 'slots: [selectedSlot],' in response.text
     assert 'readOnly: true,' in response.text
 

@@ -69,6 +69,7 @@ BOOKING_INPUT_FIELD_VALUE = "FIELD_VALUE"
 BOOKING_INPUT_CLARIFICATION = "CLARIFICATION_QUESTION"
 BOOKING_INPUT_FEEDBACK = "FEEDBACK_OR_META"
 AVAILABILITY_INTENT_OUTPUT = "availability_lookup"
+FLOW_ENTRY_ACTIONS = {"catalog", "availability", "booking"}
 UNKNOWN_NAME_CONFIRM_MODE = booking_credentials.UNKNOWN_NAME_CONFIRM_MODE
 UNKNOWN_NAME_REPEAT_MODE = booking_credentials.UNKNOWN_NAME_REPEAT_MODE
 INTENT_ALIASES = {
@@ -1428,6 +1429,134 @@ def get_runtime_session_state(tenant: str, session_id: str | None) -> dict | Non
     if not session_id:
         return None
     return _load_session_state(tenant, session_id)
+
+
+def _start_new_flow_entry_session(tenant: str, session_id: str | None, *, action: str) -> tuple[str, str]:
+    previous_session_id = session_id.strip() if isinstance(session_id, str) and session_id.strip() else None
+    next_session_id = _normalize_session_id(None)
+    session_key = _session_key(tenant, next_session_id)
+    SESSION_STATE.pop(session_key, None)
+    INTERACTION_HISTORY.pop(session_key, None)
+    trace_event(
+        tenant,
+        next_session_id,
+        "SESSION_CREATED",
+        reason="flow_entry_action",
+        action=action,
+        previous_session_id=previous_session_id,
+    )
+    return next_session_id, session_key
+
+
+def execute_flow_entry_action(tenant: str, action: str, session_id: str | None = None) -> dict:
+    normalized_action = action.strip().casefold() if isinstance(action, str) else ""
+    if normalized_action not in FLOW_ENTRY_ACTIONS:
+        raise ValueError(f"Unsupported flow entry action: {action!r}")
+
+    profile = load_profile_config(tenant)
+    services = profile.get("services", [])
+    collect_fields = _profile_list(profile, "actions", "collect_contact_fields")
+    if not collect_fields:
+        collect_fields = ["name", "phone", "email"]
+
+    session_id, session_key = _start_new_flow_entry_session(
+        tenant,
+        session_id,
+        action=normalized_action,
+    )
+    action_message = f"__flow_entry_action__:{normalized_action}"
+
+    if normalized_action == "catalog":
+        reply = _service_list_reply(profile, services)
+        response_payload = _finalize_reply(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            message=action_message,
+            reply=reply,
+            response_type="service_list",
+            services=services,
+            profile=profile,
+            stage_after=_stage_name(SESSION_STATE.get(session_key)),
+        )
+    elif normalized_action == "booking":
+        reply, session_id = _start_collecting_contact(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            service_id=None,
+            collect_fields=collect_fields,
+            profile=profile,
+            scheduling_handoff=None,
+        )
+        _trace_stage_transition(
+            tenant,
+            session_id,
+            None,
+            "collecting_contact",
+            reason="flow_entry_booking",
+        )
+        response_payload = _finalize_reply(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            message=action_message,
+            reply=reply,
+            response_type="confirm_booking",
+            services=services,
+            profile=profile,
+            stage_after="collecting_contact",
+        )
+    else:
+        scheduling_context = scheduling_capability.CapabilityContext(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            message=action_message,
+            state=None,
+            profile=profile,
+            services=services,
+            requested_operation=scheduling_capability.OPERATION_AVAILABILITY,
+        )
+        scheduling_execution = scheduling_capability.execute_scheduling_turn(
+            scheduling_context,
+            session_state=SESSION_STATE,
+            mark_availability_intent=True,
+        )
+        scheduling_response = scheduling_execution.response_payload
+        reply = scheduling_response.reply_text or ""
+        response_payload = _finalize_reply(
+            tenant=tenant,
+            session_id=session_id,
+            session_key=session_key,
+            message=action_message,
+            reply=reply,
+            response_type=AVAILABILITY_INTENT_OUTPUT,
+            services=services,
+            profile=profile,
+            stage_after=_stage_name(SESSION_STATE.get(session_key)),
+            widget_payload=scheduling_response.widget_payload,
+        )
+
+    session_status = get_session_status(tenant, session_id)
+    booking_progress = get_booking_progress(tenant, session_id)
+    runtime_state = get_runtime_session_state(tenant, session_id)
+    return {
+        "action": normalized_action,
+        "session_id": session_id,
+        "session_status": session_status,
+        "booking_progress": booking_progress,
+        **response_payload,
+        "inspector_payload": build_runtime_inspector_payload(
+            tenant,
+            session_id,
+            response_payload=response_payload,
+            session_status=session_status,
+            booking_progress=booking_progress,
+            last_user_message=action_message,
+            state=runtime_state,
+        ),
+    }
 
 
 def _runtime_response_type(response_payload: dict | None, session_status: str | None) -> str:

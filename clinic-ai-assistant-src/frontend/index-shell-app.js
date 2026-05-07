@@ -13,6 +13,7 @@ const messageInput = document.getElementById("messageInput");
 const sendButton = document.getElementById("sendButton");
 const statusText = document.getElementById("statusText");
 const chatHeader = document.getElementById("chatHeader");
+const flowEntryButtons = Array.from(document.querySelectorAll("[data-flow-entry]"));
 const bookingProgress = document.getElementById("bookingProgress");
 const bookingProgressTitle = document.getElementById("bookingProgressTitle");
 const bookingProgressStatus = document.getElementById("bookingProgressStatus");
@@ -26,10 +27,36 @@ const tenant = resolveTenantFromPath(window.location.pathname, "generic");
 const sessionStorageKey = `clinic-ai-session:${tenant}`;
 let sessionId = window.localStorage.getItem(sessionStorageKey) || null;
 let isSending = false;
+let tenantConfig = null;
 
 const API_URL = `/chat?tenant=${encodeURIComponent(tenant)}`;
+const FLOW_ACTION_URL = `/chat/action?tenant=${encodeURIComponent(tenant)}`;
 const CONFIG_URL = `/config/${encodeURIComponent(tenant)}`;
 const SELECT_SLOT_URL = `/scheduling/select-slot?tenant=${encodeURIComponent(tenant)}`;
+const FLOW_ENTRY_COPY = {
+  mk: {
+    catalog: {
+      label: "Каталог",
+    },
+    availability: {
+      label: "Слободни термини",
+    },
+    booking: {
+      label: "Закажи",
+    },
+  },
+  en: {
+    catalog: {
+      label: "Catalog",
+    },
+    availability: {
+      label: "Available slots",
+    },
+    booking: {
+      label: "Book now",
+    },
+  },
+};
 
 const widgetRegistry = registerDefaultConversationWidgets(
   createConversationWidgetRegistry(),
@@ -116,6 +143,35 @@ function updateStatusFromSessionStatus(nextSessionStatus, fallbackText = "Ready"
     : nextSessionStatus === "collecting_contact"
       ? "Collecting contact details."
       : fallbackText;
+}
+
+function flowEntryLanguage(config = null) {
+  const language = String(config?.business?.language || "").trim().toLowerCase();
+  return language.startsWith("mk") ? "mk" : "en";
+}
+
+function flowEntryConfig(key, config = null) {
+  const language = flowEntryLanguage(config);
+  const localizedConfig = FLOW_ENTRY_COPY[language] || FLOW_ENTRY_COPY.en;
+  return localizedConfig[key] || null;
+}
+
+function syncFlowEntryButtonCopy(config = null) {
+  for (const button of flowEntryButtons) {
+    const entryKey = button.dataset.flowEntry;
+    const entryConfig = flowEntryConfig(entryKey, config);
+    if (!entryConfig) {
+      continue;
+    }
+    button.textContent = entryConfig.label;
+    button.setAttribute("aria-label", entryConfig.label);
+  }
+}
+
+function setActiveFlowEntryButton(activeKey = "") {
+  for (const button of flowEntryButtons) {
+    button.classList.toggle("is-active", Boolean(activeKey) && button.dataset.flowEntry === activeKey);
+  }
 }
 
 function applyBackendConversationUpdate(data, options = {}) {
@@ -230,7 +286,7 @@ function addSelectedSlotWidget(selectedSlot) {
 }
 
 async function performSend(userMessage, options = {}) {
-  const { showUserMessage = true } = options;
+  const { showUserMessage = true, activeFlowEntry = "" } = options;
 
   if (isSending) {
     return;
@@ -242,6 +298,7 @@ async function performSend(userMessage, options = {}) {
   }
 
   isSending = true;
+  setActiveFlowEntryButton(activeFlowEntry);
   if (showUserMessage) {
     addMessage(trimmedMessage, "user");
   }
@@ -276,6 +333,63 @@ async function performSend(userMessage, options = {}) {
     statusText.textContent = `Error: ${error.message}`;
   } finally {
     isSending = false;
+    setActiveFlowEntryButton("");
+    setInputBusyState({ input: messageInput, button: sendButton, isBusy: false });
+    messageInput.focus();
+  }
+}
+
+function handleFlowEntryClick(entryKey) {
+  if (isSending) {
+    return;
+  }
+
+  const entryConfig = flowEntryConfig(entryKey, tenantConfig);
+  if (!entryConfig) {
+    return;
+  }
+
+  performFlowEntryAction(entryKey);
+}
+
+async function performFlowEntryAction(action) {
+  if (isSending) {
+    return;
+  }
+
+  isSending = true;
+  setActiveFlowEntryButton(action);
+  setInputBusyState({ input: messageInput, button: sendButton, isBusy: true });
+  statusText.textContent = "Opening flow...";
+
+  try {
+    const response = await fetch(FLOW_ACTION_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        action,
+        session_id: sessionId,
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    applyBackendConversationUpdate(data, {
+      fallbackReply: "No response from server.",
+      fallbackStatus: "Ready",
+      includeWidget: true,
+    });
+  } catch (error) {
+    addMessage("A connection error occurred while opening the selected flow.", "bot");
+    statusText.textContent = `Error: ${error.message}`;
+  } finally {
+    isSending = false;
+    setActiveFlowEntryButton("");
     setInputBusyState({ input: messageInput, button: sendButton, isBusy: false });
     messageInput.focus();
   }
@@ -323,8 +437,10 @@ async function loadTenantConfig() {
     }
 
     const config = await response.json();
+    tenantConfig = config;
     const businessName = config.business?.name || config.assistant?.name || "Assistant";
     const greeting = config.conversation?.greeting || "Hello! How can I help you today?";
+    syncFlowEntryButtonCopy(config);
 
     chatHeader.textContent = businessName;
     document.title = businessName;
@@ -334,6 +450,8 @@ async function loadTenantConfig() {
     bookingProgressWidget.reset();
     addMessage(greeting, "bot");
   } catch (error) {
+    tenantConfig = null;
+    syncFlowEntryButtonCopy();
     chatHeader.textContent = "Assistant";
     document.title = "Assistant";
     conversationDispatcher.clear();
@@ -355,5 +473,8 @@ bindTextInputSubmission({
   onSubmit: sendMessage,
 });
 bookingResetButton.addEventListener("click", resetConversation);
+for (const button of flowEntryButtons) {
+  button.addEventListener("click", () => handleFlowEntryClick(button.dataset.flowEntry));
+}
 
 loadTenantConfig();
